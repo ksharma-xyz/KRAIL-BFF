@@ -19,6 +19,11 @@ java {
 
 application {
     mainClass = "io.ktor.server.netty.EngineMain"
+    // Configure Netty to avoid Unsafe and native transport usage (reduces perf but avoids restricted calls)
+    applicationDefaultJvmArgs = listOf(
+        "-Dio.netty.noUnsafe=true",
+        "-Dio.netty.transport.noNative=true"
+    )
 }
 
 // Forward only an explicit project property (-PrunPort=NNNN) to the app run task
@@ -27,6 +32,12 @@ tasks.named<JavaExec>("run") {
     project.findProperty("runPort")?.toString()?.takeIf { it.isNotBlank() }?.let {
         systemProperty("ktor.deployment.port", it)
     }
+    // Force the :server:run task to use the configured toolchain (JDK 17 by default)
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
+    jvmArgs = (jvmArgs ?: emptyList()) + listOf(
+        "-Dio.netty.noUnsafe=true",
+        "-Dio.netty.transport.noNative=true"
+    )
 }
 
 dependencies {
@@ -40,6 +51,10 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.logback.classic)
     implementation(libs.ktor.server.config.yaml)
+
+    // DI
+    implementation(libs.koin.ktor)
+    implementation(libs.koin.logger.slf4j)
 
     // Ktor HTTP client for upstream calls
     implementation(libs.ktor.client.core)

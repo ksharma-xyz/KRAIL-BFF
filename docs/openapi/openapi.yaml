@@ -1,0 +1,1 @@
+openapi: 3.0.3\ninfo:\n  title: KRAIL BFF API\n  version: 0.1.0\npaths:\n  /health:\n    get:\n      summary: Liveness check\n      responses:\n        '200':\n          description: OK\n  /ready:\n    get:\n      summary: Readiness check\n      responses:\n        '200':\n          description: Ready\n        '503':\n          description: Degraded\n
