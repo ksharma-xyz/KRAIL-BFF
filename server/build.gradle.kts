@@ -12,20 +12,21 @@ application {
 }
 
 dependencies {
-    implementation(project(":core"))
     implementation("dev.hayden:khealth:3.0.2")
     implementation("io.ktor:ktor-server-metrics")
     implementation("io.ktor:ktor-server-content-negotiation")
     implementation("io.ktor:ktor-server-core")
     implementation("io.ktor:ktor-serialization-kotlinx-json")
-    implementation("io.github.flaxoos:ktor-server-rate-limiting:2.2.1")
-    implementation("io.ktor:ktor-server-openapi")
-    implementation("io.ktor:ktor-server-request-validation")
-    implementation("io.ktor:ktor-server-resources")
     implementation("io.ktor:ktor-server-call-logging")
     implementation("io.ktor:ktor-server-netty")
     implementation("ch.qos.logback:logback-classic:$logback_version")
     implementation("io.ktor:ktor-server-config-yaml")
+
+    // Ktor HTTP client for upstream calls
+    implementation("io.ktor:ktor-client-core")
+    implementation("io.ktor:ktor-client-cio")
+    implementation("io.ktor:ktor-client-content-negotiation")
+
     testImplementation("io.ktor:ktor-server-test-host")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
 }
