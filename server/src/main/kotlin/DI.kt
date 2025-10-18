@@ -1,7 +1,7 @@
 package com.example.com
 
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
@@ -45,7 +45,7 @@ private fun configModule(appConfig: ApplicationConfig) = module {
 private fun httpClientModule() = module {
     single<HttpClient> {
         val cfg: NswConfig = get()
-        HttpClient(CIO) {
+        HttpClient(OkHttp) {
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true; explicitNulls = false })
             }

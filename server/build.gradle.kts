@@ -58,7 +58,7 @@ dependencies {
 
     // Ktor HTTP client for upstream calls
     implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
 
     testImplementation(libs.ktor.server.test.host)
