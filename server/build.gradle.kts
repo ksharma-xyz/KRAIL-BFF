@@ -11,6 +11,11 @@ application {
     mainClass = "io.ktor.server.netty.EngineMain"
 }
 
+// Reduce JDK 21+ native access warnings for Netty/Jansi when running locally
+tasks.withType<JavaExec> {
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}
+
 dependencies {
     implementation("dev.hayden:khealth:3.0.2")
     implementation("io.ktor:ktor-server-metrics")
