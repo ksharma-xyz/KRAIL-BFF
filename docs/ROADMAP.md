@@ -92,7 +92,7 @@ Goals
 - DTOs for minimal fields returned to the app
 
 Tasks
-- Create NswClient using Ktor HttpClient with CIO engine
+- Create NswClient using Ktor HttpClient with OkHttp engine (no CIO)
 - Load config: NSW_BASE_URL, NSW_API_KEY, connect/read timeouts, retry/backoff
 - Add HttpRequestRetry and a small consecutive-failure tripwire (disable after N failures for T seconds)
 - Expose metrics counters/timers and tag by result (2xx/4xx/5xx/timeout)
@@ -212,23 +212,57 @@ Acceptance
 
 ---
 
-## PR 9: CI/CD + Quality gates
+## PR 9: CI/CD + Environments (test vs prod)
 Goals
 - GitHub Actions with build, tests, ktlint/detekt, dependency updates
+- Container image build and promotion across environments
+- Clearly separated test vs prod with approvals and config isolation
 - Code coverage reporting
-- Dockerfile + container run config
-- Environments (dev/stage/prod) with overrides
+- Environments (dev/test/prod) with overrides and secrets
 
-Tasks
-- Add workflows: gradle build/test, ktlint/detekt, codecov
-- Add Renovate or Dependabot as desired (renovate.json already present)
-- Create Dockerfile, container entrypoint, and compose for local stack
-- Parameterize envs via env files and system properties
-- Smoke test job after build
+Branching and release model
+- Trunk-based development
+  - feature/* branches -> PR -> main (protected)
+  - main auto-deploys to test
+  - production deploy triggered by Git tag vX.Y.Z with required approval (GitHub Environment)
+- Alternative (if preferred): release/* branches for long-lived release stabilization; tags still gate prod
+
+Pipelines (GitHub Actions)
+- ci.yml (on PR + push)
+  - gradle build/test
+  - static checks: ktlint, detekt
+  - test report + codecov upload
+- docker.yml (on push to main and tags)
+  - build multi-arch Docker image
+  - tag as ghcr.io/<org>/<repo>:<sha>, :edge (main), and :vX.Y.Z on tag
+  - push to GHCR
+- deploy-test.yml (on push to main)
+  - fetch image :sha or :edge
+  - deploy to test environment (GitHub Environment: test) using one of:
+    - Kubernetes: Helm chart in /deploy/helm; kubectl/helm with KUBECONFIG from env
+    - ECS Fargate: aws-actions/amazon-ecs-deploy-task-definition
+    - Render/Fly/Cloud Run: respective actions
+  - smoke test: call /health and /ready
+- deploy-prod.yml (on release tag v*)
+  - requires approval on Environment: production
+  - deploy same artifact (image digest) promoted from test
+  - post-deploy smoke + canary/rollback hooks
+
+Configuration and secrets
+- Use environment secrets/vars in GitHub Environments (test, production)
+  - NSW_BASE_URL, NSW_API_KEY, BFF_RATE_LIMIT_*, KTOR_PORT, LOG_LEVEL, etc.
+- Never store secrets in repo or logs
+- Externalize runtime config via env vars only; same image runs everywhere
+
+Artifacts and versioning
+- Gradle version inferred from tag for prod; SNAPSHOT for main if desired
+- SBOM and image digest recorded in release notes
 
 Acceptance
-- Pipeline green
-- Container builds and smoke test passes in CI
+- Pipeline green for PRs and main
+- Pushing to main deploys to test automatically
+- Tagging v* deploys to production after manual approval
+- One image promoted across envs; config isolated via environment variables
 
 ---
 
@@ -261,7 +295,7 @@ Options
 Plan
 - Start with Koin in the server module to manage wiring for:
   - Configuration objects
-  - HttpClient (CIO) and NswClient
+  - HttpClient (OkHttp engine) and NswClient
   - Metrics registry (Micrometer in PR 6)
 - Keep a single Gradle module (server) for now to reduce complexity; consider splitting later if needed:
   - :nsw-client (HTTP and DTOs)
@@ -367,6 +401,7 @@ curl -i http://localhost:8080/health || true
 
 ## Housekeeping and decisions
 - Removing core/ and client/ folders (build ignores them) — decide whether to delete now to reduce confusion
+- Engines: standardize on Netty for the server and OkHttp for the Ktor client (no CIO)
 - Metrics stack: keep Ktor metrics or switch to Micrometer (recommended in PR 6)
 - Prefer explicit mobile headers vs User-Agent parsing (recommended)
 - NSW API key/URL provided via env vars — confirm values and secrets handling
