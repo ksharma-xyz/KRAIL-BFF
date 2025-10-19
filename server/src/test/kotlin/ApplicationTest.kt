@@ -1,4 +1,4 @@
-package com.example.com
+package app.krail.bff
 
 import io.ktor.client.request.*
 import io.ktor.http.*

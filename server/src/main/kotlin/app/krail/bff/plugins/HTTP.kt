@@ -1,4 +1,4 @@
-package com.example.com
+package app.krail.bff.plugins
 
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
