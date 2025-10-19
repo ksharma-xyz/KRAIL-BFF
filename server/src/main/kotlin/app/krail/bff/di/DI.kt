@@ -1,5 +1,8 @@
-package com.example.com
+package app.krail.bff.di
 
+import app.krail.bff.client.nsw.NswClient
+import app.krail.bff.client.nsw.NswClientImpl
+import app.krail.bff.config.NswConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
@@ -12,14 +15,6 @@ import kotlinx.serialization.json.Json
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.slf4jLogger
-
-// Basic NSW client config model
-data class NswConfig(
-    val baseUrl: String,
-    val apiKey: String,
-    val connectTimeoutMs: Long = 5_000,
-    val readTimeoutMs: Long = 5_000
-)
 
 private fun provideNswConfig(config: ApplicationConfig): NswConfig {
     val baseUrl = config.propertyOrNull("nsw.baseUrl")?.getString()
@@ -60,7 +55,7 @@ private fun httpClientModule() = module {
 
 private fun clientModule() = module {
     // Bind NswClient as a singleton using the provided HttpClient and NswConfig
-    single<com.example.com.nsw.NswClient> { com.example.com.nsw.NswClientImpl(get(), get()) }
+    single<NswClient> { NswClientImpl(get(), get()) }
 }
 
 fun Application.configureDI() {

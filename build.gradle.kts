@@ -6,6 +6,6 @@ plugins {
 }
 
 subprojects {
-    group = "com.example.com"
+    group = "app.krail.bff"
     version = "0.0.1"
 }

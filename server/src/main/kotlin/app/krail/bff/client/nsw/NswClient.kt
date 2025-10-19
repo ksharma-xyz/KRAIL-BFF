@@ -1,5 +1,6 @@
-package com.example.com.nsw
+package app.krail.bff.client.nsw
 
+import app.krail.bff.config.NswConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 
@@ -9,11 +10,9 @@ interface NswClient {
 
 class NswClientImpl(
     private val http: HttpClient,
-    private val config: com.example.com.NswConfig
+    private val config: NswConfig
 ) : NswClient {
     override suspend fun healthCheck(): Boolean {
-        // Minimal placeholder: attempt GET on base URL root or simple endpoint
-        // In real implementation, target a lightweight NSW endpoint.
         val url = config.baseUrl.trimEnd('/') + "/"
         return try {
             http.get(url)
@@ -23,4 +22,3 @@ class NswClientImpl(
         }
     }
 }
-

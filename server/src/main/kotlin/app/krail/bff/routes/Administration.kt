@@ -1,6 +1,6 @@
-package com.example.com
+package app.krail.bff.routes
 
-import com.example.com.nsw.NswClient
+import app.krail.bff.client.nsw.NswClient
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.response.*

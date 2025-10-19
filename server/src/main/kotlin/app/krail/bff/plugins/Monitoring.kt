@@ -1,4 +1,4 @@
-package com.example.com
+package app.krail.bff.plugins
 
 import com.codahale.metrics.Slf4jReporter
 import dev.hayden.KHealth

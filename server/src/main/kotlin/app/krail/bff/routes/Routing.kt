@@ -1,4 +1,4 @@
-package com.example.com
+package app.krail.bff.routes
 
 import io.ktor.server.application.*
 import io.ktor.server.response.*
