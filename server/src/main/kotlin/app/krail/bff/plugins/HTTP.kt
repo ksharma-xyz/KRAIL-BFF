@@ -1,5 +1,8 @@
 package app.krail.bff.plugins
 
+import app.krail.bff.model.ErrorDetails
+import app.krail.bff.model.ErrorEnvelope
+import app.krail.bff.util.correlationIdOrNull
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.request.path
@@ -56,14 +59,14 @@ fun Application.configureHTTP() {
 
         if (!limiter.allow()) {
             call.response.headers.append("Retry-After", "1")
-            val body = mapOf(
-                "success" to false,
-                "error" to mapOf(
-                    "code" to "rate_limited",
-                    "message" to "Too Many Requests"
-                )
+            val envelope = ErrorEnvelope(
+                error = ErrorDetails(
+                    code = "rate_limited",
+                    message = "Too Many Requests"
+                ),
+                correlationId = call.correlationIdOrNull()
             )
-            call.respond(HttpStatusCode.TooManyRequests, body)
+            call.respond(HttpStatusCode.TooManyRequests, envelope)
             finish()
         }
     }
