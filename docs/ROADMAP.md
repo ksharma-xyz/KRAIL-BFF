@@ -15,25 +15,38 @@ Status legend
 
 ---
 
-## PR 1: Project scaffolding + conventions
+## PR 1a: Request correlation ✅ DONE
 Goals
-- StatusPages for error handling with a consistent error envelope
-- Basic configuration structure (env overrides via system props/env vars)
 - Request correlation (X-Request-Id): extract/inject and log
-- Optional success envelope for JSON
-- Test helpers (Ktor TestHost) + MockEngine for Ktor client
+- Centralized header name constants
 
 Deliverables
-- Kotlin data model for error envelope and optional success envelope
+- [x] Correlation plugin: reads X-Request-Id or generates UUID, stores in MDC and call attributes; adds to response header
+- [x] Headers object for centralizing header name constants
+- [x] Updated logback pattern to include correlationId from MDC
+- [x] Tests for correlation ID (echo and generation)
+
+Acceptance
+- [x] Correlation ID appears in logs and is returned in header X-Request-Id
+- [x] Tests verify header echo and UUID generation
+
+---
+
+## PR 1b: Error handling + StatusPages
+Goals
+- StatusPages for error handling with a consistent error envelope
+- Map common HTTP errors (400, 404, 500) to standard error envelope
+- Update rate limiter to return error envelope
+
+Deliverables
+- Kotlin data model for error envelope (no success envelope - return data directly)
 - Ktor StatusPages that map exceptions and 4xx/5xx to error envelope
-- Correlation plugin: reads X-Request-Id or generates UUID, stores in MDC and call attributes; adds to response header
-- Config loader: load application.yaml, override with system properties and env vars
-- Test base class for server tests; MockEngine helper for client tests
+- Helper extension to retrieve correlationId from call attributes
+- Update existing rate limiter (429) to use error envelope
+- Tests for error paths (404, 400, 500)
 
-Error and success envelope
-
-Error (example)
-```
+Error envelope (example)
+```json
 {
   "success": false,
   "error": {
@@ -45,19 +58,23 @@ Error (example)
 }
 ```
 
-Success (example)
-```
+**Note:** Success responses return data directly (no envelope):
+```json
 {
-  "success": true,
-  "data": { "example": true },
-  "correlationId": "8c9d5f84-0a7e-4a73-8a3b-1b2c3d4e5f6a"
+  "lineId": "T1",
+  "status": "operational"
 }
 ```
 
 Acceptance
-- Consistent error responses in JSON
-- Correlation ID appears in logs and is returned in header X-Request-Id
-- Tests cover at least one error path
+- Consistent error responses in JSON with correlationId
+- Tests cover 400, 404, and 500 error paths
+- Rate limiter returns standardized error envelope
+
+---
+
+## PR 1c: Test helpers for HTTP client mocking ⏭️ MOVED TO PR3
+**Decision:** Moved to PR3 (Transport NSW client) where MockEngine will actually be needed.
 
 ---
 
