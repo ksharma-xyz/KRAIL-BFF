@@ -9,6 +9,7 @@ import app.krail.bff.plugins.configureErrorHandling
 import app.krail.bff.plugins.configureMobileAnalytics
 import app.krail.bff.routes.configureAdministration
 import app.krail.bff.routes.configureRouting
+import app.krail.bff.routes.configureTripRoutes
 import io.ktor.server.application.*
 import io.ktor.server.netty.*
 
@@ -26,4 +27,5 @@ fun Application.module() {
     configureAdministration()
     configureHTTP()
     configureRouting()
+    configureTripRoutes()
 }
