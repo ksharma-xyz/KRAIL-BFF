@@ -245,6 +245,272 @@ Acceptance
 
 ---
 
+## PR 8a: Security Hardening - Critical Issues ⚠️ HIGH PRIORITY
+**Status:** [ ] Not started  
+**Security Assessment Date:** October 22, 2025
+
+### Critical Security Issues Identified
+
+#### 1. HTTPS/TLS Enforcement
+**Risk Level:** Critical  
+**Issue:** Application runs on HTTP without TLS; sensitive data transmitted unencrypted
+- No HTTPS configuration
+- No HSTS (HTTP Strict Transport Security) headers
+- API keys and location data exposed in transit
+
+**Tasks:**
+- [ ] Configure TLS termination (reverse proxy or Ktor SSL)
+- [ ] Add HSTS header with appropriate max-age
+- [ ] Document TLS certificate management
+- [ ] Redirect HTTP to HTTPS in production
+- [ ] Update deployment docs with TLS requirements
+
+**Acceptance:**
+- All production traffic uses HTTPS
+- HSTS header present on all responses
+- HTTP requests redirect to HTTPS
+
+#### 2. CORS Configuration
+**Risk Level:** Critical  
+**Issue:** No CORS policy implemented; any origin can make requests
+
+**Tasks:**
+- [ ] Install and configure Ktor CORS plugin
+- [ ] Define allowed origins (whitelist production domains)
+- [ ] Configure allowed methods (GET, POST, etc.)
+- [ ] Set allowed headers and expose headers
+- [ ] Add environment-specific CORS config (strict prod, relaxed dev)
+- [ ] Document CORS policy in configuration guide
+
+**Acceptance:**
+- CORS policy enforces allowed origins
+- Unauthorized origins receive proper CORS errors
+- Tests verify CORS behavior
+
+#### 3. Authentication & Authorization
+**Risk Level:** Critical  
+**Issue:** No authentication mechanism; endpoints completely open
+
+**Tasks:**
+- [ ] Design authentication strategy (API keys, JWT, or OAuth2)
+- [ ] Implement authentication plugin/middleware
+- [ ] Add per-request auth validation
+- [ ] Return 401 Unauthorized for missing/invalid credentials
+- [ ] Add rate limiting per authenticated client
+- [ ] Document authentication in API docs
+- [ ] Create client credential management system
+
+**Acceptance:**
+- All API endpoints require authentication
+- Invalid credentials return 401 with error envelope
+- Tests cover auth success and failure paths
+
+#### 4. API Key Security
+**Risk Level:** Critical  
+**Issue:** API keys logged and exposed; no rotation mechanism
+
+**Tasks:**
+- [ ] Remove all API key logging (including partial keys)
+- [ ] Implement secrets management (AWS Secrets Manager, HashiCorp Vault, or K8s secrets)
+- [ ] Add API key rotation capability
+- [ ] Audit all logging for sensitive data
+- [ ] Add automated secret scanning in CI/CD
+- [ ] Document secret management practices
+
+**Acceptance:**
+- No secrets appear in logs
+- API keys loaded from secure secret store
+- Rotation process documented and tested
+
+#### 5. Input Validation & Sanitization
+**Risk Level:** High  
+**Issue:** Insufficient validation of query parameters and inputs
+
+**Tasks:**
+- [ ] Add comprehensive validation for all endpoints:
+  - Date format validation (YYYYMMDD)
+  - Time format validation (HHmm)
+  - Stop ID format validation (alphanumeric, length limits)
+  - Enum validation for depArr parameter
+  - Transport mode ID validation
+- [ ] Implement input sanitization for all user-provided data
+- [ ] Add request body size validation
+- [ ] Use allow-lists instead of block-lists
+- [ ] Return 400 Bad Request with specific validation errors
+- [ ] Add validation unit tests for edge cases
+
+**Acceptance:**
+- All inputs validated before processing
+- Malformed inputs return 400 with clear error messages
+- Tests cover validation edge cases and attack vectors
+
+#### 6. Information Disclosure Prevention
+**Risk Level:** High  
+**Issue:** Error messages expose internal implementation details
+
+**Tasks:**
+- [ ] Audit all error responses for information leakage
+- [ ] Remove stack traces from client responses
+- [ ] Sanitize exception messages before returning to clients
+- [ ] Log detailed errors server-side only
+- [ ] Standardize generic error messages for clients
+- [ ] Remove internal service names from error responses
+- [ ] Add error message security tests
+
+**Acceptance:**
+- Client errors contain no implementation details
+- Stack traces never exposed to clients
+- Server logs capture full debug information
+
+---
+
+## PR 8b: Security Hardening - Medium Priority Issues
+**Status:** [ ] Not started
+
+#### 7. Enhanced Rate Limiting
+**Risk Level:** Medium  
+**Issue:** Weak global rate limiting; no per-client enforcement
+
+**Tasks:**
+- [ ] Implement per-IP rate limiting
+- [ ] Implement per-device-ID rate limiting (X-Device-Id)
+- [ ] Add configurable rate limit tiers
+- [ ] Implement distributed rate limiting for multi-instance deployments
+- [ ] Add rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset)
+- [ ] Consider using Bucket4j for sophisticated rate limiting
+- [ ] Add rate limit bypass for internal/admin endpoints with auth
+- [ ] Monitor and alert on rate limit violations
+
+**Acceptance:**
+- Rate limits enforced per-client/per-IP
+- Rate limit headers inform clients
+- DDoS attack simulation shows protection works
+
+#### 8. Security Headers
+**Risk Level:** Medium  
+**Issue:** Missing critical security headers
+
+**Tasks:**
+- [ ] Add `X-Content-Type-Options: nosniff`
+- [ ] Add `X-Frame-Options: DENY` or `SAMEORIGIN`
+- [ ] Add `Content-Security-Policy` header
+- [ ] Add `X-XSS-Protection: 1; mode=block`
+- [ ] Add `Referrer-Policy: strict-origin-when-cross-origin`
+- [ ] Add `Permissions-Policy` header
+- [ ] Create security headers plugin/middleware
+- [ ] Test headers with security scanning tools
+
+**Acceptance:**
+- All security headers present on responses
+- Security scanner (e.g., Mozilla Observatory) gives A rating
+
+#### 9. Request Size Limits
+**Risk Level:** Medium  
+**Issue:** No explicit content length restrictions
+
+**Tasks:**
+- [ ] Configure max request body size in Ktor
+- [ ] Add max URL length validation
+- [ ] Add max header size limits
+- [ ] Return 413 Payload Too Large for oversized requests
+- [ ] Document size limits in API documentation
+- [ ] Test with large payload attacks
+
+**Acceptance:**
+- Oversized requests rejected with 413
+- Server remains stable under large payload attacks
+
+#### 10. Dependency Security
+**Risk Level:** Medium  
+**Issue:** No automated vulnerability scanning
+
+**Tasks:**
+- [ ] Add Dependabot or Renovate for automated dependency updates
+- [ ] Integrate OWASP Dependency-Check in CI/CD
+- [ ] Add Snyk or similar security scanning
+- [ ] Set up automated security alerts
+- [ ] Create dependency update policy
+- [ ] Regular security audit schedule (quarterly)
+- [ ] Document process for handling security vulnerabilities
+
+**Acceptance:**
+- Automated dependency scanning in CI/CD
+- Security alerts configured and monitored
+- Vulnerability remediation process documented
+
+---
+
+## PR 8c: Security Hardening - Additional Improvements
+**Status:** [ ] Not started
+
+#### 11. Sensitive Data Protection
+**Risk Level:** Medium  
+**Issue:** Device IDs and PII handling needs improvement
+
+**Tasks:**
+- [ ] Implement data retention policy for device IDs
+- [ ] Add PII hashing/pseudonymization where appropriate
+- [ ] Audit all MDC logging for PII leaks
+- [ ] Document data privacy policy
+- [ ] Add opt-out mechanism for analytics if required
+- [ ] Ensure GDPR/privacy law compliance
+- [ ] Add data export/deletion capabilities if storing user data
+
+**Acceptance:**
+- PII handling documented and compliant
+- No unnecessary PII in logs or long-term storage
+
+#### 12. Endpoint Security Disclosure
+**Risk Level:** Low  
+**Issue:** Health endpoints reveal system internals
+
+**Tasks:**
+- [ ] Consider authentication for /ready endpoint
+- [ ] Limit information in health check responses
+- [ ] Add separate internal vs external health endpoints
+- [ ] Remove detailed upstream service status from public endpoints
+- [ ] Document security considerations for health checks
+
+**Acceptance:**
+- Minimal information disclosure from health endpoints
+- Internal health endpoints secured appropriately
+
+#### 13. Additional Security Measures
+**Tasks:**
+- [ ] Implement request ID validation (prevent header injection)
+- [ ] Add SQL injection protection (if database added later)
+- [ ] Implement CSRF protection if adding state/sessions
+- [ ] Add security.txt file (RFC 9116)
+- [ ] Create incident response plan
+- [ ] Set up security logging and SIEM integration
+- [ ] Perform penetration testing
+- [ ] Create security documentation for mobile app team
+
+**Acceptance:**
+- Comprehensive security posture
+- Regular security reviews scheduled
+
+---
+
+## Security Testing Checklist
+**To be completed before production:**
+- [ ] OWASP ZAP or Burp Suite scan completed
+- [ ] Dependency vulnerability scan clean
+- [ ] Manual penetration testing completed
+- [ ] Security code review completed
+- [ ] Secrets scanning (no credentials in git history)
+- [ ] TLS configuration validated (SSL Labs A+ rating)
+- [ ] Rate limiting stress tested
+- [ ] Input validation fuzzing completed
+- [ ] Error handling reviewed (no info disclosure)
+- [ ] Authentication/authorization tested
+- [ ] Security headers validated
+- [ ] CORS policy tested
+- [ ] Logging audited (no sensitive data)
+- [ ] Incident response plan documented
+
+---
+
 ## PR 9: CI/CD + Environments (test vs prod)
 Goals
 - GitHub Actions with build, tests, ktlint/detekt, dependency updates
