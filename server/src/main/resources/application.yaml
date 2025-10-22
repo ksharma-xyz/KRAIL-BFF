@@ -4,3 +4,12 @@ ktor:
             - app.krail.bff.ApplicationKt.module
     deployment:
         port: 8080
+
+nsw:
+    baseUrl: "https://api.transport.nsw.gov.au"
+    # API key should be set via NSW_API_KEY environment variable
+    apiKey: ""
+    connectTimeoutMs: 10000
+    readTimeoutMs: 10000
+    breakerFailureThreshold: 3
+    breakerResetTimeoutMs: 60000

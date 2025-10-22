@@ -5,8 +5,6 @@ data class NswConfig(
     val apiKey: String,
     val connectTimeoutMs: Long = 5_000,
     val readTimeoutMs: Long = 5_000,
-    val retryMaxAttempts: Int = 2,
-    val retryBackoffMs: Long = 200,
-    val breakerFailureThreshold: Int = 5,
-    val breakerResetTimeoutMs: Long = 30_000
+    val breakerFailureThreshold: Int = 3,
+    val breakerResetTimeoutMs: Long = 60_000
 )

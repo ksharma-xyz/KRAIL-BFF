@@ -2,16 +2,12 @@ package app.krail.bff
 
 import app.krail.bff.client.nsw.NswClientImpl
 import app.krail.bff.config.NswConfig
-import app.krail.bff.model.TripResponse
 import com.codahale.metrics.MetricRegistry
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.headersOf
-import io.ktor.serialization.kotlinx.json.json
+import io.ktor.client.*
+import io.ktor.client.engine.mock.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -143,10 +139,7 @@ class TripPlanningTest {
         apiKey = "test-key",
         connectTimeoutMs = 1000,
         readTimeoutMs = 1000,
-        retryMaxAttempts = 0,
-        retryBackoffMs = 10,
         breakerFailureThreshold = 2,
         breakerResetTimeoutMs = 100
     )
 }
-

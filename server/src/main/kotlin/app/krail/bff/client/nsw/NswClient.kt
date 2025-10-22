@@ -8,6 +8,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
+import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
@@ -34,12 +35,12 @@ interface NswClient {
 }
 
 class NswClientImpl(
-    http: HttpClient,
-    config: NswConfig,
+    private val http: HttpClient,
+    private val config: NswConfig,
     metrics: MetricRegistry
 ) : NswClient {
-    private val http: HttpClient = http
-    private val config: NswConfig = config
+
+    private val logger = LoggerFactory.getLogger(NswClientImpl::class.java)
 
     private val failures = AtomicInteger(0)
     private val openUntilEpochMs = AtomicLong(0)
@@ -61,24 +62,29 @@ class NswClientImpl(
         val openUntil = openUntilEpochMs.get()
         if (now < openUntil) {
             countSkipped.inc()
+            logger.debug("Health check skipped - circuit breaker open until {}", openUntil)
             return false
         }
 
         val ctx = timer.time()
         return try {
             val url = config.baseUrl.trimEnd('/') + "/"
+            logger.debug("Performing health check to: {}", url)
             val response: HttpResponse = http.get(url)
             val ok = response.status.isSuccess()
             if (ok) {
                 failures.set(0)
                 countSuccess.inc()
+                logger.debug("Health check succeeded")
                 true
             } else {
                 // count failure and maybe trip breaker
+                logger.warn("Health check failed with status: {}", response.status.value)
                 onFailure(response.status.value)
                 false
             }
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            logger.error("Health check failed with exception", e)
             onFailure(null)
             false
         } finally {
@@ -96,7 +102,13 @@ class NswClientImpl(
     ): TripResponse {
         val ctx = tripTimer.time()
         return try {
-            val response = http.get("${config.baseUrl.trimEnd('/')}/v1/tp/trip") {
+            val url = "${config.baseUrl.trimEnd('/')}/v1/tp/trip"
+            logger.debug(
+                "Requesting trip from NSW API - origin: {}, destination: {}, depArr: {}, date: {}, time: {}, excludedModes: {}",
+                originStopId, destinationStopId, depArr, date, time, excludedModes
+            )
+
+            val response = http.get(url) {
                 url {
                     parameters.append("name_origin", originStopId)
                     parameters.append("name_destination", destinationStopId)
@@ -131,10 +143,24 @@ class NswClientImpl(
                     }
                 }
             }
+
+            val tripResponse: TripResponse = response.body()
             tripSuccess.inc()
-            response.body()
+
+            logger.debug("Trip API response received - journeys count: {}, has error: {}",
+                tripResponse.journeys?.size ?: 0,
+                tripResponse.error != null
+            )
+
+            if (tripResponse.error != null) {
+                logger.warn("Trip API returned error: {}", tripResponse.error.message)
+            }
+
+            tripResponse
         } catch (e: Throwable) {
             tripError.inc()
+            logger.error("Failed to fetch trip from NSW API - origin: {}, destination: {}",
+                originStopId, destinationStopId, e)
             throw e
         } finally {
             ctx.stop()
@@ -152,6 +178,7 @@ class NswClientImpl(
         if (n >= config.breakerFailureThreshold) {
             openUntilEpochMs.set(now + config.breakerResetTimeoutMs)
             failures.set(0)
+            logger.warn("Circuit breaker opened - failure threshold reached: {}", n)
         }
     }
 }
