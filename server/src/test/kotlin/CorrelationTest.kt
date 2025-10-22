@@ -6,6 +6,7 @@ import io.ktor.http.*
 import io.ktor.server.testing.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -31,5 +32,33 @@ class CorrelationTest {
         assertNotNull(corr)
         // very basic UUID shape check
         assertTrue(corr.contains("-"))
+    }
+
+    @Test
+    fun `rejects non-UUID X-Request-Id and generates new UUID`() = testApplication {
+        application { module() }
+        val provided = "not-a-uuid"
+        val response = client.get("/") {
+            header(Headers.REQUEST_ID, provided)
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val echoed = response.headers[Headers.REQUEST_ID]
+        assertNotNull(echoed)
+        assertNotEquals(provided, echoed)
+        assertTrue(echoed.contains("-"))
+    }
+
+    @Test
+    fun `rejects overlong X-Request-Id and generates new UUID`() = testApplication {
+        application { module() }
+        val provided = "x".repeat(1000)
+        val response = client.get("/") {
+            header(Headers.REQUEST_ID, provided)
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val echoed = response.headers[Headers.REQUEST_ID]
+        assertNotNull(echoed)
+        assertNotEquals(provided, echoed)
+        assertTrue(echoed.contains("-"))
     }
 }
