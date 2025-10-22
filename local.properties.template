@@ -1,0 +1,19 @@
+# Local Configuration Template
+#
+# Copy this file to 'local.properties' and fill in your actual values.
+# The 'local.properties' file is git-ignored and safe for secrets.
+#
+# Usage:
+#   cp local.properties.template local.properties
+#   # Edit local.properties with your actual API key
+#
+
+# NSW Transport API Key
+# Get yours at: https://opendata.transport.nsw.gov.au/
+nsw.apiKey=your-api-key-here
+
+# Optional: Override other configuration
+# nsw.baseUrl=https://api.transport.nsw.gov.au
+# nsw.connectTimeoutMs=10000
+# nsw.readTimeoutMs=10000
+

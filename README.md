@@ -1,32 +1,41 @@
 # KRAIL-BFF
 
-This project was created using the [Ktor Project Generator](https://start.ktor.io).
+Backend-for-Frontend service for the KRAIL mobile app, providing trip planning and transport information for the NSW transport network.
 
-Here are some useful links to get you started:
+## 📚 Documentation
 
-- [Ktor Documentation](https://ktor.io/docs/home.html)
-- [Ktor GitHub page](https://github.com/ktorio/ktor)
-- The [Ktor Slack chat](https://app.slack.com/client/T09229ZC6/C0A974TJ9). You'll need to [request an invite](https://surveys.jetbrains.com/s3/kotlin-slack-sign-up) to join.
+**Complete documentation is available in the [docs](docs/) folder.**
 
-## Features
+### Quick Links
 
-Here's a list of features included in this project:
+- 🚀 **[Local Development Guide](docs/LOCAL_DEVELOPMENT.md)** - Get started with local development
+- 🔐 **[Configuration Guide](docs/CONFIGURATION.md)** - Managing API keys and secrets
+- 🧪 **[Testing Quick Start](docs/TESTING_QUICK_START.md)** - Quick API testing guide
+- 📖 **[Trip Planning API](docs/TRIP_PLANNING_API.md)** - Complete API reference
+- 🐛 **[Debugging Guide](docs/DEBUGGING.md)** - Troubleshooting and debugging
+- 🗺️ **[Roadmap](docs/ROADMAP.md)** - Project roadmap
 
-| Name                                                                        | Description                                                                                             |
-| -----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------- |
-| [KHealth](https://start.ktor.io/p/khealth)                                  | A simple and customizable health plugin                                                                 |
-| [Metrics](https://start.ktor.io/p/metrics)                                  | Adds supports for monitoring several metrics                                                            |
-| [Content Negotiation](https://start.ktor.io/p/content-negotiation)          | Provides automatic content conversion according to Content-Type and Accept headers                      |
-| [kotlinx.serialization](https://start.ktor.io/p/kotlinx-serialization)      | Handles JSON serialization using kotlinx.serialization library                                          |
-| [Rate Limiting](https://start.ktor.io/p/ktor-server-rate-limiting)          | Manage request rate limiting as you see fit                                                             |
-| [OpenAPI](https://start.ktor.io/p/openapi)                                  | Serves OpenAPI documentation                                                                            |
-| [Routing](https://start.ktor.io/p/routing)                                  | Provides a structured routing DSL                                                                       |
-| [OpenTelemetry](https://start.ktor.io/p/opentelemetry-java-instrumentation) | Instruments applications with distributed tracing, metrics, and logging for comprehensive observability |
-| [Request Validation](https://start.ktor.io/p/request-validation)            | Adds validation for incoming requests                                                                   |
-| [Resources](https://start.ktor.io/p/resources)                              | Provides type-safe routing                                                                              |
-| [Call Logging](https://start.ktor.io/p/call-logging)                        | Logs client requests                                                                                    |
+## ⚡ Quick Start
 
-## Structure
+```bash
+# 1. Copy the configuration template
+cp local.properties.template local.properties
+
+# 2. Edit local.properties and add your NSW Transport API key
+# Get your key at: https://opendata.transport.nsw.gov.au/
+
+# 3. Run the server (API key auto-loaded from local.properties)
+./gradlew :server:run
+
+# 4. Test the API
+curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=10101328"
+```
+
+The server will start at `http://localhost:8080`
+
+> **Note:** The `local.properties` file is git-ignored and safe for storing API keys locally.
+
+## 🏗️ Project Structure
 
 This project includes the following modules:
 
@@ -36,7 +45,7 @@ This project includes the following modules:
 | [core](core)     | Domain objects and interfaces                           |
 | [client](client) | Extensions for making requests to the server using Ktor |
 
-## Building
+## 🛠️ Building
 
 To build the project, use one of the following tasks:
 
@@ -47,7 +56,7 @@ To build the project, use one of the following tasks:
 | `./gradlew :server:buildImage`                  | Build the docker image to use with the fat JAR                       |
 | `./gradlew :server:publishImageToLocalRegistry` | Publish the docker image locally                                     |
 
-## Running
+## 🚀 Running
 
 To run the project, use one of the following tasks:
 
@@ -62,4 +71,3 @@ If the server starts successfully, you'll see the following output:
 2024-12-04 14:32:45.584 [main] INFO  Application - Application started in 0.303 seconds.
 2024-12-04 14:32:45.682 [main] INFO  Application - Responding at http://0.0.0.0:8080
 ```
-

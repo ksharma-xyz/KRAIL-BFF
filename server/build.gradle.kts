@@ -27,6 +27,28 @@ tasks.named<JavaExec>("run") {
     project.findProperty("runPort")?.toString()?.takeIf { it.isNotBlank() }?.let {
         systemProperty("ktor.deployment.port", it)
     }
+
+    // Load local.properties if it exists
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        val localProperties = java.util.Properties()
+        localProperties.load(localPropertiesFile.inputStream())
+
+        // Pass NSW API key from local.properties to the application
+        localProperties.getProperty("nsw.apiKey")?.let {
+            environment("NSW_API_KEY", it)
+        }
+        localProperties.getProperty("nsw.baseUrl")?.let {
+            environment("NSW_BASE_URL", it)
+        }
+        localProperties.getProperty("nsw.connectTimeoutMs")?.let {
+            environment("NSW_CONNECT_TIMEOUT_MS", it)
+        }
+        localProperties.getProperty("nsw.readTimeoutMs")?.let {
+            environment("NSW_READ_TIMEOUT_MS", it)
+        }
+    }
+
     // Force the :server:run task to use the configured toolchain (JDK 17 by default)
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
 }

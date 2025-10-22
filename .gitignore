@@ -34,3 +34,7 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Local Configuration ###
+# Keep your API keys and secrets here - never commit this file!
+local.properties
