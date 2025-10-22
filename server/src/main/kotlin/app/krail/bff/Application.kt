@@ -6,6 +6,7 @@ import app.krail.bff.plugins.configureMonitoring
 import app.krail.bff.plugins.configureSerialization
 import app.krail.bff.plugins.configureCorrelation
 import app.krail.bff.plugins.configureErrorHandling
+import app.krail.bff.plugins.configureMobileAnalytics
 import app.krail.bff.routes.configureAdministration
 import app.krail.bff.routes.configureRouting
 import io.ktor.server.application.*
@@ -18,6 +19,7 @@ fun main(args: Array<String>) {
 fun Application.module() {
     configureDI()
     configureCorrelation()
+    configureMobileAnalytics()
     configureErrorHandling()
     configureMonitoring()
     configureSerialization()

@@ -73,11 +73,6 @@ Acceptance
 
 ---
 
-## PR 1c: Test helpers for HTTP client mocking ⏭️ MOVED TO PR3
-**Decision:** Moved to PR3 (Transport NSW client) where MockEngine will actually be needed.
-
----
-
 ## PR 2: Mobile analytics headers + structured logging
 Goals
 - Define headers the app will send and extract them into MDC + call attributes

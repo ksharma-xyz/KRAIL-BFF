@@ -46,6 +46,7 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.logback.classic)
     implementation(libs.ktor.server.config.yaml)
+    implementation(libs.logstash.logback.encoder)
 
     // Enable Netty native transports when available (Linux/macOS)
     runtimeOnly("io.netty:netty-transport-native-epoll:$nettyVersion:linux-x86_64")

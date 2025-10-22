@@ -5,6 +5,7 @@ ktor = "3.3.0"
 logback = "1.5.16"
 khealth = "3.0.2"
 koin = "3.5.6"
+logstashEncoder = "7.4"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -30,6 +31,7 @@ ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negoti
 
 # Logging
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstashEncoder" }
 
 # Health
 khealth = { module = "dev.hayden:khealth", version.ref = "khealth" }

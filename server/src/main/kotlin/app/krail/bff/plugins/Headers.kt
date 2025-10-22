@@ -11,7 +11,12 @@ object Headers {
      */
     const val REQUEST_ID = "X-Request-Id"
 
-    // Add more custom headers here as needed:
-    // const val API_KEY = "X-API-Key"
-    // const val CLIENT_VERSION = "X-Client-Version"
+    // Mobile analytics headers (sent by the app)
+    const val DEVICE_ID = "X-Device-Id"
+    const val DEVICE_MODEL = "X-Device-Model"
+    const val OS_NAME = "X-OS-Name"
+    const val OS_VERSION = "X-OS-Version"
+    const val APP_VERSION = "X-App-Version"
+    const val CLIENT_REGION = "X-Client-Region" // optional
+    const val NETWORK_TYPE = "X-Network-Type"   // optional
 }
