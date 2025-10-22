@@ -66,6 +66,5 @@ dependencies {
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
-    // Mock engine for HttpClient tests (explicit coordinate)
-    testImplementation("io.ktor:ktor-client-mock:${libs.versions.ktor.get()}")
+    testImplementation(libs.ktor.client.mock)
 }

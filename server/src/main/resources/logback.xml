@@ -3,10 +3,16 @@
         <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
     </appender>
 
-    <root level="INFO">
+    <property name="LOG_LEVEL" value="${LOG_LEVEL:-INFO}" />
+
+    <root level="${LOG_LEVEL}">
         <appender-ref ref="JSON"/>
     </root>
 
     <logger name="org.eclipse.jetty" level="INFO"/>
     <logger name="io.netty" level="INFO"/>
+    <logger name="io.ktor" level="INFO"/>
+
+    <!-- NSW Client debug logging - controlled by LOG_LEVEL environment variable -->
+    <logger name="app.krail.bff.client.nsw" level="${LOG_LEVEL}"/>
 </configuration>

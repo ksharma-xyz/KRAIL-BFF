@@ -63,8 +63,6 @@ class NswClientTest {
         apiKey = "test-key",
         connectTimeoutMs = 1000,
         readTimeoutMs = 1000,
-        retryMaxAttempts = 0,
-        retryBackoffMs = 10,
         breakerFailureThreshold = 2,
         breakerResetTimeoutMs = 100
     )
