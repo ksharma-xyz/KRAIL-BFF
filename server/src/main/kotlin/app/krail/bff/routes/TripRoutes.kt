@@ -40,18 +40,37 @@ fun Application.configureTripRoutes() {
                     ?.toSet()
                     ?: emptySet()
 
-                val response = nswClient.getTrip(
-                    originStopId = origin,
-                    destinationStopId = destination,
-                    depArr = depArr,
-                    date = date,
-                    time = time,
-                    excludedModes = excludedModes
-                )
+                try {
+                    val response = nswClient.getTrip(
+                        originStopId = origin,
+                        destinationStopId = destination,
+                        depArr = depArr,
+                        date = date,
+                        time = time,
+                        excludedModes = excludedModes
+                    )
 
-                call.respond(HttpStatusCode.OK, response)
+                    call.respond(HttpStatusCode.OK, response)
+                } catch (e: IllegalStateException) {
+                    // NSW API returned an error status (4xx or 5xx)
+                    call.respond(
+                        HttpStatusCode.BadGateway,
+                        mapOf(
+                            "error" to "NSW Transport API error",
+                            "message" to (e.message ?: "Unknown error from upstream API")
+                        )
+                    )
+                } catch (e: Exception) {
+                    // Other errors (network, timeout, etc.)
+                    call.respond(
+                        HttpStatusCode.InternalServerError,
+                        mapOf(
+                            "error" to "Failed to fetch trip data",
+                            "message" to (e.message ?: "Unknown error")
+                        )
+                    )
+                }
             }
         }
     }
 }
-

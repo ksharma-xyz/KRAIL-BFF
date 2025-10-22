@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.ktor)
@@ -31,21 +33,21 @@ tasks.named<JavaExec>("run") {
     // Load local.properties if it exists
     val localPropertiesFile = rootProject.file("local.properties")
     if (localPropertiesFile.exists()) {
-        val localProperties = java.util.Properties()
+        val localProperties = Properties()
         localProperties.load(localPropertiesFile.inputStream())
 
         // Pass NSW API key from local.properties to the application
-        localProperties.getProperty("nsw.apiKey")?.let {
-            environment("NSW_API_KEY", it)
+        localProperties.getProperty("nsw.apiKey")?.let { key ->
+            environment("NSW_API_KEY", key)
         }
-        localProperties.getProperty("nsw.baseUrl")?.let {
-            environment("NSW_BASE_URL", it)
+        localProperties.getProperty("nsw.baseUrl")?.let { url ->
+            environment("NSW_BASE_URL", url)
         }
-        localProperties.getProperty("nsw.connectTimeoutMs")?.let {
-            environment("NSW_CONNECT_TIMEOUT_MS", it)
+        localProperties.getProperty("nsw.connectTimeoutMs")?.let { timeout ->
+            environment("NSW_CONNECT_TIMEOUT_MS", timeout)
         }
-        localProperties.getProperty("nsw.readTimeoutMs")?.let {
-            environment("NSW_READ_TIMEOUT_MS", it)
+        localProperties.getProperty("nsw.readTimeoutMs")?.let { timeout ->
+            environment("NSW_READ_TIMEOUT_MS", timeout)
         }
     }
 
