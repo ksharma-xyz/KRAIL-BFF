@@ -32,7 +32,7 @@ tasks.named<JavaExec>("run") {
 }
 
 // Netty native transport versions; align with Ktor's Netty (4.2.x)
-val nettyVersion = "4.2.4.Final"
+val nettyVersion = "4.2.7.Final"
 
 dependencies {
     implementation(libs.khealth)
