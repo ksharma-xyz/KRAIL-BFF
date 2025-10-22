@@ -4,10 +4,11 @@ import app.krail.bff.config.NswConfig
 import app.krail.bff.model.TripResponse
 import com.codahale.metrics.MetricRegistry
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
+import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -102,13 +103,25 @@ class NswClientImpl(
     ): TripResponse {
         val ctx = tripTimer.time()
         return try {
-            val url = "${config.baseUrl.trimEnd('/')}/v1/tp/trip"
-            logger.debug(
-                "Requesting trip from NSW API - origin: {}, destination: {}, depArr: {}, date: {}, time: {}, excludedModes: {}",
-                originStopId, destinationStopId, depArr, date, time, excludedModes
-            )
+            val baseUrl = "${config.baseUrl.trimEnd('/')}/v1/tp/trip"
 
-            val response = http.get(url) {
+            logger.info("=" .repeat(80))
+            logger.info("🚀 NSW TRIP API REQUEST")
+            logger.info("=" .repeat(80))
+            logger.info("📋 Input Parameters:")
+            logger.info("   Origin Stop ID: {}", originStopId)
+            logger.info("   Destination Stop ID: {}", destinationStopId)
+            logger.info("   DepArr Mode: {}", depArr)
+            logger.info("   Date: {}", date ?: "not set")
+            logger.info("   Time: {}", time ?: "not set")
+            logger.info("   Excluded Modes: {}", excludedModes)
+            logger.info("   Base URL: {}", baseUrl)
+            logger.info("   API Key: {}***", config.apiKey.take(8))
+
+            val response = http.get(baseUrl) {
+                // Add Authorization header for NSW Transport API
+                headers.append("Authorization", "apikey ${config.apiKey}")
+
                 url {
                     parameters.append("name_origin", originStopId)
                     parameters.append("name_destination", destinationStopId)
@@ -144,22 +157,73 @@ class NswClientImpl(
                 }
             }
 
-            val tripResponse: TripResponse = response.body()
+            // Log the actual request URL from the response
+            logger.info("📍 Complete Request URL: {}", response.call.request.url.toString())
+
+            // Log all request headers (masking API key)
+            logger.info("📤 REQUEST HEADERS:")
+            response.call.request.headers.entries().forEach { entry ->
+                val displayValue = if (entry.key.equals("Authorization", ignoreCase = true)) {
+                    entry.value.joinToString(", ") { "apikey ${config.apiKey.take(8)}***" }
+                } else {
+                    entry.value.joinToString(", ")
+                }
+                logger.info("   {} = {}", entry.key, displayValue)
+            }
+            logger.info("   Method: {}", response.call.request.method.value)
+
+            logger.info("=" .repeat(80))
+            logger.info("📥 NSW TRIP API RESPONSE")
+            logger.info("=" .repeat(80))
+            logger.info("HTTP Status: {}", response.status.value)
+            logger.info("HTTP Status Description: {}", response.status.description)
+
+            // Log all response headers
+            logger.info("📦 RESPONSE HEADERS:")
+            response.headers.entries().forEach { entry ->
+                logger.info("   {} = {}", entry.key, entry.value.joinToString(", "))
+            }
+
+            // Get raw response body as text for logging
+            val responseText = response.bodyAsText()
+            logger.info("📄 RAW RESPONSE BODY (length: {} bytes):", responseText.length)
+            logger.info(responseText.take(2000))
+            if (responseText.length > 2000) {
+                logger.info("... (truncated, showing first 2000 of {} chars)", responseText.length)
+            }
+            logger.info("=" .repeat(80))
+
+            // Check HTTP status code before parsing
+            if (!response.status.isSuccess()) {
+                logger.error("❌ NSW API returned error status: {} - {}", response.status.value, response.status.description)
+                logger.error("Error response body: {}", responseText)
+                tripError.inc()
+                throw IllegalStateException("NSW API returned ${response.status.value}: ${response.status.description}. Body: $responseText")
+            }
+
+            // Parse using kotlinx.serialization
+            val json = Json {
+                ignoreUnknownKeys = true
+                explicitNulls = false
+                isLenient = true
+            }
+            val tripResponse: TripResponse = json.decodeFromString(responseText)
+
             tripSuccess.inc()
 
-            logger.debug("Trip API response received - journeys count: {}, has error: {}",
+            logger.info("✅ Parsed Trip Response - journeys count: {}, has error: {}",
                 tripResponse.journeys?.size ?: 0,
                 tripResponse.error != null
             )
 
             if (tripResponse.error != null) {
-                logger.warn("Trip API returned error: {}", tripResponse.error.message)
+                logger.warn("⚠️ Trip API returned error: {}", tripResponse.error.message)
             }
 
             tripResponse
         } catch (e: Throwable) {
             tripError.inc()
-            logger.error("Failed to fetch trip from NSW API - origin: {}, destination: {}",
+            logger.error("❌ Failed to fetch trip from NSW API - origin: {}, destination: {}",
                 originStopId, destinationStopId, e)
             throw e
         } finally {
