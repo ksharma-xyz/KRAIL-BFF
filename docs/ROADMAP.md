@@ -32,7 +32,7 @@ Acceptance
 
 ---
 
-## PR 1b: Error handling + StatusPages
+## PR 1b: Error handling + StatusPages ✅ DONE
 Goals
 - StatusPages for error handling with a consistent error envelope
 - Map common HTTP errors (400, 404, 500) to standard error envelope
@@ -73,7 +73,7 @@ Acceptance
 
 ---
 
-## PR 2: Mobile analytics headers + structured logging
+## PR 2: Mobile analytics headers + structured logging ✅ DONE
 Goals
 - Define headers the app will send and extract them into MDC + call attributes
 - Switch to structured logging (JSON) so fields appear per request
@@ -83,19 +83,23 @@ Headers (sent by the app)
 - Required: X-Device-Id (hash or id), X-Device-Model, X-OS-Name, X-OS-Version, X-App-Version
 - Optional: X-Client-Region, X-Network-Type
 
-Tasks
-- Ktor plugin that reads headers above; store into MDC (deviceId, model, osName, osVersion, appVersion, clientRegion?, networkType?)
-- Add JSON logging (logback JSON layout, e.g., logstash-logback-encoder) with MDC fields emitted per line
-- Document header contract for mobile app team
-- Gracefully handle missing headers (null-safe MDC, default values)
+What shipped
+- [x] Headers constants in `Headers`
+- [x] `configureMobileAnalytics` plugin extracts headers, sanitizes values, stores a `MobileContext` on call attributes, and publishes selected fields to MDC
+- [x] JSON logging via `logstash-logback-encoder` in `logback.xml`
+- [x] Installed plugin in `Application.module`
+- [x] Tests (`MobileAnalyticsTest`) cover: full header capture, missing headers, length capping, and client-side control character rejection
 
 Acceptance
-- Incoming requests log structured fields (JSON)
-- Missing headers handled gracefully (no crashes, fields absent/null)
+- [x] Incoming requests log structured fields (JSON)
+- [x] Missing headers handled gracefully (fields omitted)
+
+Notes
+- We intentionally never place deviceId in MDC/logs. It is available on call attributes for business logic if needed.
 
 ---
 
-## PR 3: Transport NSW client
+## PR 3: Transport NSW client [~] IN PROGRESS (scaffolded)
 Goals
 - Typed NSW client wrapper with config (base URL + API key)
 - Timeouts, connection pool, retries with backoff (HttpRequestRetry)
@@ -103,18 +107,35 @@ Goals
 - Per-call metrics (count, duration, outcome)
 - DTOs for minimal fields returned to the app
 
-Tasks
-- Create NswClient using Ktor HttpClient with OkHttp engine (no CIO)
-- Load config: NSW_BASE_URL, NSW_API_KEY, connect/read timeouts, retry/backoff
-- Add HttpRequestRetry and a small consecutive-failure tripwire (disable after N failures for T seconds)
-- Expose metrics counters/timers and tag by result (2xx/4xx/5xx/timeout)
-- Map upstream errors: 4xx → 400/502 as appropriate, 5xx/timeout → 502/504
-- Unit tests with MockEngine: happy path, timeouts, error mapping
+What shipped in this PR so far
+- [x] `NswConfig` extended with retry/backoff and simple breaker knobs
+- [x] DI (`configureDI`) wires a shared Ktor `HttpClient` (OkHttp engine) with:
+  - ContentNegotiation + JSON
+  - HttpTimeout (connect/request/socket)
+  - HttpRequestRetry with exponential backoff (retry 5xx and exceptions only)
+  - Default `Authorization: apikey <key>` header
+- [x] Simple `NswClientImpl.healthCheck()` calling `baseUrl/` for upstream readiness
+- [x] Dropwizard `MetricRegistry` injected via Koin; client emits counters and a timer
+- [x] Very small consecutive-failures breaker (threshold, reset timeout)
+- [x] Unit tests using Ktor MockEngine validate success path, failure path, and breaker skip behavior
 
-Acceptance
-- Client callable from tests with MockEngine
-- Metrics increment and duration recorded
-- Errors mapped to server exceptions consistently
+Next in PR 3 (kept simple, provider-agnostic friendly)
+- [ ] Introduce a slim transport abstraction (future-proofing):
+  - Interface: `TransportClient` with `healthCheck()` and future methods (e.g., `getLineStatus`)
+  - NSW implementation will back it; Victoria (PTV) can add another
+  - Config shape stays similar (baseUrl, apiKey, timeouts, retry, breaker)
+- [ ] Map upstream errors into typed exceptions (4xx vs 5xx/timeouts) for the server layer to convert into our error envelope
+- [ ] Keep actual TFNSW endpoint wiring in the next PR where we’ll add concrete calls and required fields
+
+Answers to “what’s the NSW base URL and how do we auth?”
+- Base host: `https://api.transport.nsw.gov.au` (already the default in config)
+- Auth: HTTP header `Authorization: apikey <YOUR_KEY>` (already configured on the client)
+- Specific endpoints vary by product (Trip Planner, GTFS, etc.). We’ll wire exact paths and parameters when we implement the first real call in the next PR.
+
+Acceptance (for this scaffold step)
+- [x] Client compiles, can be unit-tested without real network
+- [x] Retries/backoff and breaker behave as expected in tests
+- [x] Metrics increment and capture duration
 
 ---
 
