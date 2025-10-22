@@ -5,7 +5,6 @@ import app.krail.bff.plugins.MobileAttributes
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.testing.*
@@ -13,9 +12,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.test.*
 
 class MobileAnalyticsTest {
     private val json = Json { ignoreUnknownKeys = true }
@@ -78,5 +75,49 @@ class MobileAnalyticsTest {
         assertTrue(isNullOrMissing("appVersion"))
         assertTrue(isNullOrMissing("clientRegion"))
         assertTrue(isNullOrMissing("networkType"))
+    }
+
+    @Test
+    fun `sanitizes control chars and caps length`() = testApplication {
+        application {
+            module()
+            routing {
+                get("/ctx") {
+                    val ctx = call.attributes[MobileAttributes.Key]
+                    call.respond(ctx)
+                }
+            }
+        }
+
+        // Ktor client rejects control chars in header values by design (IllegalHeaderValueException).
+        // Here we validate the length capping behavior with a long safe value.
+        val longSafe = ("model-safe-" + "x".repeat(300))
+        val response = client.get("/ctx") {
+            header(Headers.DEVICE_MODEL, longSafe)
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
+        val model = body["deviceModel"]?.jsonPrimitive?.content
+        assertNotNull(model)
+        assertTrue(model.startsWith("model-safe-"))
+        assertTrue(model.length <= 256)
+    }
+
+    @Test
+    fun `rejects control chars in headers (client-side)`() = testApplication {
+        application {
+            module()
+            routing {
+                get("/ctx") {
+                    val ctx = call.attributes[MobileAttributes.Key]
+                    call.respond(ctx)
+                }
+            }
+        }
+        assertFailsWith<IllegalHeaderValueException> {
+            client.get("/ctx") {
+                header(Headers.DEVICE_MODEL, "bad\nvalue\twith\rcontrols")
+            }
+        }
     }
 }

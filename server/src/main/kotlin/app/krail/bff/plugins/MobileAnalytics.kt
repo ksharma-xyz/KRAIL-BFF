@@ -9,24 +9,32 @@ object MobileAttributes {
     val Key = AttributeKey<MobileContext>("MobileContext")
 }
 
+private fun sanitizeHeader(value: String?, maxLen: Int = 256): String? {
+    if (value == null) return null
+    // Strip control characters (includes CR/LF, tabs, etc.) and DEL
+    val noCtrl = value.replace(Regex("[\\p{Cntrl}]"), "")
+    // Cap length to avoid log bloat
+    val capped = if (noCtrl.length > maxLen) noCtrl.substring(0, maxLen) else noCtrl
+    return capped.ifBlank { null }
+}
+
 fun Application.configureMobileAnalytics() {
     intercept(ApplicationCallPipeline.Setup) {
         val headers = call.request.headers
         val ctx = MobileContext(
-            deviceId = headers[Headers.DEVICE_ID],
-            deviceModel = headers[Headers.DEVICE_MODEL],
-            osName = headers[Headers.OS_NAME],
-            osVersion = headers[Headers.OS_VERSION],
-            appVersion = headers[Headers.APP_VERSION],
-            clientRegion = headers[Headers.CLIENT_REGION],
-            networkType = headers[Headers.NETWORK_TYPE]
+            deviceId = sanitizeHeader(headers[Headers.DEVICE_ID]),
+            deviceModel = sanitizeHeader(headers[Headers.DEVICE_MODEL]),
+            osName = sanitizeHeader(headers[Headers.OS_NAME]),
+            osVersion = sanitizeHeader(headers[Headers.OS_VERSION]),
+            appVersion = sanitizeHeader(headers[Headers.APP_VERSION]),
+            clientRegion = sanitizeHeader(headers[Headers.CLIENT_REGION]),
+            networkType = sanitizeHeader(headers[Headers.NETWORK_TYPE])
         )
 
         // Store on call attributes for downstream access
         call.attributes.put(MobileAttributes.Key, ctx)
 
-        // Put into MDC for structured logging (null-safe)
-        ctx.deviceId?.let { MDC.put("deviceId", it) }
+        // Put selected fields into MDC for structured logging (never log deviceId)
         ctx.deviceModel?.let { MDC.put("deviceModel", it) }
         ctx.osName?.let { MDC.put("osName", it) }
         ctx.osVersion?.let { MDC.put("osVersion", it) }
@@ -37,8 +45,7 @@ fun Application.configureMobileAnalytics() {
         try {
             proceed()
         } finally {
-            // Clean up MDC keys
-            MDC.remove("deviceId")
+            // Clean up MDC keys (deviceId was never set)
             MDC.remove("deviceModel")
             MDC.remove("osName")
             MDC.remove("osVersion")
@@ -48,4 +55,3 @@ fun Application.configureMobileAnalytics() {
         }
     }
 }
-
