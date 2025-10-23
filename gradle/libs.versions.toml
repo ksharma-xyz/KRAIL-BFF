@@ -1,6 +1,6 @@
 [versions]
 jdk = "17"
-kotlin = "2.2.20"
+kotlin = "2.2.21"
 ktor = "3.3.1"
 logback = "1.5.20"
 khealth = "3.0.2"
