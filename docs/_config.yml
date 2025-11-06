@@ -1,0 +1,17 @@
+# Jekyll configuration for GitHub Pages
+theme: jekyll-theme-cayman
+title: KRAIL BFF
+description: Backend For Frontend for NSW Transport API with Protocol Buffers (83% smaller responses)
+
+# Plugins
+plugins:
+  - jekyll-relative-links
+  - jekyll-optional-front-matter
+  - jekyll-readme-index
+
+# Settings
+relative_links:
+  enabled: true
+  collections: true
+
+
