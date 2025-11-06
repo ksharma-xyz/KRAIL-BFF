@@ -1,42 +1,97 @@
-# KRAIL-BFF Documentation
+# KRAIL BFF Documentation
 
-Quick access to everything you need to develop and test the KRAIL-BFF service.
+Backend For Frontend service for NSW Transport API with Protocol Buffers support.
 
-## 📖 Documentation
-
-| Guide | Purpose |
-|-------|---------|
-| **[Local Development](LOCAL_DEVELOPMENT.md)** | Setup, run, and develop locally |
-| **[Configuration](CONFIGURATION.md)** | API keys and environment setup |
-| **[Trip Planning API](TRIP_PLANNING_API.md)** | API endpoints and examples |
-| **[Debugging](DEBUGGING.md)** | Troubleshooting and logs |
-
-## ⚡ Quick Start
+## 🚀 Quick Start
 
 ```bash
-# 1. Setup (one-time)
+# 1. Setup
 cp local.properties.template local.properties
-# Edit local.properties with your NSW Transport API key
+# Add your NSW Transport API key to local.properties
 
-# 2. Run
+# 2. Run server
 ./gradlew :server:run
 
-# 3. Test (new terminal)
-curl "http://localhost:8080/api/v1/trip/plan?origin=200060&destination=200020" | jq
+# 3. Test
+curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=10101120"
+
+# 4. Compare JSON vs Protobuf
+./scripts/check-size.sh
 ```
 
-Or use the automated test script:
+---
+
+## 📚 Guides
+
+| Guide | Description |
+|-------|-------------|
+| [**Protobuf Integration**](guides/PROTOBUF.md) | **Protocol Buffers (83% smaller responses!)** |
+| [Local Development](guides/LOCAL_DEVELOPMENT.md) | Setup and run locally |
+| [Testing](guides/TESTING.md) | Testing guide |
+| [Debugging](guides/DEBUGGING.md) | Troubleshooting |
+
+---
+
+## 🔌 API Endpoints
+
+**Base URL:** `http://localhost:8080`
+
+| Endpoint | Format | Size | Description |
+|----------|--------|------|-------------|
+| `GET /api/v1/trip/plan` | JSON | 96 KB | Trip planning |
+| `GET /api/v1/trip/plan-proto` | **Protobuf** | **16 KB** | **Trip planning (83% smaller!)** |
+| `GET /health` | JSON | - | Health check |
+
+**Documentation:**
+- [Trip Planning API](api/TRIP_PLANNING_API.md) - Detailed endpoint documentation
+- [Error Handling](api/ERROR_HANDLING.md) - Error codes and responses
+
+---
+
+## ⚙️ Configuration
+
+| Document | Description |
+|----------|-------------|
+| [Configuration](reference/CONFIGURATION.md) | Environment variables and setup |
+| [Roadmap](reference/ROADMAP.md) | Future features |
+
+---
+
+## 🎯 Key Features
+
+✅ **83% Smaller Responses** - Protobuf (16 KB) vs JSON (96 KB)  
+✅ **Type-Safe** - Wire/Protocol Buffers  
+✅ **Ready-to-Display** - All formatting done server-side  
+✅ **Standard Errors** - JSON error responses for all endpoints
+
+---
+
+## 🧪 Testing
+
 ```bash
-./scripts/test-trip-planning.sh
+# Run tests
+./gradlew test
+
+# Compare sizes
+./scripts/check-size.sh
+
+# Test endpoints
+./scripts/test-proto-endpoint.sh
 ```
 
-## 🎯 By Role
+See [Testing Guide](guides/TESTING.md) for details.
 
-**Developers:** [Local Development](LOCAL_DEVELOPMENT.md) → [Configuration](CONFIGURATION.md)  
-**QA/Testers:** [Trip Planning API](TRIP_PLANNING_API.md) → [Debugging](DEBUGGING.md)  
-**DevOps:** [Configuration](CONFIGURATION.md) → [Debugging](DEBUGGING.md)
+---
 
-## 📝 Project Info
+## 📦 Tech Stack
 
-- **[Roadmap](ROADMAP.md)** - Feature roadmap
-- **[OpenAPI Spec](openapi/documentation.yaml)** - API specification
+**Language:** Kotlin | **Framework:** Ktor 3.3.1 | **Protobuf:** Wire 5.1.0
+
+---
+
+## 🔗 Links
+
+- [NSW Transport OpenData](https://opendata.transport.nsw.gov.au/)
+- [Wire Documentation](https://square.github.io/wire/)
+- [Protocol Buffers Guide](https://protobuf.dev/)
+
