@@ -1,6 +1,23 @@
+---
+layout: default
+title: Testing
+parent: Guides
+nav_order: 2
+---
+
 # Testing Guide
+{: .no_toc }
 
 Quick and comprehensive testing guide for KRAIL BFF.
+{: .fs-6 .fw-300 }
+
+## Table of Contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
 
 ## Quick Start
 
@@ -238,4 +255,3 @@ For GitHub Actions or similar:
 - [Local Development Setup](LOCAL_DEVELOPMENT.md)
 - [Protobuf Integration](PROTOBUF.md)
 - [Debugging Guide](DEBUGGING.md)
-

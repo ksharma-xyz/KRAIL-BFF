@@ -1,8 +1,23 @@
+---
+layout: default
+title: Protobuf Integration
+parent: Guides
+nav_order: 1
+---
+
 # Protocol Buffers (Protobuf) Guide
+{: .no_toc }
 
 Complete guide for the Protocol Buffers integration using Square's Wire library.
+{: .fs-6 .fw-300 }
 
 ## Table of Contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
 
 - [Overview](#overview)
 - [Quick Start](#quick-start)
