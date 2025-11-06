@@ -14,4 +14,9 @@ relative_links:
   enabled: true
   collections: true
 
+# Include README as index
+readme_index:
+  enabled: true
+  remove_originals: false
+
 
