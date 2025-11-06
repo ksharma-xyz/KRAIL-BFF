@@ -6,11 +6,13 @@ logback = "1.5.20"
 khealth = "3.0.2"
 koin = "3.5.6"
 logstashEncoder = "7.4"
+wire = "5.1.0"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
+wire = { id = "com.squareup.wire", version.ref = "wire" }
 
 [libraries]
 # Server
@@ -40,6 +42,9 @@ khealth = { module = "dev.hayden:khealth", version.ref = "khealth" }
 # DI
 koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
 koin-logger-slf4j = { module = "io.insert-koin:koin-logger-slf4j", version.ref = "koin" }
+
+# Wire / Protobuf
+wire-runtime = { module = "com.squareup.wire:wire-runtime", version.ref = "wire" }
 
 # Tests
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }

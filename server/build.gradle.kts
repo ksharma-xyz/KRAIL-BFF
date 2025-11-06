@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.ktor)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.wire)
 }
 
 // Use Java toolchain version from version catalog
@@ -55,6 +56,20 @@ tasks.named<JavaExec>("run") {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
 }
 
+// Wire configuration for Protocol Buffers
+wire {
+    kotlin {
+        // Generate Kotlin code
+        javaInterop = true
+        // Use explicit nullability for optional fields
+        emitAppliedOptions = true
+    }
+
+    sourcePath {
+        srcDir("src/main/proto")
+    }
+}
+
 // Netty native transport versions; align with Ktor's Netty (4.2.x)
 val nettyVersion = "4.2.7.Final"
 
@@ -87,6 +102,9 @@ dependencies {
     // Switched from CIO to OkHttp engine
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
+
+    // Wire / Protobuf
+    implementation(libs.wire.runtime)
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)

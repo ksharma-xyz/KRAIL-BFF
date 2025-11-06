@@ -2,6 +2,8 @@ package app.krail.bff.client.nsw
 
 import app.krail.bff.config.NswConfig
 import app.krail.bff.model.TripResponse
+import app.krail.bff.mapper.JourneyListMapper
+import app.krail.bff.proto.JourneyList
 import com.codahale.metrics.MetricRegistry
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -33,6 +35,24 @@ interface NswClient {
         time: String? = null,
         excludedModes: Set<Int> = emptySet()
     ): TripResponse
+
+    /**
+     * Call NSW Transport trip planning API and return Protocol Buffer format.
+     * @param originStopId Origin stop/station ID
+     * @param destinationStopId Destination stop/station ID
+     * @param depArr Departure or arrival time mode ("dep" or "arr")
+     * @param date Date in YYYYMMDD format (optional, defaults to today)
+     * @param time Time in HHmm format (optional, defaults to now)
+     * @param excludedModes Set of transport mode IDs to exclude (1=Train, 4=Light Rail, 5=Bus, 7=Coach, 9=Ferry, 11=School Bus)
+     */
+    suspend fun getTripProto(
+        originStopId: String,
+        destinationStopId: String,
+        depArr: String = "dep",
+        date: String? = null,
+        time: String? = null,
+        excludedModes: Set<Int> = emptySet()
+    ): JourneyList
 }
 
 class NswClientImpl(
@@ -229,6 +249,53 @@ class NswClientImpl(
         } finally {
             ctx.stop()
         }
+    }
+
+    override suspend fun getTripProto(
+        originStopId: String,
+        destinationStopId: String,
+        depArr: String,
+        date: String?,
+        time: String?,
+        excludedModes: Set<Int>
+    ): JourneyList {
+        // Get JSON response
+        val jsonResponse = getTrip(originStopId, destinationStopId, depArr, date, time, excludedModes)
+
+        // Convert to proto and log
+        val journeyList = JourneyListMapper.toProto(jsonResponse)
+
+        logger.info("=" .repeat(80))
+        logger.info("🚊 PROTOBUF JOURNEY LIST")
+        logger.info("=" .repeat(80))
+        logger.info("Number of journeys: {}", journeyList.journeys.size)
+        journeyList.journeys.forEachIndexed { index, journey ->
+            logger.info("\n--- Journey #{} ---", index + 1)
+            logger.info("  Time Text: {}", journey.time_text)
+            logger.info("  Origin Time: {} ({})", journey.origin_time, journey.origin_utc_date_time)
+            logger.info("  Destination Time: {} ({})", journey.destination_time, journey.destination_utc_date_time)
+            logger.info("  Travel Time: {}", journey.travel_time)
+            journey.total_walk_time?.let { logger.info("  Total Walk Time: {}", it) }
+            journey.platform_text?.let { logger.info("  Platform: {}", it) }
+            logger.info("  Transport Modes: {}", journey.transport_mode_lines.joinToString(", ") {
+                "${it.line_name} (type=${it.transport_mode_type})"
+            })
+            logger.info("  Number of Legs: {}", journey.legs.size)
+            logger.info("  Service Alerts: {}", journey.total_unique_service_alerts)
+            journey.departure_deviation?.let { deviation ->
+                val deviationText = when {
+                    deviation.late != null -> "Late: ${deviation.late}"
+                    deviation.early != null -> "Early: ${deviation.early}"
+                    deviation.on_time == true -> "On Time"
+                    else -> "Unknown"
+                }
+                logger.info("  Departure Deviation: {}", deviationText)
+            }
+        }
+        logger.info("=" .repeat(80))
+
+        // Convert to proto
+        return journeyList
     }
 
     private fun onFailure(statusCode: Int?) {
