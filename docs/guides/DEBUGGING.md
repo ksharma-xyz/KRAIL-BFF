@@ -160,5 +160,5 @@ time curl "http://localhost:8080/api/v1/trip/plan?origin=200060&destination=2000
 
 1. Enable DEBUG logging first
 2. Check the error message in logs
-3. Review [TESTING_QUICK_START.md](TESTING_QUICK_START.md) for common issues
-4. Check [CONFIGURATION.md](CONFIGURATION.md) for setup problems
+3. Review [Testing Guide](TESTING) for common issues
+4. Check [Configuration Reference](../reference/CONFIGURATION) for setup problems

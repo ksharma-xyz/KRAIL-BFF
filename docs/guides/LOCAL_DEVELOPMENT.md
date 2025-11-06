@@ -34,7 +34,7 @@ LOG_LEVEL=DEBUG ./gradlew :server:run
 
 ## Configuration
 
-See [CONFIGURATION.md](CONFIGURATION.md) for details.
+See [Configuration](../reference/CONFIGURATION) for details.
 
 **Environment Variables:**
 - `NSW_API_KEY` - Your API key (required)
@@ -111,6 +111,6 @@ lsof -ti:8080 | xargs kill -9
 
 ## Next Steps
 
-- **[Testing Quick Start](TESTING_QUICK_START.md)** - Test the API
-- **[Trip Planning API](TRIP_PLANNING_API.md)** - API reference
-- **[Debugging](DEBUGGING.md)** - When things go wrong
+- **[Testing Guide](TESTING)** - Test the API
+- **[Trip Planning API](../api/TRIP_PLANNING_API)** - API reference
+- **[Debugging](DEBUGGING)** - When things go wrong

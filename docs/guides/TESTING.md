@@ -252,6 +252,6 @@ For GitHub Actions or similar:
 
 ## Next Steps
 
-- [Local Development Setup](LOCAL_DEVELOPMENT.md)
-- [Protobuf Integration](PROTOBUF.md)
-- [Debugging Guide](DEBUGGING.md)
+- [Local Development Setup](LOCAL_DEVELOPMENT)
+- [Protobuf Integration](PROTOBUF)
+- [Debugging Guide](DEBUGGING)

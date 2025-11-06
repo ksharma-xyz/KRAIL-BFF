@@ -25,10 +25,10 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 
 | Guide | Description |
 |-------|-------------|
-| [**Protobuf Integration**](guides/PROTOBUF.md) | **Protocol Buffers (83% smaller responses!)** |
-| [Local Development](guides/LOCAL_DEVELOPMENT.md) | Setup and run locally |
-| [Testing](guides/TESTING.md) | Testing guide |
-| [Debugging](guides/DEBUGGING.md) | Troubleshooting |
+| [**Protobuf Integration**](guides/PROTOBUF) | **Protocol Buffers (83% smaller responses!)** |
+| [Local Development](guides/LOCAL_DEVELOPMENT) | Setup and run locally |
+| [Testing](guides/TESTING) | Testing guide |
+| [Debugging](guides/DEBUGGING) | Troubleshooting |
 
 ---
 
@@ -43,8 +43,8 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 | `GET /health` | JSON | - | Health check |
 
 **Documentation:**
-- [Trip Planning API](api/TRIP_PLANNING_API.md) - Detailed endpoint documentation
-- [Error Handling](api/ERROR_HANDLING.md) - Error codes and responses
+- [Trip Planning API](api/TRIP_PLANNING_API) - Detailed endpoint documentation
+- [Error Handling](api/ERROR_HANDLING) - Error codes and responses
 
 ---
 
@@ -52,8 +52,8 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 
 | Document | Description |
 |----------|-------------|
-| [Configuration](reference/CONFIGURATION.md) | Environment variables and setup |
-| [Roadmap](reference/ROADMAP.md) | Future features |
+| [Configuration](reference/CONFIGURATION) | Environment variables and setup |
+| [Roadmap](reference/ROADMAP) | Future features |
 
 ---
 
@@ -79,7 +79,7 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 ./scripts/test-proto-endpoint.sh
 ```
 
-See [Testing Guide](guides/TESTING.md) for details.
+See [Testing Guide](guides/TESTING) for details.
 
 ---
 

@@ -125,4 +125,4 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=200060&destination=200020" |
 4. Date/time must be in the future
 5. Use the test script: `./scripts/test-trip-planning.sh`
 
-**Full testing guide:** [TESTING_QUICK_START.md](TESTING_QUICK_START.md)
+**Full testing guide:** [Testing Guide](../guides/TESTING)
