@@ -1,4 +1,23 @@
+---
+layout: default
+title: Trip Planning API
+parent: API
+nav_order: 1
+---
+
 # Trip Planning API
+{: .no_toc }
+
+Complete API reference for trip planning endpoints.
+{: .fs-6 .fw-300 }
+
+## Table of Contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
 
 ## Endpoint
 

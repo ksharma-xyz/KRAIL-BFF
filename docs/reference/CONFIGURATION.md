@@ -1,4 +1,23 @@
+---
+layout: default
+title: Configuration
+parent: Reference
+nav_order: 1
+---
+
 # Configuration Guide
+{: .no_toc }
+
+Environment variables and configuration options for KRAIL BFF.
+{: .fs-6 .fw-300 }
+
+## Table of Contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
 
 ## NSW Transport API Key Configuration
 

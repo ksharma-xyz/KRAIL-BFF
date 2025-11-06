@@ -1,4 +1,23 @@
+---
+layout: default
+title: Local Development
+parent: Guides
+nav_order: 2
+---
+
 # Local Development Guide
+{: .no_toc }
+
+Guide to setting up and running KRAIL BFF locally.
+{: .fs-6 .fw-300 }
+
+## Table of Contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
 
 ## First Time Setup
 

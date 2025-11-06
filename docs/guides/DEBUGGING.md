@@ -1,4 +1,23 @@
+---
+layout: default
+title: Debugging
+parent: Guides
+nav_order: 4
+---
+
 # Debugging Guide
+{: .no_toc }
+
+Troubleshooting and debugging tips for KRAIL BFF.
+{: .fs-6 .fw-300 }
+
+## Table of Contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
 
 ## Logging
 

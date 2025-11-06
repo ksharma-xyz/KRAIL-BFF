@@ -1,6 +1,21 @@
+---
+layout: home
+title: Home
+nav_order: 1
+description: "Backend For Frontend service for NSW Transport API with Protocol Buffers support - 83% smaller responses"
+permalink: /
+---
+
 # KRAIL BFF Documentation
+{: .fs-9 }
 
 Backend For Frontend service for NSW Transport API with Protocol Buffers support.
+{: .fs-6 .fw-300 }
+
+[Get Started](#-quick-start){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[View on GitHub](https://github.com/ksharma-xyz/KRAIL-BFF){: .btn .fs-5 .mb-4 .mb-md-0 }
+
+---
 
 ## 🚀 Quick Start
 
@@ -25,10 +40,10 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 
 | Guide | Description |
 |-------|-------------|
-| [**Protobuf Integration**](guides/PROTOBUF) | **Protocol Buffers (83% smaller responses!)** |
-| [Local Development](guides/LOCAL_DEVELOPMENT) | Setup and run locally |
-| [Testing](guides/TESTING) | Testing guide |
-| [Debugging](guides/DEBUGGING) | Troubleshooting |
+| [**Protobuf Integration**]({% link guides/PROTOBUF.md %}) | **Protocol Buffers (83% smaller responses!)** |
+| [Local Development]({% link guides/LOCAL_DEVELOPMENT.md %}) | Setup and run locally |
+| [Testing]({% link guides/TESTING.md %}) | Testing guide |
+| [Debugging]({% link guides/DEBUGGING.md %}) | Troubleshooting |
 
 ---
 
@@ -43,8 +58,8 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 | `GET /health` | JSON | - | Health check |
 
 **Documentation:**
-- [Trip Planning API](api/TRIP_PLANNING_API) - Detailed endpoint documentation
-- [Error Handling](api/ERROR_HANDLING) - Error codes and responses
+- [Trip Planning API]({% link api/TRIP_PLANNING_API.md %}) - Detailed endpoint documentation
+- [Error Handling]({% link api/ERROR_HANDLING.md %}) - Error codes and responses
 
 ---
 
@@ -52,8 +67,8 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 
 | Document | Description |
 |----------|-------------|
-| [Configuration](reference/CONFIGURATION) | Environment variables and setup |
-| [Roadmap](reference/ROADMAP) | Future features |
+| [Configuration]({% link reference/CONFIGURATION.md %}) | Environment variables and setup |
+| [Roadmap]({% link reference/ROADMAP.md %}) | Future features |
 
 ---
 
@@ -79,7 +94,7 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 ./scripts/test-proto-endpoint.sh
 ```
 
-See [Testing Guide](guides/TESTING) for details.
+See [Testing Guide]({% link guides/TESTING.md %}) for details.
 
 ---
 

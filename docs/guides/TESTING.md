@@ -2,7 +2,7 @@
 layout: default
 title: Testing
 parent: Guides
-nav_order: 2
+nav_order: 3
 ---
 
 # Testing Guide

@@ -1,4 +1,23 @@
+---
+layout: default
+title: Error Handling
+parent: API
+nav_order: 2
+---
+
 # API Error Handling Strategy
+{: .no_toc }
+
+Complete guide to error handling in KRAIL BFF API.
+{: .fs-6 .fw-300 }
+
+## Table of Contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
 
 ## Overview
 

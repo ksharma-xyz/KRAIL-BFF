@@ -1,4 +1,23 @@
+---
+layout: default
+title: Roadmap
+parent: Reference
+nav_order: 2
+---
+
 # KRAIL-BFF Implementation Roadmap
+{: .no_toc }
+
+Proposed implementation plan and future features.
+{: .fs-6 .fw-300 }
+
+## Table of Contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
 
 This document tracks the proposed PR-by-PR plan, acceptance criteria, and concrete steps to implement a production-ready Ktor BFF.
 

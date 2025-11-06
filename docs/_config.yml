@@ -4,14 +4,14 @@ title: KRAIL BFF
 description: Backend For Frontend for NSW Transport API with Protocol Buffers (83% smaller responses)
 
 # Color scheme - supports light/dark mode toggle
-color_scheme: light
+color_scheme: nil
 
 # Enable dark mode switcher
 # Users can toggle between light/dark
 # Values: nil (no toggle), "light" (light default), "dark" (dark default)
 color_scheme_toggle:
   enabled: true
-  default: light
+  default: dark
 
 # Logo (optional - you can add later)
 # logo: "/assets/images/logo.png"
