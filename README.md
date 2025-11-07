@@ -28,10 +28,18 @@ cp local.properties.template local.properties
 ./gradlew :server:run
 
 # 4. Test the API
+
+# Option A: Browser UI (Recommended!)
+open docs/tools/api-tester.html
+
+# Option B: Command line
 curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=10101328"
 ```
 
 The server will start at `http://localhost:8080`
+
+**🎨 Browser Testing:** Open `docs/tools/api-tester.html` for a beautiful interactive API tester!  
+See [Browser API Tester Guide](docs/tools/README.md) for details.
 
 > **Note:** The `local.properties` file is git-ignored and safe for storing API keys locally.
 

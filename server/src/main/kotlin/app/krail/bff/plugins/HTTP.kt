@@ -3,18 +3,20 @@ package app.krail.bff.plugins
 import app.krail.bff.model.ErrorDetails
 import app.krail.bff.model.ErrorEnvelope
 import app.krail.bff.util.correlationIdOrNull
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
+import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.request.path
 import io.ktor.server.response.*
-import java.util.concurrent.atomic.AtomicLong
 
 private class GlobalRateLimiter(
     private val capacity: Long,
     private val refillPerSecond: Long
 ) {
-    private val tokens = AtomicLong(capacity)
-    private val lastRefillMs = AtomicLong(System.currentTimeMillis())
+    private val tokens = java.util.concurrent.atomic.AtomicLong(capacity)
+    private val lastRefillMs = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis())
 
     fun allow(): Boolean {
         refill()
@@ -43,6 +45,36 @@ private class GlobalRateLimiter(
 }
 
 fun Application.configureHTTP() {
+    // Configure CORS to allow browser requests
+    install(CORS) {
+        // Allow requests from any origin (for development)
+        anyHost()
+
+        // Allow common HTTP methods
+        allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Delete)
+        allowMethod(HttpMethod.Options)
+        allowMethod(HttpMethod.Patch)
+
+        // Allow common headers
+        allowHeader(HttpHeaders.ContentType)
+        allowHeader(HttpHeaders.Authorization)
+        allowHeader(HttpHeaders.Accept)
+        allowHeader("X-Request-Id")
+
+        // Expose headers for clients
+        exposeHeader(HttpHeaders.ContentType)
+        exposeHeader("X-Request-Id")
+
+        // Allow credentials
+        allowCredentials = true
+
+        // Cache preflight requests for 1 hour
+        maxAgeInSeconds = 3600
+    }
+
     // Global rate limiter settings (env > application.yaml > defaults)
     val config = environment.config
     val rps = (System.getenv("BFF_RATE_LIMIT_RPS")?.toLongOrNull()
