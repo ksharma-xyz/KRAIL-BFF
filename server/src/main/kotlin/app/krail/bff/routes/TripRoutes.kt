@@ -23,18 +23,19 @@ fun Application.configureTripRoutes() {
     val nswClient by inject<NswClient>()
 
     routing {
-        // Legacy Android endpoint - Returns protobuf
+        // Legacy Android endpoint - Returns JSON (original NSW API format)
         route("/v1/tp") {
             /**
              * GET /v1/tp/trip
              *
-             * Legacy Android app endpoint. Returns Protocol Buffers binary data.
+             * Legacy Android app endpoint. Returns JSON in NSW Transport API format.
+             * This is a pass-through endpoint that returns the exact response from NSW API.
              * Supports both old parameter names (name_origin, name_destination, etc.)
              * and new parameter names (origin, destination, etc.) for compatibility.
              *
              * SUCCESS Response (200):
-             *   Content-Type: application/protobuf
-             *   Body: JourneyList protobuf bytes (83% smaller than JSON)
+             *   Content-Type: application/json
+             *   Body: NSW Transport API trip response (journeys, version, etc.)
              *
              * ERROR Responses (4xx/5xx):
              *   Content-Type: application/json
@@ -49,7 +50,7 @@ fun Application.configureTripRoutes() {
              * - excludedModes / excludedMeans: Comma-separated mode IDs or "checkbox" (optional)
              */
             get("/trip") {
-                call.handleTripProtoRequest(nswClient)
+                call.handleTripJsonRequest(nswClient)
             }
         }
 

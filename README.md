@@ -35,6 +35,48 @@ The server will start at `http://localhost:8080`
 
 > **Note:** The `local.properties` file is git-ignored and safe for storing API keys locally.
 
+## 🐛 Debugging
+
+**Quick endpoint test:**
+
+```bash
+./scripts/quick-debug.sh
+```
+
+This shows:
+- ✅ All endpoints status (Protobuf + JSON)
+- ✅ Size comparison (Protobuf vs JSON)
+- ✅ Error handling verification
+
+**Important:** Protobuf endpoints return **binary data** (not JSON). Browsers will show "gibberish" - this is correct! Your Android app will decode it perfectly.
+
+### Android App: CLEARTEXT Error Fix
+
+If you see: `CLEARTEXT communication to 10.0.2.2 not permitted by network security policy`
+
+**Quick fix:** Add this to your Android app:
+
+**File:** `app/src/main/res/xml/network_security_config.xml`
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>
+```
+
+**File:** `app/src/main/AndroidManifest.xml`
+```xml
+<application
+    android:networkSecurityConfig="@xml/network_security_config"
+    ...>
+```
+
+**See full guide:** [ANDROID_NETWORK_SECURITY_FIX.md](ANDROID_NETWORK_SECURITY_FIX.md)
+
+**Detailed troubleshooting:** [DEBUGGING_RESULTS.md](DEBUGGING_RESULTS.md)
+
 ## 🏗️ Project Structure
 
 This project includes the following modules:
