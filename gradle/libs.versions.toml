@@ -2,11 +2,11 @@
 jdk = "17"
 kotlin = "2.2.20"
 ktor = "3.4.1"
-logback = "1.5.20"
+logback = "1.5.32"
 khealth = "3.0.2"
 koin = "3.5.6"
 logstashEncoder = "7.4"
-wire = "5.1.0"
+wire = "5.5.1"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
