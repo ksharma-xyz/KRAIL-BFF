@@ -71,7 +71,7 @@ wire {
 }
 
 // Netty native transport versions; align with Ktor's Netty (4.2.x)
-val nettyVersion = "4.2.7.Final"
+val nettyVersion = "4.2.12.Final"
 
 dependencies {
     implementation(libs.khealth)
