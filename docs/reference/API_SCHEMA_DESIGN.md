@@ -1,6 +1,8 @@
 # KRAIL BFF API Schema Design
 
-> Design proposal for screen-shaped BFF responses, reusable shared types, and KMP-shared proto contracts between KRAIL-BFF and the KRAIL app. Pairs with [SCREEN_DATA_INVENTORY.md](SCREEN_DATA_INVENTORY.md). Lives under [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) Phase 1.
+> Design proposal for screen-shaped BFF responses, reusable shared types, and KMP-shared proto contracts between
+> KRAIL-BFF and the KRAIL app. Pairs with [SCREEN_DATA_INVENTORY.md](SCREEN_DATA_INVENTORY.md). Lives
+> under [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) Phase 1.
 
 This is a **review doc**. Nothing here is implemented yet. Sign off on the shape first; the build follows.
 
@@ -8,11 +10,17 @@ This is a **review doc**. Nothing here is implemented yet. Sign off on the shape
 
 ## Goals
 
-1. **Screen-shaped responses.** What the BFF returns matches what the screen renders. The 12 mappers in KRAIL today (`TripResponseMapper`, `DepartureMonitorMapper`, `ParkRideMapper`, `JourneyMapMapper`, `GtfsRealtimeMatcher`, …) collapse to "decode proto → bind to UI."
-2. **Reusable shared types.** Stop, TransitLine, StopTime, Deviation, ServiceAlert, LatLng — defined once, used in every endpoint that needs them. No copy-paste fields per endpoint.
-3. **KMP-shared schema.** One set of `.proto` files; both KRAIL-BFF (server, JVM) and KRAIL (KMP app, all platforms) generate Kotlin classes from the same source. Single source of truth.
-4. **Pre-compute on the server.** Anything that doesn't depend on the device's clock or viewport gets pre-computed: line colors, formatted strings, deviation labels, platform extraction, display-text resolution.
-5. **Multi-city seam, not multi-city build.** Field names should not bake "NSW" into the contract. Don't build a city registry until city #2 is real.
+1. **Screen-shaped responses.** What the BFF returns matches what the screen renders. The 12 mappers in KRAIL today (
+   `TripResponseMapper`, `DepartureMonitorMapper`, `ParkRideMapper`, `JourneyMapMapper`, `GtfsRealtimeMatcher`, …)
+   collapse to "decode proto → bind to UI."
+2. **Reusable shared types.** Stop, TransitLine, StopTime, Deviation, ServiceAlert, LatLng — defined once, used in every
+   endpoint that needs them. No copy-paste fields per endpoint.
+3. **KMP-shared schema.** One set of `.proto` files; both KRAIL-BFF (server, JVM) and KRAIL (KMP app, all platforms)
+   generate Kotlin classes from the same source. Single source of truth.
+4. **Pre-compute on the server.** Anything that doesn't depend on the device's clock or viewport gets pre-computed: line
+   colors, formatted strings, deviation labels, platform extraction, display-text resolution.
+5. **Multi-city seam, not multi-city build.** Field names should not bake "NSW" into the contract. Don't build a city
+   registry until city #2 is real.
 
 ---
 
@@ -21,6 +29,7 @@ This is a **review doc**. Nothing here is implemented yet. Sign off on the shape
 These appear in every screen-level message. Define once, reuse.
 
 ### `LatLng`
+
 ```proto
 message LatLng {
   double lat = 1;
@@ -29,7 +38,9 @@ message LatLng {
 ```
 
 ### `TransitLine`
-The mode + line + color trio. BFF computes `color_hex` server-side using the existing `NswTransportLine` table (~46 line-specific overrides) with mode-color fallback; the client just renders.
+
+The mode + line + color trio. BFF computes `color_hex` server-side using the existing `NswTransportLine` table (~46
+line-specific overrides) with mode-color fallback; the client just renders.
 
 ```proto
 message TransitLine {
@@ -52,9 +63,11 @@ enum TransportMode {
 }
 ```
 
-Numeric values match NSW productClass (1, 2, 4, 5, 7, 9, 11) so cross-referencing GTFS / NSW data stays trivial; WALKING = 99 is a KRAIL convention for non-transit legs.
+Numeric values match NSW productClass (1, 2, 4, 5, 7, 9, 11) so cross-referencing GTFS / NSW data stays trivial;
+WALKING = 99 is a KRAIL convention for non-transit legs.
 
 ### `StopRef`
+
 A stop, with everything any screen ever shows about a stop.
 
 ```proto
@@ -68,6 +81,7 @@ message StopRef {
 ```
 
 ### `StopTime`
+
 A stop with a time. The shape needed by departure board, journey card stop list, track screen.
 
 ```proto
@@ -82,9 +96,12 @@ message StopTime {
 }
 ```
 
-Both ISO-8601 UTC and the pre-formatted display string are shipped: clients re-render relative time on each clock tick from `estimated_utc` / `scheduled_utc`, but the pre-formatted variant means a client without a date library still gets a sensible value.
+Both ISO-8601 UTC and the pre-formatted display string are shipped: clients re-render relative time on each clock tick
+from `estimated_utc` / `scheduled_utc`, but the pre-formatted variant means a client without a date library still gets a
+sensible value.
 
 ### `Deviation`
+
 Late / Early / OnTime, with the human label pre-formatted.
 
 ```proto
@@ -97,6 +114,7 @@ message Deviation {
 ```
 
 ### `ServiceAlert`
+
 ```proto
 message ServiceAlert {
   string id = 1;                       // for cross-leg dedup
@@ -114,6 +132,7 @@ enum AlertPriority {
 ```
 
 ### `WalkSegment`
+
 ```proto
 message WalkSegment {
   int32 duration_seconds = 1;
@@ -129,7 +148,8 @@ message WalkSegment {
 
 Each endpoint returns one root message, composed from the shared types above plus light per-screen wrappers.
 
-### 2.1 `GET /v2/screens/trip-results`
+### 2.1 `GET /v1/screens/trip-results`
+
 Powers TimeTableScreen.
 
 ```proto
@@ -176,9 +196,11 @@ message WalkLeg {
 }
 ```
 
-**Sizing estimate** (6-journey response): ~10–15 KB on the wire vs ~80–150 KB raw NSW JSON, ~14–25 KB current pass-through protobuf. Screen-shaping cuts another ~30–40% on top of protobuf.
+**Sizing estimate** (6-journey response): ~10–15 KB on the wire vs ~80–150 KB raw NSW JSON, ~14–25 KB current
+pass-through protobuf. Screen-shaping cuts another ~30–40% on top of protobuf.
 
-### 2.2 `GET /v2/stops/{stop_id}/departures`
+### 2.2 `GET /v1/stops/{stop_id}/departures`
+
 Powers the departure board.
 
 ```proto
@@ -199,7 +221,8 @@ message DepartureRow {
 
 BFF cache: 15s in-memory; client polls 30s.
 
-### 2.3 `GET /v2/parking/facilities`
+### 2.3 `GET /v1/parking/facilities`
+
 Replaces Firebase Remote Config `NSW_PARK_RIDE_FACILITIES`. List rarely changes — 24h client cache.
 
 ```proto
@@ -217,7 +240,8 @@ message ParkingFacility {
 }
 ```
 
-### 2.4 `GET /v2/parking/facilities/{facility_id}/availability`
+### 2.4 `GET /v1/parking/facilities/{facility_id}/availability`
+
 Live-ish occupancy.
 
 ```proto
@@ -235,13 +259,16 @@ BFF cache: 60s peak / 300s off-peak (tighter than NSW's documented 120s/600s coo
 
 ### 2.5 Journey detail + live overlay (the future-merged Track + Map screen)
 
-The user has confirmed TrackTripScreen and JourneyMapScreen will merge into one screen. The right shape is **two endpoints** polled independently:
+The user has confirmed TrackTripScreen and JourneyMapScreen will merge into one screen. The right shape is **two
+endpoints** polled independently:
+
 - Static journey detail: refreshed every ~60s while screen visible.
 - Live overlay (vehicle positions + delays): refreshed every ~30s while map subscribed.
 
 This matches the existing `TrackingConfig` cadence and lets the client poll each at its natural rhythm without coupling.
 
-#### 2.5a `GET /v2/journey/{journey_key}` — static detail
+#### 2.5a `GET /v1/journey/{journey_key}` — static detail
+
 ```proto
 message JourneyResponse {
   string journey_id = 1;
@@ -274,9 +301,11 @@ message MapStop {
 }
 ```
 
-Reusing `Leg` here means the journey-detail screen and the trip-results card share the exact same leg shape — write the rendering once.
+Reusing `Leg` here means the journey-detail screen and the trip-results card share the exact same leg shape — write the
+rendering once.
 
-#### 2.5b `GET /v2/journey/{journey_key}/live` — overlay
+#### 2.5b `GET /v1/journey/{journey_key}/live` — overlay
+
 ```proto
 message JourneyLiveResponse {
   string journey_id = 1;
@@ -301,9 +330,12 @@ message StopDelay {
 }
 ```
 
-When live tracking moves to BFF (deferred per Modernization Plan §Phase 2), this endpoint reads from a server-side cache populated by a single GTFS-RT poller per feed — one BFF poll feeds N clients. The 4-tier vehicle-matching logic and feed-name lookup-by-iconId currently in `GtfsRealtimeMatcher` move server-side.
+When live tracking moves to BFF (deferred per Modernization Plan §Phase 2), this endpoint reads from a server-side cache
+populated by a single GTFS-RT poller per feed — one BFF poll feeds N clients. The 4-tier vehicle-matching logic and
+feed-name lookup-by-iconId currently in `GtfsRealtimeMatcher` move server-side.
 
 ### 2.6 `GET /v1/data/stops/manifest` and `/v1/data/stops/{version}.pb`
+
 Already specified in [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) §1.1. The `.pb` proto:
 
 ```proto
@@ -328,21 +360,22 @@ message DatasetStop {
 
 Everything in this list is in an app mapper today and should leave the app:
 
-| Computation | Today (KRAIL app) | Tomorrow (KRAIL-BFF) |
-|---|---|---|
-| Line color resolution | `NswTransportLine` lookup (~46 entries) → mode fallback | Server holds the table; ships hex per `TransitLine` |
-| Mode → icon name | `TransportMode.iconName` mapping | Server ships icon name |
-| Platform / Stand / Wharf extraction | mode-specific regex in `DepartureMonitorMapper` | Server runs regex once; ships clean string in `StopRef.platform` |
-| Display text ("Burwood to Liverpool") | `resolveServiceDisplayText` | Server resolves once; ships as `display_text` |
-| HH:MM AEST formatting | `utcToLocalDateTimeAEST().toHHMM()` | Server formats; client still gets UTC for clock-driven re-renders |
-| Relative time ("in 5 mins") | `toDepartureRelativeString` | Server snapshot at response moment; client re-renders against UTC + clock |
-| Deviation label ("3 mins late") | computed in mapper | Server pre-computes |
-| Service alert dedup | mapper iterates legs | Server dedupes once |
-| Park & ride availability math | `totalSpots − sum(occupancy)` | Server computes |
-| GTFS-RT vehicle ↔ leg matching | `GtfsRealtimeMatcher` 4-tier match | Server matches; ships only the matched vehicle per leg |
-| Feed selection (iconId → feed name) | `feedNamesForTransportation` | Server-side routing |
+| Computation                           | Today (KRAIL app)                                       | Tomorrow (KRAIL-BFF)                                                      |
+|---------------------------------------|---------------------------------------------------------|---------------------------------------------------------------------------|
+| Line color resolution                 | `NswTransportLine` lookup (~46 entries) → mode fallback | Server holds the table; ships hex per `TransitLine`                       |
+| Mode → icon name                      | `TransportMode.iconName` mapping                        | Server ships icon name                                                    |
+| Platform / Stand / Wharf extraction   | mode-specific regex in `DepartureMonitorMapper`         | Server runs regex once; ships clean string in `StopRef.platform`          |
+| Display text ("Burwood to Liverpool") | `resolveServiceDisplayText`                             | Server resolves once; ships as `display_text`                             |
+| HH:MM AEST formatting                 | `utcToLocalDateTimeAEST().toHHMM()`                     | Server formats; client still gets UTC for clock-driven re-renders         |
+| Relative time ("in 5 mins")           | `toDepartureRelativeString`                             | Server snapshot at response moment; client re-renders against UTC + clock |
+| Deviation label ("3 mins late")       | computed in mapper                                      | Server pre-computes                                                       |
+| Service alert dedup                   | mapper iterates legs                                    | Server dedupes once                                                       |
+| Park & ride availability math         | `totalSpots − sum(occupancy)`                           | Server computes                                                           |
+| GTFS-RT vehicle ↔ leg matching        | `GtfsRealtimeMatcher` 4-tier match                      | Server matches; ships only the matched vehicle per leg                    |
+| Feed selection (iconId → feed name)   | `feedNamesForTransportation`                            | Server-side routing                                                       |
 
 **Stays client-side (correctly):**
+
 - "Approaching" countdown (1 Hz tick from device clock)
 - `currentStopIndex` / progress bar (depends on local time)
 - Map camera bounds and zoom (depends on viewport)
@@ -353,7 +386,8 @@ Everything in this list is in an app mapper today and should leave the app:
 
 ## §4. KMP sharing strategy — one schema, two consumers
 
-The proto files are the contract between KRAIL and KRAIL-BFF. They must live in exactly one place; both repos consume the same source.
+The proto files are the contract between KRAIL and KRAIL-BFF. They must live in exactly one place; both repos consume
+the same source.
 
 ### Proposed layout
 
@@ -381,6 +415,7 @@ krail-api-proto/                # new, separate, public repo
 ### How both repos consume it
 
 **KRAIL-BFF** (already uses Wire):
+
 ```kotlin
 // settings.gradle.kts — vendor via git submodule at krail-api-proto/
 wire {
@@ -389,6 +424,7 @@ wire {
 ```
 
 **KRAIL** (KMP):
+
 ```kotlin
 // commonMain depends on the same submodule; Wire emits multiplatform Kotlin
 wire {
@@ -403,47 +439,59 @@ Change a proto → both sides regenerate → both compile against the new shape.
 
 ### Three options, ranked
 
-1. **Separate public repo + git submodule in both consumers** (recommended). Cleanest ownership; no Maven publishing infra; submodule update is one command; the contract being public is a feature (anyone can read it, including auditors of the KRAIL app's network behaviour).
-2. **Separate public repo published to GitHub Packages / JitPack as a Maven artifact**. Cleaner for cross-team work; overkill for a one-person project.
-3. **Embed the proto files inside KRAIL-BFF**, KRAIL points at a path. Simplest now, biggest pain later when the contract has independent users — don't.
+1. **Separate public repo + git submodule in both consumers** (recommended). Cleanest ownership; no Maven publishing
+   infra; submodule update is one command; the contract being public is a feature (anyone can read it, including
+   auditors of the KRAIL app's network behaviour).
+2. **Separate public repo published to GitHub Packages / JitPack as a Maven artifact**. Cleaner for cross-team work;
+   overkill for a one-person project.
+3. **Embed the proto files inside KRAIL-BFF**, KRAIL points at a path. Simplest now, biggest pain later when the
+   contract has independent users — don't.
 
 ### Versioning
-SemVer at the package level. Adding fields = minor bump. Removing or renaming = major bump (and the BFF must serve the prior shape for one app version's deprecation window). Each release of `krail-api-proto` tagged in git; both consumers point at a tag, not a moving branch.
+
+SemVer at the package level. Adding fields = minor bump. Removing or renaming = major bump (and the BFF must serve the
+prior shape for one app version's deprecation window). Each release of `krail-api-proto` tagged in git; both consumers
+point at a tag, not a moving branch.
 
 ### Public-repo implications
-The proto files are public anyway — anyone can decompile the APK and recover them. Keeping `krail-api-proto` public costs nothing and signals contract stability. Apply the same secret hygiene as the other repos: no hostnames, no real values, no example data with PII.
+
+The proto files are public anyway — anyone can decompile the APK and recover them. Keeping `krail-api-proto` public
+costs nothing and signals contract stability. Apply the same secret hygiene as the other repos: no hostnames, no real
+values, no example data with PII.
 
 ---
 
 ## §5. Migration: the existing 12 mappers
 
-Each app-side mapper today does two things: (1) strip noise from NSW responses, (2) shape the result for the screen. With BFF doing both, the app keeps only one tiny mapper per screen: **proto → UI state**, which is mostly passthrough.
+Each app-side mapper today does two things: (1) strip noise from NSW responses, (2) shape the result for the screen.
+With BFF doing both, the app keeps only one tiny mapper per screen: **proto → UI state**, which is mostly passthrough.
 
 ### Mapper-by-mapper fate
 
-| Today (KRAIL) | Status post-migration |
-|---|---|
-| `TripResponseMapper` (TimeTable) | Deleted; replaced by trivial `TripResultsResponse → JourneyCardInfo` (passthrough) |
-| `TripResponseMapper` (Track variant) | Deleted; replaced by trivial `JourneyResponse → TrackedJourneyDisplay` |
-| `DepartureMonitorMapper` | Deleted; `DepartureBoardResponse` is already shaped |
-| `ParkRideMapper` | Deleted; availability math moves to BFF |
-| `StopResultMapper` | Stays (operates on the local stops dataset) |
-| `JourneyMapMapper` | Reduced to `MapBundle → GeoJSON` (rendering glue) |
-| `TrackedJourneyMapMapper` | Folded into the rendering glue above |
-| `JourneyMapFeatureMapper` | Stays (GeoJSON is a MapLibre concern, not a wire concern) |
-| `JourneyStopUiMapper` | Stays (label/value pairs are presentation) |
-| `StopResultsMapMapper` | Stays (rendering glue) |
-| `GtfsRealtimeMatcher` | Deleted from app; logic lives in BFF when live tracking moves server-side |
-| `DiscoverAnalyticsMapper` | Stays (analytics, not network) |
+| Today (KRAIL)                        | Status post-migration                                                              |
+|--------------------------------------|------------------------------------------------------------------------------------|
+| `TripResponseMapper` (TimeTable)     | Deleted; replaced by trivial `TripResultsResponse → JourneyCardInfo` (passthrough) |
+| `TripResponseMapper` (Track variant) | Deleted; replaced by trivial `JourneyResponse → TrackedJourneyDisplay`             |
+| `DepartureMonitorMapper`             | Deleted; `DepartureBoardResponse` is already shaped                                |
+| `ParkRideMapper`                     | Deleted; availability math moves to BFF                                            |
+| `StopResultMapper`                   | Stays (operates on the local stops dataset)                                        |
+| `JourneyMapMapper`                   | Reduced to `MapBundle → GeoJSON` (rendering glue)                                  |
+| `TrackedJourneyMapMapper`            | Folded into the rendering glue above                                               |
+| `JourneyMapFeatureMapper`            | Stays (GeoJSON is a MapLibre concern, not a wire concern)                          |
+| `JourneyStopUiMapper`                | Stays (label/value pairs are presentation)                                         |
+| `StopResultsMapMapper`               | Stays (rendering glue)                                                             |
+| `GtfsRealtimeMatcher`                | Deleted from app; logic lives in BFF when live tracking moves server-side          |
+| `DiscoverAnalyticsMapper`            | Stays (analytics, not network)                                                     |
 
-Rough net: 12 mappers → 4 (rendering glue + local search). The NSW response models in the app (`TripResponse`, `DepartureMonitorResponse`, `CarParkFacilityDetailResponse`, etc.) become deletable once Phase 1 is fully rolled out.
+Rough net: 12 mappers → 4 (rendering glue + local search). The NSW response models in the app (`TripResponse`,
+`DepartureMonitorResponse`, `CarParkFacilityDetailResponse`, etc.) become deletable once Phase 1 is fully rolled out.
 
 ### Migration order (matches Modernization Plan §Phase 1)
 
 1. **Stops dataset** — first; it's the manifest pattern, no auth, removes a build-time data dep.
 2. **Departure board** — small payload, easy cohort comparison.
 3. **Park & ride availability + facilities list** — small endpoints, tiny risk.
-4. **Trip results v2** — replaces the existing `/v1/tp/trip` once the app is on `/v2/screens/trip-results`.
+4. **Trip results** — implements `/v1/screens/trip-results`. The existing `/v1/tp/trip` and `/api/v1/trip/plan` are local-dev passthrough scaffolding (never publicly deployed) and get retired in the same PR.
 5. **Journey + journey/live** — last; we'll have the rhythm by then for the most complex one.
 
 ---
@@ -452,22 +500,29 @@ Rough net: 12 mappers → 4 (rendering glue + local search). The NSW response mo
 
 Decisions worth making before I start writing proto files:
 
-1. **`stop_id` namespacing** — start with `"NSW:200060"` from day one, or keep raw `"200060"` and namespace later? Cheaper to namespace now if `sandook` already stores stop IDs (avoids a future migration).
-2. **Proto repo home** — separate `krail-api-proto` (recommended), git submodule inside KRAIL-BFF, or vendored copy? Separate repo is the cleanest long-term choice; the only friction is "one more repo to manage."
-3. **Pre-formatted strings on the wire** — keep both `display_time` and `scheduled_utc`, or trust the client to format from UTC always? I'd keep both for now (cheap bytes, flexible client).
-4. **`MapBundle` inside `JourneyResponse`** — bundle the polyline+stops with the journey, or fetch separately on first map open? Bundle for now; split later if payload size becomes a concern.
-5. **Timezone field** — bake "AEST" into pre-formatted strings (current plan), or include a `timezone` field per response so the proto is multi-city-ready? AEST-only for now; add the field in a minor bump when city #2 is real.
-6. **Versioning** — package-level SemVer, or per-message field versioning? Package SemVer at indie scale; revisit if multiple consumers diverge.
+1. **`stop_id` namespacing** — start with `"NSW:200060"` from day one, or keep raw `"200060"` and namespace later?
+   Cheaper to namespace now if `sandook` already stores stop IDs (avoids a future migration).
+2. **Proto repo home** — separate `krail-api-proto` (recommended), git submodule inside KRAIL-BFF, or vendored copy?
+   Separate repo is the cleanest long-term choice; the only friction is "one more repo to manage."
+3. **Pre-formatted strings on the wire** — keep both `display_time` and `scheduled_utc`, or trust the client to format
+   from UTC always? I'd keep both for now (cheap bytes, flexible client).
+4. **`MapBundle` inside `JourneyResponse`** — bundle the polyline+stops with the journey, or fetch separately on first
+   map open? Bundle for now; split later if payload size becomes a concern.
+5. **Timezone field** — bake "AEST" into pre-formatted strings (current plan), or include a `timezone` field per
+   response so the proto is multi-city-ready? AEST-only for now; add the field in a minor bump when city #2 is real.
+6. **Versioning** — package-level SemVer, or per-message field versioning? Package SemVer at indie scale; revisit if
+   multiple consumers diverge.
 
 ---
 
 ## §7. What changes in MODERNIZATION_PLAN.md
 
-Nothing structural. This document defines the schema layer that lives under MODERNIZATION_PLAN.md §1.1–1.3 (Phase 1 endpoints). Once the schema is signed off:
+Nothing structural. This document defines the schema layer that lives under MODERNIZATION_PLAN.md §1.1–1.3 (Phase 1
+endpoints). Once the schema is signed off:
 
 - §1.1 (stops dataset) ships with `StopsDataset`.
 - §1.2 (departure board) implements `DepartureBoardResponse`.
-- §1.3 (trip planner v2) implements `TripResultsResponse`.
+- §1.3 (trip results) implements `TripResultsResponse`.
 - The future-merged Track + JourneyMap screen ships with `JourneyResponse` + `JourneyLiveResponse`.
 
 A short pointer to this doc gets added to the plan once approved.

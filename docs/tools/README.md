@@ -247,10 +247,10 @@ The page automatically runs a test when loaded, providing instant feedback on se
 
 ## 📚 Related Documentation
 
-- [API Documentation](../api/TRIP_PLANNING_API.md)
 - [Local Development Guide](../guides/LOCAL_DEVELOPMENT.md)
 - [Debugging Guide](../guides/DEBUGGING.md)
-- [Android Integration](../guides/ANDROID_INTEGRATION.md)
+- [API Schema Design](../reference/API_SCHEMA_DESIGN.md)
+- [BFF Adoption Guide](../reference/BFF_ADOPTION_GUIDE.md)
 
 ## 🔗 Endpoints
 

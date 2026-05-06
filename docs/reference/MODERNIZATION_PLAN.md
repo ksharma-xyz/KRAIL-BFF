@@ -167,11 +167,11 @@ GET  /v1/data/stops/{version}.pb
 - Server compute is negligible — manifest endpoint is essentially static, cached aggressively at Cloudflare's edge.
 - Generalises for park & ride facility list, routes, lines: same pattern.
 
-### 1.2 Departure board (`/v2/stops/{id}/departures`)
+### 1.2 Departure board (`/v1/stops/{id}/departures`)
 Real BFF endpoint, in-memory cache TTL ~15s (env-tunable). Subject to the same rate-limit / budget defences as everything else.
 
-### 1.3 Trip planner v2 (`/v2/screens/trip-results`)
-Replace existing `/v1/tp/trip` once the app moves over. Screen-shaped response (drop NSW pass-through models). Keep existing endpoint alive for one app version's deprecation window, then delete.
+### 1.3 Trip results (`/v1/screens/trip-results`)
+Screen-shaped response (drop NSW pass-through models). Replaces the existing `/v1/tp/trip` and `/api/v1/trip/plan` endpoints, which were local-dev scaffolding and never deployed publicly — retired in the same PR.
 
 That's it for Phase 1. Two real BFF endpoints + a static manifest pattern.
 

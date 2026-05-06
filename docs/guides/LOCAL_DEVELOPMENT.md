@@ -131,5 +131,5 @@ lsof -ti:8080 | xargs kill -9
 ## Next Steps
 
 - **[Testing Guide](TESTING)** - Test the API
-- **[Trip Planning API](../api/TRIP_PLANNING_API)** - API reference
 - **[Debugging](DEBUGGING)** - When things go wrong
+- **[API Schema Design](../reference/API_SCHEMA_DESIGN)** - Proposed BFF endpoint shapes
