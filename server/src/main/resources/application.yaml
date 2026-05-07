@@ -37,3 +37,10 @@ bff:
     # Transform Rule value). Empty/unset disables the gate (dev/test default).
     # Override via CF_ORIGIN_TOKEN env var.
     cfOriginToken: ""
+
+data:
+    stops:
+        # URL the manifest endpoint redirects to. Production: GitHub Releases asset.
+        # Override via STOPS_MANIFEST_URL env var.
+        # Empty/unset returns 404 from /v1/data/stops/manifest.
+        manifestUrl: ""

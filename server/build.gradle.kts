@@ -56,6 +56,23 @@ tasks.named<JavaExec>("run") {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
 }
 
+// Build the stops dataset (.pb + manifest.json) from one or more GTFS zip bundles.
+// Used by the .github/workflows/stops-dataset.yml cron + workflow_dispatch.
+// Args (positional): <gtfsDir> <output.pb> <version> <releaseUrl>
+tasks.register<JavaExec>("buildStopsDataset") {
+    group = "data"
+    description = "Build stops dataset .pb + manifest.json from GTFS zip bundles"
+    mainClass.set("app.krail.bff.tools.BuildStopsDatasetKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    args = listOf(
+        project.findProperty("gtfsDir")?.toString() ?: "${layout.buildDirectory.get().asFile}/gtfs",
+        project.findProperty("output")?.toString() ?: "${layout.buildDirectory.get().asFile}/dist/stops.pb",
+        project.findProperty("version")?.toString() ?: "dev",
+        project.findProperty("releaseUrl")?.toString() ?: "https://example.invalid/stops.pb",
+    )
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
+}
+
 // Wire configuration for Protocol Buffers
 wire {
     kotlin {
