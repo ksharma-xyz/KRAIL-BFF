@@ -11,9 +11,8 @@ Backend-for-Frontend service for the KRAIL mobile app, providing trip planning a
 - 🚀 **[Local Development Guide](docs/LOCAL_DEVELOPMENT.md)** - Get started with local development
 - 🔐 **[Configuration Guide](docs/CONFIGURATION.md)** - Managing API keys and secrets
 - 🧪 **[Testing Quick Start](docs/TESTING_QUICK_START.md)** - Quick API testing guide
-- 📖 **[Trip Planning API](docs/TRIP_PLANNING_API.md)** - Complete API reference
-- 🐛 **[Debugging Guide](docs/DEBUGGING.md)** - Troubleshooting and debugging
-- 🗺️ **[Roadmap](docs/ROADMAP.md)** - Project roadmap
+- 🐛 **[Debugging Guide](docs/guides/DEBUGGING.md)** - Troubleshooting and debugging
+- 📐 **[Modernization Plan](docs/reference/MODERNIZATION_PLAN.md)** - Project plan and migration roadmap
 
 ## ⚡ Quick Start
 

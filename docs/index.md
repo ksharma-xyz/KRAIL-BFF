@@ -40,7 +40,6 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 
 | Guide | Description |
 |-------|-------------|
-| [**Protobuf Integration**]({% link guides/PROTOBUF.md %}) | **Protocol Buffers (83% smaller responses!)** |
 | [Local Development]({% link guides/LOCAL_DEVELOPMENT.md %}) | Setup and run locally |
 | [Testing]({% link guides/TESTING.md %}) | Testing guide |
 | [Debugging]({% link guides/DEBUGGING.md %}) | Troubleshooting |
@@ -57,18 +56,17 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 | `GET /api/v1/trip/plan-proto` | **Protobuf** | **16 KB** | **Trip planning (83% smaller!)** |
 | `GET /health` | JSON | - | Health check |
 
-**Documentation:**
-- [Trip Planning API]({% link api/TRIP_PLANNING_API.md %}) - Detailed endpoint documentation
-- [Error Handling]({% link api/ERROR_HANDLING.md %}) - Error codes and responses
-
 ---
 
-## ⚙️ Configuration
+## 📐 Design & planning
 
 | Document | Description |
 |----------|-------------|
+| [Modernization Plan]({% link reference/MODERNIZATION_PLAN.md %}) | Indie-scale plan: security, deploy (Cloudflare → DO), migrations |
+| [Screen Data Inventory]({% link reference/SCREEN_DATA_INVENTORY.md %}) | What each KRAIL screen displays today, mapped to NSW source fields |
+| [API Schema Design]({% link reference/API_SCHEMA_DESIGN.md %}) | Proposed BFF proto contracts, shared types, KMP sharing strategy |
+| [BFF Adoption Guide]({% link reference/BFF_ADOPTION_GUIDE.md %}) | Operational playbook for migrating KRAIL features onto the BFF |
 | [Configuration]({% link reference/CONFIGURATION.md %}) | Environment variables and setup |
-| [Roadmap]({% link reference/ROADMAP.md %}) | Future features |
 
 ---
 
