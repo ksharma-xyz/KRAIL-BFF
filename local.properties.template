@@ -30,3 +30,8 @@ nsw.apiKey=your-api-key-here
 # 0 = disabled. Default 10000.
 # nsw.dailyBudget=10000
 
+# Optional: shared secret for Cloudflare → origin requests. Leave unset for
+# local dev (gate disabled). In production, set the same value here as in the
+# Cloudflare Transform Rule that adds the CF-Origin-Token header.
+# bff.cfOriginToken=
+
