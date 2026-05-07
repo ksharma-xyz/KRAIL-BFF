@@ -96,9 +96,16 @@ message StopTime {
 }
 ```
 
-Both ISO-8601 UTC and the pre-formatted display string are shipped: clients re-render relative time on each clock tick
-from `estimated_utc` / `scheduled_utc`, but the pre-formatted variant means a client without a date library still gets a
-sensible value.
+**Principle: clock-relative values are client-only; absolute display strings can come from the server.**
+
+`display_time` ("11:30 am") is the absolute time the vehicle leaves — it doesn't change as the clock advances, so the
+server pre-formatting it (and handling AEST conversion) is a free win. `scheduled_utc` / `estimated_utc` come along so the
+client has the source of truth for any computation that *does* need to update on the clock — "in 5 mins", "departing
+now", "Today" vs "Tomorrow", the 1 Hz countdown on the track screen. The server never tries to ship those, because they
+go stale within seconds.
+
+A practical consequence: there is no `time_to_departure` / `relative_time` / `date_label` field in any response shape.
+The client renders all of those from the UTC fields against the device clock.
 
 ### `Deviation`
 
@@ -159,15 +166,14 @@ message TripResultsResponse {
 
 message JourneyCard {
   string journey_id = 1;               // stable key for "track this journey"
-  string time_to_departure = 2;        // "in 5 mins"
-  StopTime origin = 3;                 // first leg origin
-  StopTime destination = 4;            // last leg destination
-  string travel_duration = 5;          // "25 min"
-  optional string total_walk_duration = 6;  // "3 mins" if any walking
-  repeated TransitLine lines = 7;      // badge per transit leg
-  optional Deviation deviation = 8;
-  int32 service_alert_count = 9;
-  repeated Leg legs = 10;
+  StopTime origin = 2;                 // first leg origin — client computes "in N mins" from origin.estimated_utc
+  StopTime destination = 3;            // last leg destination
+  string travel_duration = 4;          // "25 min" — duration, not clock-relative
+  optional string total_walk_duration = 5;  // "3 mins" if any walking — duration, not clock-relative
+  repeated TransitLine lines = 6;      // badge per transit leg
+  optional Deviation deviation = 7;
+  int32 service_alert_count = 8;
+  repeated Leg legs = 9;
 }
 
 message Leg {
@@ -215,7 +221,8 @@ message DepartureRow {
   string destination = 2;              // "Central via Strathfield" — pre-resolved
   StopTime departure = 3;              // contains time, real-time flag, delay
   optional string platform = 4;        // overrides StopRef.platform if different per departure
-  optional string date_label = 5;      // "Today" / "Tomorrow" / "Mon 25 Sep"
+  // Client renders "Today" / "Tomorrow" / "Mon 25 Sep" from departure.scheduled_utc against local clock.
+  // Not shipped — the boundary changes at midnight, so a server-rendered label goes stale.
 }
 ```
 
@@ -367,7 +374,6 @@ Everything in this list is in an app mapper today and should leave the app:
 | Platform / Stand / Wharf extraction   | mode-specific regex in `DepartureMonitorMapper`         | Server runs regex once; ships clean string in `StopRef.platform`          |
 | Display text ("Burwood to Liverpool") | `resolveServiceDisplayText`                             | Server resolves once; ships as `display_text`                             |
 | HH:MM AEST formatting                 | `utcToLocalDateTimeAEST().toHHMM()`                     | Server formats; client still gets UTC for clock-driven re-renders         |
-| Relative time ("in 5 mins")           | `toDepartureRelativeString`                             | Server snapshot at response moment; client re-renders against UTC + clock |
 | Deviation label ("3 mins late")       | computed in mapper                                      | Server pre-computes                                                       |
 | Service alert dedup                   | mapper iterates legs                                    | Server dedupes once                                                       |
 | Park & ride availability math         | `totalSpots − sum(occupancy)`                           | Server computes                                                           |
@@ -377,6 +383,8 @@ Everything in this list is in an app mapper today and should leave the app:
 **Stays client-side (correctly):**
 
 - "Approaching" countdown (1 Hz tick from device clock)
+- Relative-to-clock strings: "in 5 mins", "3 mins ago", "Today" / "Tomorrow" — derived from `*_utc` fields against the
+  device clock at render time (the server never tries to ship these because they go stale within seconds)
 - `currentStopIndex` / progress bar (depends on local time)
 - Map camera bounds and zoom (depends on viewport)
 - "Past stop" greying (depends on local time)
