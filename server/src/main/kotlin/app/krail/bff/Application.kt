@@ -7,6 +7,7 @@ import app.krail.bff.plugins.configureErrorHandling
 import app.krail.bff.plugins.configureHTTP
 import app.krail.bff.plugins.configureMobileAnalytics
 import app.krail.bff.plugins.configureMonitoring
+import app.krail.bff.plugins.configureOriginTokenGate
 import app.krail.bff.plugins.configurePerIpRateLimit
 import app.krail.bff.plugins.configureSerialization
 import app.krail.bff.plugins.configureVersionGate
@@ -29,6 +30,7 @@ fun Application.module() {
     configureCompression()
     configureSerialization()
     configureAdministration()
+    configureOriginTokenGate()
     configureVersionGate()
     configurePerIpRateLimit()
     configureHTTP()
