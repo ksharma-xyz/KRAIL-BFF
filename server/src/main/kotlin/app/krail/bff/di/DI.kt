@@ -2,6 +2,7 @@ package app.krail.bff.di
 
 import app.krail.bff.client.nsw.NswClient
 import app.krail.bff.client.nsw.NswClientImpl
+import app.krail.bff.client.nsw.NswDailyBudget
 import app.krail.bff.config.NswConfig
 import com.codahale.metrics.MetricRegistry
 import io.ktor.client.HttpClient
@@ -139,9 +140,18 @@ private fun provideNswConfig(config: ApplicationConfig): NswConfig {
     )
 }
 
+private fun provideNswDailyBudget(config: ApplicationConfig): NswDailyBudget {
+    val limit = System.getenv("NSW_DAILY_BUDGET")?.toLongOrNull()
+        ?: config.propertyOrNull("nsw.dailyBudget")?.getString()?.toLongOrNull()
+        ?: 10_000L
+    logger.info("✅ NSW daily call budget: {}", limit)
+    return NswDailyBudget(limit = limit)
+}
+
 private fun configModule(appConfig: ApplicationConfig) = module {
     single<ApplicationConfig> { appConfig }
     single { provideNswConfig(appConfig) }
+    single { provideNswDailyBudget(appConfig) }
     single { MetricRegistry() }
 }
 
@@ -166,7 +176,7 @@ private fun httpClientModule() = module {
 }
 
 private fun clientModule() = module {
-    single<NswClient> { NswClientImpl(get(), get(), get()) }
+    single<NswClient> { NswClientImpl(get(), get(), get(), get()) }
 }
 
 fun Application.configureDI() {

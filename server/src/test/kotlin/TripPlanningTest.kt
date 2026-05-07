@@ -1,6 +1,7 @@
 package app.krail.bff
 
 import app.krail.bff.client.nsw.NswClientImpl
+import app.krail.bff.client.nsw.NswDailyBudget
 import app.krail.bff.config.NswConfig
 import com.codahale.metrics.MetricRegistry
 import io.ktor.client.*
@@ -43,7 +44,7 @@ class TripPlanningTest {
 
         val cfg = baseCfg()
         val metrics = MetricRegistry()
-        val client = NswClientImpl(http, cfg, metrics)
+        val client = NswClientImpl(http, cfg, metrics, NswDailyBudget(Long.MAX_VALUE))
 
         val response = kotlinx.coroutines.runBlocking {
             client.getTrip(
@@ -85,7 +86,7 @@ class TripPlanningTest {
 
         val cfg = baseCfg()
         val metrics = MetricRegistry()
-        val client = NswClientImpl(http, cfg, metrics)
+        val client = NswClientImpl(http, cfg, metrics, NswDailyBudget(Long.MAX_VALUE))
 
         kotlinx.coroutines.runBlocking {
             client.getTrip(
@@ -118,7 +119,7 @@ class TripPlanningTest {
 
         val cfg = baseCfg()
         val metrics = MetricRegistry()
-        val client = NswClientImpl(http, cfg, metrics)
+        val client = NswClientImpl(http, cfg, metrics, NswDailyBudget(Long.MAX_VALUE))
 
         try {
             kotlinx.coroutines.runBlocking {

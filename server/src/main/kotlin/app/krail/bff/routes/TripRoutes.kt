@@ -3,6 +3,7 @@ package app.krail.bff.routes
 import app.krail.bff.client.nsw.NswClient
 import app.krail.bff.model.TripRequestError
 import app.krail.bff.model.parseTripRequest
+import app.krail.bff.model.validate
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.response.*
@@ -110,38 +111,19 @@ private suspend fun ApplicationCall.handleTripJsonRequest(nswClient: NswClient) 
     val tripRequest = parseTripRequest()
         ?: return respond(HttpStatusCode.BadRequest, TripRequestError.MissingOrigin.toErrorResponse())
 
-    try {
-        val response = nswClient.getTrip(
-            originStopId = tripRequest.origin,
-            destinationStopId = tripRequest.destination,
-            depArr = tripRequest.depArr,
-            date = tripRequest.date,
-            time = tripRequest.time,
-            excludedModes = tripRequest.excludedModes
-        )
-
-        respond(HttpStatusCode.OK, response)
-    } catch (e: IllegalStateException) {
-        // NSW API returned an error status (4xx or 5xx)
-        respond(
-            HttpStatusCode.BadGateway,
-            mapOf(
-                "error" to "Bad Gateway",
-                "message" to "NSW Transport API error: ${e.message ?: "Unknown error"}",
-                "statusCode" to 502
-            )
-        )
-    } catch (e: Exception) {
-        // Other errors (network, timeout, parsing, etc.)
-        respond(
-            HttpStatusCode.InternalServerError,
-            mapOf(
-                "error" to "Internal Server Error",
-                "message" to "Failed to fetch trip data: ${e.message ?: "Unknown error"}",
-                "statusCode" to 500
-            )
-        )
+    tripRequest.validate()?.let { err ->
+        return respond(HttpStatusCode.fromValue(err.statusCode), err.toErrorResponse())
     }
+
+    val response = nswClient.getTrip(
+        originStopId = tripRequest.origin,
+        destinationStopId = tripRequest.destination,
+        depArr = tripRequest.depArr,
+        date = tripRequest.date,
+        time = tripRequest.time,
+        excludedModes = tripRequest.excludedModes,
+    )
+    respond(HttpStatusCode.OK, response)
 }
 
 /**
@@ -150,49 +132,22 @@ private suspend fun ApplicationCall.handleTripJsonRequest(nswClient: NswClient) 
  */
 suspend fun ApplicationCall.handleTripProtoRequest(nswClient: NswClient) {
     val tripRequest = parseTripRequest()
-        ?: return respond(
-            HttpStatusCode.BadRequest,
-            mapOf(
-                "error" to "Bad Request",
-                "message" to "Missing 'origin' or 'destination' parameter",
-                "statusCode" to 400
-            )
-        )
+        ?: return respond(HttpStatusCode.BadRequest, TripRequestError.MissingOrigin.toErrorResponse())
 
-    try {
-        val journeyList = nswClient.getTripProto(
-            originStopId = tripRequest.origin,
-            destinationStopId = tripRequest.destination,
-            depArr = tripRequest.depArr,
-            date = tripRequest.date,
-            time = tripRequest.time,
-            excludedModes = tripRequest.excludedModes
-        )
-
-        // Return protobuf binary data
-        respondBytes(
-            bytes = journeyList.encode(),
-            contentType = io.ktor.http.ContentType.Application.ProtoBuf
-        )
-    } catch (e: IllegalStateException) {
-        // NSW API returned an error status (4xx or 5xx)
-        respond(
-            HttpStatusCode.BadGateway,
-            mapOf(
-                "error" to "Bad Gateway",
-                "message" to "NSW Transport API error: ${e.message ?: "Unknown error"}",
-                "statusCode" to 502
-            )
-        )
-    } catch (e: Exception) {
-        // Other errors (network, timeout, parsing, etc.)
-        respond(
-            HttpStatusCode.InternalServerError,
-            mapOf(
-                "error" to "Internal Server Error",
-                "message" to "Failed to fetch trip data: ${e.message ?: "Unknown error"}",
-                "statusCode" to 500
-            )
-        )
+    tripRequest.validate()?.let { err ->
+        return respond(HttpStatusCode.fromValue(err.statusCode), err.toErrorResponse())
     }
+
+    val journeyList = nswClient.getTripProto(
+        originStopId = tripRequest.origin,
+        destinationStopId = tripRequest.destination,
+        depArr = tripRequest.depArr,
+        date = tripRequest.date,
+        time = tripRequest.time,
+        excludedModes = tripRequest.excludedModes,
+    )
+    respondBytes(
+        bytes = journeyList.encode(),
+        contentType = io.ktor.http.ContentType.Application.ProtoBuf,
+    )
 }

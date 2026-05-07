@@ -22,3 +22,11 @@ nsw.apiKey=your-api-key-here
 # Leave unset (or empty) for production-like behaviour (no cross-origin allowed).
 # bff.cors.origins=
 
+# Optional: minimum supported KRAIL app version (semver MAJOR.MINOR.PATCH).
+# BFF rejects requests with X-Krail-Version below this. Default 0.0.0 (no floor).
+# bff.minAppVersion=0.0.0
+
+# Optional: daily NSW upstream call budget (resets at Sydney midnight).
+# 0 = disabled. Default 10000.
+# nsw.dailyBudget=10000
+

@@ -13,9 +13,23 @@ nsw:
     readTimeoutMs: 10000
     breakerFailureThreshold: 3
     breakerResetTimeoutMs: 60000
+    # Per-day cap on NSW upstream calls; resets at Sydney midnight.
+    # When exceeded, BFF returns 503 service_temporarily_limited.
+    # Override via NSW_DAILY_BUDGET env var. 0 = disabled.
+    dailyBudget: 10000
 
 bff:
     cors:
         # Comma-separated origins. Empty = reject all cross-origin requests (production default).
         # Override per-environment via BFF_CORS_ORIGINS env var.
         origins: ""
+    # Server-side floor for X-Krail-Version. Requests with no header, malformed
+    # version, or version below this floor are rejected. Override via
+    # MIN_APP_VERSION env var. Format: MAJOR.MINOR.PATCH.
+    minAppVersion: "0.0.0"
+    perIp:
+        # Per-IP rate limit (token bucket). Override via BFF_PER_IP_RPS / BFF_PER_IP_BURST.
+        rps: 5
+        burst: 10
+        # Soft cap on tracked IPs in memory. Override via BFF_PER_IP_MAX.
+        maxIps: 10000
