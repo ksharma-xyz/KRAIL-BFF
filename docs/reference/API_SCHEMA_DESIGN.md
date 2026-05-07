@@ -72,7 +72,7 @@ A stop, with everything any screen ever shows about a stop.
 
 ```proto
 message StopRef {
-  string stop_id = 1;             // city-namespaced from day one: "NSW:200060"
+  string stop_id = 1;             // raw stop ID, e.g. "200060". City is implied by request context (see §6 Q1, Q7).
   string name = 2;                // disassembledName
   optional LatLng position = 3;   // omit when not needed (saves bytes for lists)
   optional string platform = 4;   // pre-extracted, mode-aware: "Platform 1" / "Stand A" / "Wharf 3"
@@ -87,25 +87,25 @@ A stop with a time. The shape needed by departure board, journey card stop list,
 ```proto
 message StopTime {
   StopRef stop = 1;
-  string scheduled_utc = 2;            // ISO-8601 UTC (the baseline)
+  string scheduled_utc = 2;            // ISO-8601 UTC (the baseline). Client formats per response timezone.
   optional string estimated_utc = 3;   // ISO-8601 UTC, only if real-time differs
-  string display_time = 4;             // pre-formatted "11:30 am" (estimated if present, else scheduled)
-  optional string scheduled_display_time = 5;  // "11:25 am", only if estimated differs (for strikethrough)
-  optional int32 delay_seconds = 6;    // signed; negative = early
-  bool is_real_time = 8;               // true iff estimated_utc present
+  optional int32 delay_seconds = 4;    // signed; negative = early
+  bool is_real_time = 5;               // true iff estimated_utc present
 }
 ```
 
-**Principle: clock-relative values are client-only; absolute display strings can come from the server.**
+**Principle: time formatting and clock-relative computation are *both* client-side. The server only ships UTC.**
 
-`display_time` ("11:30 am") is the absolute time the vehicle leaves — it doesn't change as the clock advances, so the
-server pre-formatting it (and handling AEST conversion) is a free win. `scheduled_utc` / `estimated_utc` come along so the
-client has the source of truth for any computation that *does* need to update on the clock — "in 5 mins", "departing
-now", "Today" vs "Tomorrow", the 1 Hz countdown on the track screen. The server never tries to ship those, because they
-go stale within seconds.
+The server never localises timestamps — no `display_time`, no AEST conversion, no `date_label`. It ships ISO-8601 UTC
+plus a top-level `timezone` field on each response (e.g. `"Australia/Sydney"`); the client formats per device locale and
+that timezone. This locks nothing into one region (multi-city ready) and means clock-tick-driven values ("in 5 mins",
+"3 mins ago", the 1 Hz countdown) compute naturally from the same UTC source of truth — no conflict between a
+server-snapshotted relative string and the live device clock.
 
-A practical consequence: there is no `time_to_departure` / `relative_time` / `date_label` field in any response shape.
-The client renders all of those from the UTC fields against the device clock.
+Practical consequences:
+- `StopTime` has no `display_time` / `scheduled_display_time` field.
+- No response has a `time_to_departure` / `relative_time` / `date_label` field.
+- Each response that contains timestamps carries `string timezone = 1` so the client knows which zone to format in.
 
 ### `Deviation`
 
@@ -161,7 +161,8 @@ Powers TimeTableScreen.
 
 ```proto
 message TripResultsResponse {
-  repeated JourneyCard journeys = 1;
+  string timezone = 1;                 // IANA zone, e.g. "Australia/Sydney"; client formats all UTC times in this zone
+  repeated JourneyCard journeys = 2;
 }
 
 message JourneyCard {
@@ -211,9 +212,10 @@ Powers the departure board.
 
 ```proto
 message DepartureBoardResponse {
-  StopRef stop = 1;                    // for header
-  repeated DepartureRow departures = 2;
-  string fetched_at = 3;               // ISO-8601 UTC; client uses for "data as of"
+  string timezone = 1;                 // IANA zone for client-side formatting
+  StopRef stop = 2;                    // for header
+  repeated DepartureRow departures = 3;
+  string fetched_at = 4;               // ISO-8601 UTC; client uses for "data as of"
 }
 
 message DepartureRow {
@@ -226,7 +228,8 @@ message DepartureRow {
 }
 ```
 
-No BFF cache — see §3 "Caching policy at indie scale". Client controls polling cadence (today: 30s while a stop card is expanded) via Firebase RC; server protects NSW with per-IP rate limit + daily budget.
+No BFF cache — see §3 "Caching policy at indie scale". Client controls polling cadence (today: 30s while a stop card is
+expanded) via Firebase RC; server protects NSW with per-IP rate limit + daily budget.
 
 ### 2.3 `GET /v1/parking/facilities`
 
@@ -253,21 +256,28 @@ Live-ish occupancy.
 
 ```proto
 message ParkingAvailabilityResponse {
-  string facility_id = 1;
-  int32 spots_total = 2;
-  int32 spots_available = 3;
-  int32 percentage_full = 4;           // 0–100
-  string fetched_at = 5;               // ISO-8601 UTC
-  string display_fetched_at = 6;       // "11:30 AM"
+  string timezone = 1;                 // IANA zone for client-side formatting of fetched_at
+  string facility_id = 2;
+  int32 spots_total = 3;
+  int32 spots_available = 4;
+  int32 percentage_full = 5;           // 0–100
+  string fetched_at = 6;               // ISO-8601 UTC
 }
 ```
 
-No BFF cache — see §3 "Caching policy at indie scale". The KRAIL app already cools down per Firebase RC (`NSW_PARK_RIDE_PEAK_TIME_COOLDOWN=120s`, `_NON_PEAK_TIME_COOLDOWN=600s`); BFF caching on top would diverge from the RC value and create stale-data confusion. Server protects NSW with per-IP rate limit + daily budget.
+No BFF cache — see §3 "Caching policy at indie scale". The KRAIL app already cools down per Firebase RC (
+`NSW_PARK_RIDE_PEAK_TIME_COOLDOWN=120s`, `_NON_PEAK_TIME_COOLDOWN=600s`); BFF caching on top would diverge from the RC
+value and create stale-data confusion. Server protects NSW with per-IP rate limit + daily budget.
 
 ### 2.5 Journey detail + live overlay (the future-merged Track + Map screen)
 
-The user has confirmed TrackTripScreen and JourneyMapScreen will merge into one screen. The right shape is **two
-endpoints** polled independently:
+> ⚠ **Provisional design.** Live tracking in KRAIL is not yet public; the feature isn't fully tested and may have
+> bugs. The shape below is what the current KRAIL implementation suggests is right; it may change once we test. Treat
+> this section as "current best plan" rather than a final contract — keep an open mind on response shape, polling
+> cadences, and the static/live split.
+
+The user has confirmed TrackTripScreen and JourneyMapScreen will merge into one screen. The right shape (today's best
+guess) is **two endpoints** polled independently:
 
 - Static journey detail: refreshed every ~60s while screen visible.
 - Live overlay (vehicle positions + delays): refreshed every ~30s while map subscribed.
@@ -398,25 +408,78 @@ When live tracking moves to BFF (deferred per Modernization Plan §Phase 2), thi
 populated by a single GTFS-RT poller per feed — one BFF poll feeds N clients. The 4-tier vehicle-matching logic and
 feed-name lookup-by-iconId currently in `GtfsRealtimeMatcher` move server-side.
 
-### 2.6 `GET /v1/data/stops/manifest` and `/v1/data/stops/{version}.pb`
+### 2.6 Reference datasets — stops + bus routes
 
-Already specified in [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) §1.1. The `.pb` proto:
+KRAIL search runs against **two** local datasets, not one:
 
+1. **Stops dataset** — for searching by stop name (e.g. "Wynyard"). Schema below.
+2. **Bus routes dataset** — for searching by route number (e.g. "333" → all directions of bus 333 with their stop sequences).
+   Already in KRAIL today as the bundled `NSW_BUSES_ROUTES.pb` (loaded into sandook tables `NswBusRouteGroups`,
+   `NswBusRouteVariants`, `NswBusTripOptions`, `NswBusTripStops` on app launch by `NswBusRoutesManager`). The BFF takes
+   over distribution so the app no longer has to ship a multi-MB blob in the binary.
+
+Both are distributed via the same manifest-redirect pattern (`GET /v1/data/{dataset}/manifest` → 302 to GitHub
+Releases). Two independent versions; the app can update either independently.
+
+#### Stops dataset
 ```proto
 message StopsDataset {
-  string version = 1;                  // semver or YYYYMMDD
+  string version = 1;                  // YYYYMMDD or semver tag
   string generated_at = 2;             // ISO-8601 UTC
   string attribution = 3;              // "Data © Transport for NSW (CC BY 4.0)"
   repeated DatasetStop stops = 4;
 }
 
 message DatasetStop {
-  string stop_id = 1;                  // "NSW:200060"
+  string stop_id = 1;                  // raw NSW stop ID, e.g. "200060". City implied by request context.
   string name = 2;                     // disassembledName
   optional LatLng position = 3;
   repeated TransportMode modes = 4;    // for filter chips
 }
 ```
+
+Endpoint: `GET /v1/data/stops/manifest` → 302 → GitHub Releases manifest JSON.
+
+#### Bus routes dataset
+The shape mirrors KRAIL's existing `NswBusRoute.proto` so the migration is mechanical (the build job emits the same
+proto; the app keeps its existing decoder + insert-into-sandook flow, just sourced from the BFF manifest instead of
+bundled assets):
+
+```proto
+message RoutesDataset {
+  string version = 1;
+  string generated_at = 2;
+  string attribution = 3;
+  repeated RouteGroup routes = 4;
+}
+
+message RouteGroup {
+  string route_short_name = 1;         // "333", "T1", "L1"
+  repeated RouteVariant variants = 2;
+}
+
+message RouteVariant {
+  string route_id = 1;                 // e.g. "2504_702"
+  string route_name = 2;               // "Blacktown to Seven Hills"
+  repeated TripOption trips = 3;
+}
+
+message TripOption {
+  string trip_id = 1;                  // representative trip for this direction
+  string headsign = 2;                 // "Blacktown to Seven Hills"
+  repeated string stop_ids = 3;        // ordered, references DatasetStop.stop_id
+}
+```
+
+Endpoint: `GET /v1/data/routes/manifest` → 302 → GitHub Releases manifest JSON.
+
+The build job (`server/src/main/kotlin/.../tools/BuildStopsDataset.kt` today; companion `BuildRoutesDataset.kt` to be
+added) reads GTFS, emits both datasets, publishes a single GitHub Release with `stops.pb`, `routes.pb`,
+`stops-manifest.json`, `routes-manifest.json`. App fetches whichever has changed.
+
+**Why two datasets, not one:** the route hierarchy (Group → Variant → Trip → Stops sequence) doesn't compress neatly
+into the per-stop record. Embedding `route_short_names` per stop loses the stop sequence per direction, which is what
+the search-by-route UX needs. Keep them separate; they're already separate in KRAIL's local DB and proto.
 
 ---
 
@@ -424,24 +487,25 @@ message DatasetStop {
 
 Everything in this list is in an app mapper today and should leave the app:
 
-| Computation                           | Today (KRAIL app)                                       | Tomorrow (KRAIL-BFF)                                                      |
-|---------------------------------------|---------------------------------------------------------|---------------------------------------------------------------------------|
-| Line color resolution                 | `NswTransportLine` lookup (~46 entries) → mode fallback | Server holds the table; ships hex per `TransitLine`                       |
-| Mode → icon name                      | `TransportMode.iconName` mapping                        | Server ships icon name                                                    |
-| Platform / Stand / Wharf extraction   | mode-specific regex in `DepartureMonitorMapper`         | Server runs regex once; ships clean string in `StopRef.platform`          |
-| Display text ("Burwood to Liverpool") | `resolveServiceDisplayText`                             | Server resolves once; ships as `display_text`                             |
-| HH:MM AEST formatting                 | `utcToLocalDateTimeAEST().toHHMM()`                     | Server formats; client still gets UTC for clock-driven re-renders         |
-| Deviation label ("3 mins late")       | computed in mapper                                      | Server pre-computes                                                       |
-| Service alert dedup                   | mapper iterates legs                                    | Server dedupes once                                                       |
-| Park & ride availability math         | `totalSpots − sum(occupancy)`                           | Server computes                                                           |
-| GTFS-RT vehicle ↔ leg matching        | `GtfsRealtimeMatcher` 4-tier match                      | Server matches; ships only the matched vehicle per leg                    |
-| Feed selection (iconId → feed name)   | `feedNamesForTransportation`                            | Server-side routing                                                       |
+| Computation                           | Today (KRAIL app)                                       | Tomorrow (KRAIL-BFF)                                              |
+|---------------------------------------|---------------------------------------------------------|-------------------------------------------------------------------|
+| Line color resolution                 | `NswTransportLine` lookup (~46 entries) → mode fallback | Server holds the table; ships hex per `TransitLine`               |
+| Mode → icon name                      | `TransportMode.iconName` mapping                        | Server ships icon name                                            |
+| Platform / Stand / Wharf extraction   | mode-specific regex in `DepartureMonitorMapper`         | Server runs regex once; ships clean string in `StopRef.platform`  |
+| Display text ("Burwood to Liverpool") | `resolveServiceDisplayText`                             | Server resolves once; ships as `display_text`                     |
+| Deviation label ("3 mins late")       | computed in mapper                                      | Server pre-computes (English-only — see §6 Q8)                    |
+| Service alert dedup                   | mapper iterates legs                                    | Server dedupes once                                               |
+| Park & ride availability math         | `totalSpots − sum(occupancy)`                           | Server computes                                                   |
+| GTFS-RT vehicle ↔ leg matching        | `GtfsRealtimeMatcher` 4-tier match                      | Server matches; ships only the matched vehicle per leg            |
+| Feed selection (iconId → feed name)   | `feedNamesForTransportation`                            | Server-side routing                                               |
 
 **Stays client-side (correctly):**
 
 - "Approaching" countdown (1 Hz tick from device clock)
 - Relative-to-clock strings: "in 5 mins", "3 mins ago", "Today" / "Tomorrow" — derived from `*_utc` fields against the
   device clock at render time (the server never tries to ship these because they go stale within seconds)
+- **Absolute time formatting** ("11:30 am") — derived from `*_utc` against the response's `timezone` field. Server never
+  pre-formats times; client owns locale + timezone (per §6 Q5)
 - `currentStopIndex` / progress bar (depends on local time)
 - Map camera bounds and zoom (depends on viewport)
 - "Past stop" greying (depends on local time)
@@ -577,27 +641,195 @@ Rough net: 12 mappers → 4 (rendering glue + local search). The NSW response mo
 1. **Stops dataset** — first; it's the manifest pattern, no auth, removes a build-time data dep.
 2. **Departure board** — small payload, easy cohort comparison.
 3. **Park & ride availability + facilities list** — small endpoints, tiny risk.
-4. **Trip results** — implements `/v1/screens/trip-results`. The existing `/v1/tp/trip` and `/api/v1/trip/plan` are local-dev passthrough scaffolding (never publicly deployed) and get retired in the same PR.
+4. **Trip results** — implements `/v1/screens/trip-results`. The existing `/v1/tp/trip` and `/api/v1/trip/plan` are
+   local-dev passthrough scaffolding (never publicly deployed) and get retired in the same PR.
 5. **Journey + journey/live** — last; we'll have the rhythm by then for the most complex one.
 
 ---
 
-## §6. Open questions for you
+## §6. Decisions and open questions
 
-Decisions worth making before I start writing proto files:
+The first six are settled (decisions captured below the original recommendation). The last five (Q7–Q11) surfaced during
+review and still need answers before the schema is fully locked.
 
-1. **`stop_id` namespacing** — start with `"NSW:200060"` from day one, or keep raw `"200060"` and namespace later?
-   Cheaper to namespace now if `sandook` already stores stop IDs (avoids a future migration).
-2. **Proto repo home** — separate `krail-api-proto` (recommended), git submodule inside KRAIL-BFF, or vendored copy?
-   Separate repo is the cleanest long-term choice; the only friction is "one more repo to manage."
-3. **Pre-formatted strings on the wire** — keep both `display_time` and `scheduled_utc`, or trust the client to format
-   from UTC always? I'd keep both for now (cheap bytes, flexible client).
-4. **`MapBundle` inside `JourneyResponse`** — bundle the polyline+stops with the journey, or fetch separately on first
-   map open? Bundle for now; split later if payload size becomes a concern.
-5. **Timezone field** — bake "AEST" into pre-formatted strings (current plan), or include a `timezone` field per
-   response so the proto is multi-city-ready? AEST-only for now; add the field in a minor bump when city #2 is real.
-6. **Versioning** — package-level SemVer, or per-message field versioning? Package SemVer at indie scale; revisit if
-   multiple consumers diverge.
+### Q1. `stop_id` namespacing — DECIDED: keep raw IDs
+
+**Recommendation given**: prefix `"NSW:200060"` from day one to avoid future migration.
+
+**Decision**: keep raw IDs (`"200060"`). KRAIL's `sandook` already stores them this way; multi-city support will use
+**separate per-city tables in `sandook`**, with the city implied by the table. The BFF wire format mirrors that — city is
+implied by request context, not a field prefix.
+
+**Implications**:
+- `StopRef.stop_id` and `DatasetStop.stop_id` carry raw IDs; comments updated.
+- Multi-city dispatch becomes its own question — see Q7 below.
+- The `tools/BuildStopsDataset.kt` "NSW:" prefix line needs to be removed when the routes/stops dataset workflow runs.
+
+### Q2. Proto repo home — DECIDED: separate `krail-api-proto`
+
+**Recommendation given**: separate repo + git submodule in both consumers.
+
+**Decision**: separate `krail-api-proto` repo. Whenever the proto changes, an automated PR is exported to KRAIL-BFF
+and KRAIL.
+
+**Implications & TODO**:
+- Stand up `krail-api-proto` as a public repo with `proto/core/*.proto` + `proto/api/*.proto`.
+- Set up the export-PR automation: a workflow on `krail-api-proto` that on tag/release runs against KRAIL-BFF and KRAIL,
+  bumps the submodule pointer, opens a PR to each. Keep the changelog.
+- Versioning: SemVer at the package level (see Q6).
+- Document the contributor flow in the new repo's README ("change a `.proto` here → PR auto-opens in consumers → reviewers
+  there decide if they pin to the new version").
+
+### Q3. Pre-formatted display strings on the wire — DECIDED: client formats from UTC always
+
+**Recommendation given**: keep both `display_time` and `scheduled_utc` (cheap bytes, flexible client).
+
+**Decision**: server **never** localises timestamps. Client formats from UTC plus the response's `timezone` field, every
+time. Field-level comments call this out.
+
+**Implications**:
+- `StopTime.display_time` and `StopTime.scheduled_display_time` are removed (already done).
+- `ParkingAvailabilityResponse.display_fetched_at` removed.
+- `WalkSegment.display_duration` and `Deviation.label` are *durations* / *deltas*, not localised timestamps; they stay
+  for v1 but see Q8 about future localisation.
+- §3 pre-compute table loses the "HH:MM AEST formatting" row.
+- `*_utc` fields gain explicit comment that the client formats per response timezone.
+
+### Q4. `MapBundle` inside `JourneyResponse` — DECIDED: bundle, with payload monitoring
+
+**Recommendation given**: bundle the polyline + stops with the static journey response.
+
+**Decision**: bundle. Opening the map is a frequent action; bundling means the static-detail call already has everything
+needed for the map view, no second round-trip on first open.
+
+**Implications & TODO**:
+- Add server-side observability for payload size on `/v1/journey/{key}` — histogram metric `bff.journey.response_bytes`.
+- Add an alert rule (when monitoring lands): trigger if p95 response size exceeds a threshold (e.g. 50 KB) so we know if
+  the bundle is getting too big for typical journeys (long routes with many polyline points blow this up — see Q9).
+- Plan a path to split if needed: `MapBundle` could become its own endpoint (`/v1/journey/{key}/map`) without breaking
+  clients — they'd just call it on map-open instead of reading from the bundled response. Keep the field `optional` in
+  the proto to allow this future evolution without a wire break.
+
+### Q5. Timezone field on responses — DECIDED: every response carries `timezone`
+
+**Recommendation given**: AEST baked into pre-formatted strings; add the field when city #2 is real.
+
+**Decision**: include `timezone` from day one. App always formats locally; server never localises.
+
+**Implications**:
+- Every response shape that carries timestamps has `string timezone = 1;` (IANA zone name like `"Australia/Sydney"`).
+- The KRAIL app's existing `DateTimeHelper.utcToLocalDateTimeAEST` becomes parameterised on the response timezone.
+- No measurable wire cost (~20 bytes per response).
+
+### Q6. Versioning — DECIDED: package-level SemVer
+
+**Recommendation given**: package-level SemVer; revisit if consumers diverge.
+
+**Decision**: package-level SemVer. The user wasn't sure of the trade-off; documenting it here:
+
+**The trade-off, made explicit**:
+
+| Option | Pros | Cons |
+|---|---|---|
+| **Package SemVer** (chosen) | One number to think about; matches how libraries are published; works with submodule pinning. | A breaking change in *one* message bumps the whole package's major version, even though most consumers don't use that message. |
+| **Per-message field versioning** (alternative) | Each message evolves independently; consumers only feel breakage where they actually use the changed message. | Much more book-keeping; no clean way to publish a "single version" of the contract; common in big ecosystems (Google, Stripe) where the proto registry has hundreds of services. |
+
+At indie scale with one server + one app consumer, package SemVer is right. Revisit only if a third consumer joins
+*and* the divergence becomes painful.
+
+**Implications**:
+- `krail-api-proto/version.txt` follows SemVer.
+- Adding a new field to an existing message → minor bump.
+- Adding a new message → minor bump.
+- Removing or renaming a field → major bump (avoid; if needed, deprecate first).
+
+---
+
+### Q7. Multi-city request dispatch — OPEN
+
+Q1 chose raw stop IDs with city implied by context. So how does the BFF know the city of a request?
+
+**Options**:
+- **Default to NSW only** (do nothing for now). Fine until city #2 is real.
+- **Path prefix**: `/v1/nsw/stops/{id}/departures`, `/v1/mel/stops/{id}/departures`. Clean URLs; routing logic obvious;
+  natural fit for OpenAPI docs.
+- **Query param**: `?city=nsw`. Easy to add; less obvious in URLs.
+- **Header**: `X-Krail-City: nsw`. Hidden from URL bar; harder to debug.
+
+**Recommendation**: stay default-NSW for v1. When city #2 becomes real, add path prefix (`/v1/{city}/...`) and version
+the new shape as `/v2/`. This matches the existing v1/v2 NSW versioning we already pass through for GTFS-RT.
+
+### Q8. Localisation of non-time English strings — OPEN
+
+Q5 settled timestamps (client formats). What about other server-formatted English strings?
+
+- `Deviation.label` ("3 mins late") — generated by the BFF.
+- `WalkSegment.display_duration` ("5 mins") — generated by the BFF.
+- `TransitLeg.display_text` ("Burwood to Liverpool") — comes from NSW (`disassembledName` / `description`); not invented
+  by us, but English.
+
+**Options**:
+- **Pre-format on server (current)**: simple; works for English-only KRAIL.
+- **Ship structured + client formats**: drop `Deviation.label`, ship `Deviation.minutes` only; drop
+  `WalkSegment.display_duration`, ship `duration_seconds` only. Client formats per locale.
+
+**Recommendation**: keep pre-formatted strings for v1 (English-only KRAIL today), but mark this as the second concern to
+revisit alongside Q5 if/when localisation lands. Both `Deviation.label` and `display_duration` already have a structured
+sibling (`minutes`, `duration_seconds`) so the wire change to drop them later is non-breaking.
+
+### Q9. Map polyline simplification — OPEN
+
+NSW returns full lat/lon polylines for routes (`legs[].coords`). A long suburban-rail trip can be 1000+ points, ~30 KB
+just for one leg's polyline. Bundled in `JourneyResponse.MapBundle` (per Q4), this can dominate payload.
+
+**Options**:
+- **Pass through as-is**: simplest; large payload risk.
+- **Server-side simplify (Douglas-Peucker)**: ~80–95% point reduction with imperceptible visual loss at typical zoom
+  levels. Cheap to compute server-side once per journey response.
+- **Encode as polyline string** (Google's `polyline5` format): same number of points but ~6× tighter encoding than
+  repeated `LatLng` messages. Standard in mapping APIs.
+
+**Recommendation**: combine both. Apply Douglas-Peucker with a tolerance like 5 m, and encode the result as a polyline5
+string in the proto:
+```proto
+message MapLeg {
+  string leg_id = 1;
+  TransitLine line = 2;
+  string encoded_path = 3;             // polyline5; tolerate-5m simplified
+}
+```
+Defer until payload monitoring (Q4) shows actual sizes — if a typical bundle stays under 20 KB, simplify is premature.
+
+### Q10. Service alert content sanitisation — OPEN
+
+NSW returns alert `subtitle` and `content` as strings. Spot checks suggest they sometimes contain HTML
+(`<a href="...">`, `<br>`, etc).
+
+**Options**:
+- **Pass through**: client must render carefully or the markup leaks. XSS not a concern for native apps but rendering
+  may be ugly.
+- **Strip HTML**: convert to plain text; loses links.
+- **Sanitise**: keep a safe subset (e.g. `<a>`, `<br>`, `<b>`, `<i>`); use jsoup-like Whitelist.
+
+**Recommendation**: sanitise on the BFF before shipping. Servers shouldn't ship rich text the client can't trust to
+render uniformly across platforms. Keep simple: text + extracted URLs as a separate `repeated string urls = N;` field.
+Or for v1 just strip everything and ship plain text. Decide.
+
+### Q11. Routes dataset shape — OPEN (provisional Yes)
+
+§2.6 introduces a `RoutesDataset` proto modeled on KRAIL's existing `NswBusRoute.proto`. Two questions:
+
+1. **Reuse the NSW shape** as-is (`NswBusRouteList` → `RoutesDataset`, `NswBusRouteGroup` → `RouteGroup`, etc.) or
+   redesign for the multi-city plan? The existing schema works and the migration is mechanical; redesigning costs
+   nothing functional but lets us bake in `transport_mode` per group up front (today's proto only carries
+   `transportMode = "Buses"` at the top level).
+2. **Routes dataset versioning vs stops dataset versioning** — separate manifests so they can update independently?
+   Yes per the design above. Confirm.
+
+**Recommendation**: redesign mildly to add `TransportMode mode = 2` per `RouteGroup` so trains / metro / ferries fit the
+same schema (KRAIL today only ships bus routes; if we generalise, this matters). Keep separate manifests.
+
+---
 
 ---
 
