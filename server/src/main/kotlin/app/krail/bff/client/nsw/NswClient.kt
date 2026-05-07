@@ -6,6 +6,7 @@ import app.krail.bff.mapper.JourneyListMapper
 import app.krail.bff.proto.JourneyList
 import com.codahale.metrics.MetricRegistry
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
@@ -59,6 +60,18 @@ interface NswClient {
 
     /** Park & ride facility list (omit facilityId) or single facility detail. Returns raw NSW JSON. */
     suspend fun getCarparkRaw(facilityId: String? = null): String
+
+    /**
+     * GTFS-Realtime feed (trip updates / alerts) — `/v{version}/gtfs/realtime/{feed}`.
+     * Returns raw protobuf bytes; client decodes with the standard GTFS-RT schema.
+     */
+    suspend fun getGtfsRealtimeRaw(version: Int, feed: String): ByteArray
+
+    /**
+     * GTFS-Realtime vehicle positions — `/v2/gtfs/vehiclepos/{feed}`.
+     * Returns raw protobuf bytes.
+     */
+    suspend fun getVehiclePositionsRaw(feed: String): ByteArray
 }
 
 class NswClientImpl(
@@ -90,6 +103,10 @@ class NswClientImpl(
     private val departuresError = metrics.counter("nsw.departures.error")
     private val carparkTimer = metrics.timer("nsw.carpark.duration")
     private val carparkError = metrics.counter("nsw.carpark.error")
+
+    // GTFS-RT metrics
+    private val gtfsRtTimer = metrics.timer("nsw.gtfsrt.duration")
+    private val gtfsRtError = metrics.counter("nsw.gtfsrt.error")
 
     override suspend fun healthCheck(): Boolean {
         val now = System.currentTimeMillis()
@@ -375,6 +392,46 @@ class NswClientImpl(
         } catch (e: Throwable) {
             departuresError.inc()
             logger.error("Failed to fetch departures for stop {}", stopId, e)
+            throw e
+        } finally {
+            ctx.stop()
+        }
+    }
+
+    override suspend fun getGtfsRealtimeRaw(version: Int, feed: String): ByteArray {
+        return fetchGtfsRtBytes(path = "/v$version/gtfs/realtime/$feed", what = "realtime/$feed")
+    }
+
+    override suspend fun getVehiclePositionsRaw(feed: String): ByteArray {
+        return fetchGtfsRtBytes(path = "/v2/gtfs/vehiclepos/$feed", what = "vehiclepos/$feed")
+    }
+
+    private suspend fun fetchGtfsRtBytes(path: String, what: String): ByteArray {
+        if (!dailyBudget.tryAcquire()) {
+            gtfsRtError.inc()
+            throw NswBudgetExceededException()
+        }
+        val ctx = gtfsRtTimer.time()
+        return try {
+            val response: HttpResponse = http.get("${config.baseUrl.trimEnd('/')}$path") {
+                headers.append("Authorization", "apikey ${config.apiKey}")
+            }
+            if (!response.status.isSuccess()) {
+                gtfsRtError.inc()
+                val body = response.bodyAsText()
+                throw NswUpstreamException(
+                    statusCode = response.status.value,
+                    message = "NSW GTFS-RT $what returned ${response.status.value} ${response.status.description}",
+                    responseBody = body,
+                )
+            }
+            // Read raw protobuf bytes — never log content (binary, large).
+            response.body<ByteArray>()
+        } catch (e: NswException) {
+            throw e
+        } catch (e: Throwable) {
+            gtfsRtError.inc()
+            logger.error("Failed to fetch GTFS-RT {}", what, e)
             throw e
         } finally {
             ctx.stop()

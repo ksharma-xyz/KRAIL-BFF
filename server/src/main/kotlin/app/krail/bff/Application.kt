@@ -14,6 +14,7 @@ import app.krail.bff.plugins.configureVersionGate
 import app.krail.bff.routes.configureAdministration
 import app.krail.bff.routes.configureDataRoutes
 import app.krail.bff.routes.configureDepartureRoutes
+import app.krail.bff.routes.configureGtfsRoutes
 import app.krail.bff.routes.configureParkingRoutes
 import app.krail.bff.routes.configureRouting
 import app.krail.bff.routes.configureTripRoutes
@@ -41,5 +42,6 @@ fun Application.module() {
     configureTripRoutes()
     configureDepartureRoutes()
     configureParkingRoutes()
+    configureGtfsRoutes()
     configureDataRoutes()
 }
