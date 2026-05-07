@@ -272,6 +272,63 @@ endpoints** polled independently:
 - Static journey detail: refreshed every ~60s while screen visible.
 - Live overlay (vehicle positions + delays): refreshed every ~30s while map subscribed.
 
+#### Tracking deep link — shrink from ~300–530 chars to ~150–200
+
+Today the KRAIL app encodes the entire journey state into the deep link
+(`feature/track/state/.../TripDeepLinkEncoder.kt`):
+
+```
+https://ksharma-xyz.github.io/trip?d=<base64url(JSON of TripDeepLink)>
+```
+
+`TripDeepLink` carries: from/to stop IDs + names, departure UTC, every leg's `transportationId` and product class,
+excluded product classes. JSON-encoded, base64url-encoded, embedded in `?d=`. Real-world payload is **300–530 chars**
+depending on leg count and station name length.
+
+The reason it's that big today: the app must recover the journey *without server help* — names for first-paint UI before
+the API call returns, leg IDs for strict matching against NSW's response (so a re-search returns the same journey, not a
+sibling departure), excluded modes so a re-search filters identically.
+
+With the BFF in the loop, all the recipient screen actually needs to find the journey is **(origin, destination,
+departure_utc)** — that's enough for the existing fallback matcher in `TripResponseMapper.findMatchingJourney`
+(±60s tolerance + same destination). Leg IDs are a *strict-matching hint*; names are a *first-paint nicety*.
+
+**Recommended new format** (used going forward):
+
+```
+https://ksharma-xyz.github.io/trip?o=10101100&d=10102099&dep=2025-04-19T22:26:00Z&fn=Seven%20Hills&tn=Wynyard
+```
+
+- `o`, `d` — origin / destination stop IDs (5–7 chars each)
+- `dep` — departure UTC (24 chars, fixed)
+- `fn`, `tn` — short station names for first-paint, *optional*; can be dropped for absolute minimum
+- `legs` — *optional*, comma-separated `transportationId` list; only included for confidence on noisy days
+
+Total ~150–200 chars typical, ~110 with names dropped. **50–65% smaller** than today.
+
+**Dual-format support** (the user's instinct here is right):
+
+The KRAIL app should *parse* both formats indefinitely — old deep links shared on social or saved by users keep working
+even after the BFF flag flips:
+
+```kotlin
+fun decode(url: Url): TripDeepLink? = when {
+    url.parameters["d"] != null -> decodeLegacy(url.parameters["d"]!!)   // base64 JSON
+    url.parameters["o"] != null -> decodeCompact(url.parameters)          // new
+    else -> null
+}
+```
+
+The app should *generate* only the new format (after the BFF flag is on for tracking). The `BFF_USE_FOR_TRIP` flag (or a
+new `BFF_USE_FOR_TRACKING` if you want decoupled rollouts) gates which encoder runs.
+
+**What if the BFF is down when an old or new deep link is opened?** Either format degrades the same way: the app falls
+back to its current "call NSW directly with these IDs and recover via `findMatchingJourney`" path. The new format
+carries the same minimum identifiers (origin, destination, departure_utc) the fallback needs — server presence is not
+required to *interpret* the link, only to optimise the lookup.
+
+App-side guidance for this migration is captured in [KRAIL_INTEGRATION.md](KRAIL_INTEGRATION.md) §5.5 and §11.
+
 This matches the existing `TrackingConfig` cadence and lets the client poll each at its natural rhythm without coupling.
 
 #### 2.5a `GET /v1/journey/{journey_key}` — static detail

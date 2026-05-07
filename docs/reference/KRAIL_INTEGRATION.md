@@ -277,6 +277,63 @@ data class StopsManifest(
 
 Trigger: on cold start + every 24h. The bundled `.pb` stays for now as a fallback for first launch / offline / flag-off case. Delete it from the build only after the BFF dataset is reliable in production.
 
+### 5.7 Tracking deep link — switch to compact format
+
+**Files:**
+- `feature/track/state/.../TripDeepLinkEncoder.kt`
+- `feature/track/state/.../TripDeepLink.kt`
+- `feature/track/state/.../TripDeepLinkDecoder.kt` (or wherever the decode side lives)
+
+**Today** the deep link is base64url-encoded JSON of the full `TripDeepLink`: from/to IDs + names, departure UTC, every leg's `transportationId` and product class, excluded modes. Real payload is 300–530 chars.
+
+**Going forward**, encode only what the journey-recovery flow actually needs:
+
+```
+https://ksharma-xyz.github.io/trip?o=10101100&d=10102099&dep=2025-04-19T22:26:00Z&fn=Seven%20Hills&tn=Wynyard
+```
+
+Total ~150–200 chars. See [API_SCHEMA_DESIGN.md §2.5 "Tracking deep link"](API_SCHEMA_DESIGN.md) for the rationale.
+
+**Implementation:**
+
+1. **Add a `decodeCompact()`** alongside the existing `decodeLegacy()` (which is today's base64-JSON decoder). Detect by parameter presence:
+   ```kotlin
+   fun TripDeepLinkDecoder.decode(url: Url): TripDeepLink? = when {
+       url.parameters["d"] != null -> decodeLegacy(url.parameters["d"]!!)
+       url.parameters["o"] != null -> decodeCompact(url.parameters)
+       else -> null
+   }
+
+   private fun decodeCompact(params: Parameters): TripDeepLink = TripDeepLink(
+       fromStopId = params["o"]!!,
+       toStopId = params["d"]!!,
+       fromStopName = params["fn"].orEmpty(),
+       toStopName = params["tn"].orEmpty(),
+       departureUtcDateTime = params["dep"]!!,
+       legs = params["legs"]?.split(',')?.mapNotNull { /* parse "tid:cls" pairs */ } ?: emptyList(),
+       excludedProductClasses = params["excl"]?.split(',')?.mapNotNull { it.toIntOrNull() } ?: emptyList(),
+   )
+   ```
+
+2. **Add a `encodeCompact()`** alongside the existing `encode()`. Behind `BFF_USE_FOR_TRIP` (or a dedicated `BFF_USE_FOR_TRACKING_DEEPLINK`), pick the encoder:
+   ```kotlin
+   fun TripDeepLinkEncoder.encode(deepLink: TripDeepLink): String =
+       if (flags.boolean(BFF_USE_FOR_TRACKING_DEEPLINK)) encodeCompact(deepLink) else encodeLegacy(deepLink)
+   ```
+
+3. **Parse both formats forever.** Old deep links shared on social or saved by users will keep arriving even years after the flag is at 100%. Decoder must support both.
+
+4. **Generate only the new format once flag is on.** After 2 weeks at 100% rollout, you can delete `encodeLegacy()` (but keep `decodeLegacy()`).
+
+**What happens if the BFF is down?** Either format degrades the same way — the app falls back to its current "call NSW directly with the minimum identifiers and recover via `findMatchingJourney`" path. The compact format carries the same minimum (origin, destination, departure_utc) the fallback needs.
+
+**Tests** to add in `TripDeepLinkDecoderTest`:
+- Decode legacy URL (existing test) — keep passing.
+- Decode compact URL with all params.
+- Decode compact URL without optional `fn`/`tn`/`legs`/`excl`.
+- Decode compact URL with malformed `dep` → returns null.
+- Round-trip `encodeCompact()` → `decodeCompact()`.
+
 ---
 
 ## 6. Compare-mode testing (do this before flipping any flag)
@@ -376,6 +433,8 @@ These come up during implementation. Decisions are yours to make; the BFF suppor
 | `feature/departures/network/.../RealDeparturesService.kt` | Branch on `BFF_USE_FOR_DEPARTURES` |
 | `feature/park-ride/network/.../RealParkRideService.kt` | Branch on `BFF_USE_FOR_PARKING` |
 | `feature/track/network/.../RealGtfsRealtimeService.kt` | Branch on `BFF_USE_FOR_GTFS_REALTIME` |
+| `feature/track/state/.../TripDeepLinkEncoder.kt` | Add `encodeCompact()`; pick via `BFF_USE_FOR_TRACKING_DEEPLINK` |
+| `feature/track/state/.../TripDeepLinkDecoder.kt` | Add `decodeCompact()`; parse both legacy + compact forever |
 | `gtfs-static/.../RealNswGtfsService.kt` | Add `maybeUpdateStopsDataset()` triggered on cold start |
 | `local.properties` (your dev workstation) | Add `krail.bff.baseUrl=http://10.0.2.2:8080` |
 | `app/src/main/res/xml/network_security_config.xml` | Already allows 10.0.2.2 cleartext for emulator dev |
