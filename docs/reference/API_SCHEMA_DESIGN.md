@@ -226,7 +226,7 @@ message DepartureRow {
 }
 ```
 
-BFF cache: 15s in-memory; client polls 30s.
+No BFF cache — see §3 "Caching policy at indie scale". Client controls polling cadence (today: 30s while a stop card is expanded) via Firebase RC; server protects NSW with per-IP rate limit + daily budget.
 
 ### 2.3 `GET /v1/parking/facilities`
 
@@ -262,7 +262,7 @@ message ParkingAvailabilityResponse {
 }
 ```
 
-BFF cache: 60s peak / 300s off-peak (tighter than NSW's documented 120s/600s cooldowns so we never miss a refresh).
+No BFF cache — see §3 "Caching policy at indie scale". The KRAIL app already cools down per Firebase RC (`NSW_PARK_RIDE_PEAK_TIME_COOLDOWN=120s`, `_NON_PEAK_TIME_COOLDOWN=600s`); BFF caching on top would diverge from the RC value and create stale-data confusion. Server protects NSW with per-IP rate limit + daily budget.
 
 ### 2.5 Journey detail + live overlay (the future-merged Track + Map screen)
 
@@ -389,6 +389,27 @@ Everything in this list is in an app mapper today and should leave the app:
 - Map camera bounds and zoom (depends on viewport)
 - "Past stop" greying (depends on local time)
 - Theme / dark-mode adaption of color hex (client owns the theme — the hex is the input)
+
+### Caching policy at indie scale
+
+**The BFF doesn't cache upstream responses.** Two protections are sufficient at this user count:
+
+1. **App-side polling cadence** — the KRAIL app already throttles its own polling via Firebase Remote Config. Today
+   that's `NSW_PARK_RIDE_PEAK_TIME_COOLDOWN=120s` / `NON_PEAK_TIME_COOLDOWN=600s` for parking; departures poll every
+   30s while a card is expanded. These flags are tunable without an app release.
+2. **BFF defences** — per-IP rate limit (5 RPS / 10 burst) catches a single misbehaving client; the daily NSW call
+   budget (10 000/day, Sydney midnight reset) catches aggregate misbehaviour.
+
+Why no cache: at ~tens of paid users, concurrent overlap on the same stop / facility is rare. The win from caching
+(saving NSW calls when two clients hit the same key in the cache window) is small, while the cost (extra state, TTL
+tuning, staleness debugging, divergence from the RC-controlled cooldown) is real.
+
+Threshold to revisit: **~500+ paid users with concurrent activity**. At that point a 15s departures cache pays off
+because popular stops (Central, Town Hall, Wynyard) get hit by many clients simultaneously. Parking probably never
+needs a cache — the cooldowns are already long enough.
+
+When BFF caching does land, the client's cooldown stays the source of truth — server cache TTL is set *shorter* than
+client cooldown so the server never returns data the client expects to be fresher.
 
 ---
 
