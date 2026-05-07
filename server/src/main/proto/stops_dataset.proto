@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package app.krail.bff.proto.data;
+
+option java_package = "app.krail.bff.proto.data";
+option java_multiple_files = true;
+
+// Geographic point.
+message LatLng {
+  double lat = 1;
+  double lon = 2;
+}
+
+// Transport modes. Numeric values match NSW productClass to keep cross-referencing
+// with NSW Open Data trivial; WALKING = 99 is a KRAIL convention for non-transit legs.
+enum TransportMode {
+  TRANSPORT_MODE_UNSPECIFIED = 0;
+  TRAIN = 1;
+  METRO = 2;
+  LIGHT_RAIL = 4;
+  BUS = 5;
+  COACH = 7;
+  FERRY = 9;
+  SCHOOL_BUS = 11;
+  WALKING = 99;
+}
+
+// Versioned stops dataset distributed via GitHub Releases. The KRAIL app
+// downloads on cold start (and every 24h) when the manifest version changes,
+// and runs stop search locally against this file.
+message StopsDataset {
+  string version = 1;          // YYYYMMDD or semver tag
+  string generated_at = 2;     // ISO-8601 UTC
+  string attribution = 3;      // CC BY 4.0 attribution text
+  repeated DatasetStop stops = 4;
+}
+
+message DatasetStop {
+  string stop_id = 1;          // city-namespaced from day one: "NSW:200060"
+  string name = 2;             // disassembledName / GTFS stop_name
+  optional LatLng position = 3;
+  repeated TransportMode modes = 4;
+}

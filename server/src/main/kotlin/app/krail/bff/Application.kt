@@ -12,6 +12,7 @@ import app.krail.bff.plugins.configurePerIpRateLimit
 import app.krail.bff.plugins.configureSerialization
 import app.krail.bff.plugins.configureVersionGate
 import app.krail.bff.routes.configureAdministration
+import app.krail.bff.routes.configureDataRoutes
 import app.krail.bff.routes.configureRouting
 import app.krail.bff.routes.configureTripRoutes
 import io.ktor.server.application.*
@@ -36,4 +37,5 @@ fun Application.module() {
     configureHTTP()
     configureRouting()
     configureTripRoutes()
+    configureDataRoutes()
 }
