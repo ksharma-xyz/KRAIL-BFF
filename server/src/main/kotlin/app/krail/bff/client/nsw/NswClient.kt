@@ -136,7 +136,6 @@ class NswClientImpl(
             logger.info("   Time: {}", time ?: "not set")
             logger.info("   Excluded Modes: {}", excludedModes)
             logger.info("   Base URL: {}", baseUrl)
-            logger.info("   API Key: {}***", config.apiKey.take(8))
 
             val response = http.get(baseUrl) {
                 // Add Authorization header for NSW Transport API
@@ -180,11 +179,11 @@ class NswClientImpl(
             // Log the actual request URL from the response
             logger.info("📍 Complete Request URL: {}", response.call.request.url.toString())
 
-            // Log all request headers (masking API key)
+            // Log request headers; Authorization fully redacted (public repo + public CI logs).
             logger.info("📤 REQUEST HEADERS:")
             response.call.request.headers.entries().forEach { entry ->
                 val displayValue = if (entry.key.equals("Authorization", ignoreCase = true)) {
-                    entry.value.joinToString(", ") { "apikey ${config.apiKey.take(8)}***" }
+                    "[REDACTED]"
                 } else {
                     entry.value.joinToString(", ")
                 }
@@ -213,11 +212,11 @@ class NswClientImpl(
             }
             logger.info("=" .repeat(80))
 
-            // Check HTTP status code before parsing
+            // Check HTTP status code before parsing.
+            // Counter is incremented in the outer catch block — don't double-count here.
             if (!response.status.isSuccess()) {
                 logger.error("❌ NSW API returned error status: {} - {}", response.status.value, response.status.description)
                 logger.error("Error response body: {}", responseText)
-                tripError.inc()
                 throw IllegalStateException("NSW API returned ${response.status.value}: ${response.status.description}. Body: $responseText")
             }
 

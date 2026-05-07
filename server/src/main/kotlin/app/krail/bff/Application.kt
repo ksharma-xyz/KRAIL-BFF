@@ -1,6 +1,7 @@
 package app.krail.bff
 
 import app.krail.bff.di.configureDI
+import app.krail.bff.plugins.configureCompression
 import app.krail.bff.plugins.configureHTTP
 import app.krail.bff.plugins.configureMonitoring
 import app.krail.bff.plugins.configureSerialization
@@ -23,6 +24,7 @@ fun Application.module() {
     configureMobileAnalytics()
     configureErrorHandling()
     configureMonitoring()
+    configureCompression()
     configureSerialization()
     configureAdministration()
     configureHTTP()

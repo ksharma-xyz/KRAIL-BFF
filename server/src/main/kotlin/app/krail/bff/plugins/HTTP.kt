@@ -92,39 +92,28 @@ private class GlobalRateLimiter(
 }
 
 fun Application.configureHTTP() {
-    // ============================================
-    // CORS Configuration
-    // ============================================
-    // Allows browser-based clients to make requests to this API
+    // CORS — env-driven allowlist.
     //
-    // ⚠️ SECURITY WARNING FOR PRODUCTION:
-    // The current configuration uses anyHost() which allows ALL origins.
-    // This is ONLY safe for local development!
+    // BFF_CORS_ORIGINS env var (or bff.cors.origins yaml) is a comma-separated
+    // list of fully-qualified origins, e.g.
+    //   "https://krail.app,http://localhost:3000"
     //
-    // Before deploying to production, you MUST change to:
-    //
-    //   install(CORS) {
-    //       allowHost("yourdomain.com", schemes = listOf("https"))
-    //       allowHost("app.yourdomain.com", schemes = listOf("https"))
-    //       // DO NOT use anyHost() in production!
-    //
-    //       allowMethod(HttpMethod.Get)
-    //       allowMethod(HttpMethod.Post)
-    //       // ... rest of config
-    //   }
-    //
-    // Why? anyHost() allows ANY website to make requests to your API,
-    // which can lead to:
-    // - Cross-Site Request Forgery (CSRF) attacks
-    // - Data theft from malicious websites
-    // - Unauthorized API access
-    //
-    // ============================================
-    install(CORS) {
-        // ⚠️ DEVELOPMENT ONLY - Replace with specific domains in production!
-        anyHost()
+    // Empty = no cross-origin requests allowed (safe production default).
+    val config = environment.config
+    val corsOrigins = (System.getenv("BFF_CORS_ORIGINS")
+        ?: config.propertyOrNull("bff.cors.origins")?.getString().orEmpty())
+        .split(",")
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
 
-        // Allow common HTTP methods
+    install(CORS) {
+        corsOrigins.forEach { origin ->
+            val parts = origin.split("://", limit = 2)
+            if (parts.size == 2 && parts[1].isNotBlank()) {
+                allowHost(host = parts[1], schemes = listOf(parts[0]))
+            }
+        }
+
         allowMethod(HttpMethod.Get)
         allowMethod(HttpMethod.Post)
         allowMethod(HttpMethod.Put)
@@ -132,21 +121,15 @@ fun Application.configureHTTP() {
         allowMethod(HttpMethod.Options)
         allowMethod(HttpMethod.Patch)
 
-        // Allow common headers
         allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.Authorization)
         allowHeader(HttpHeaders.Accept)
         allowHeader("X-Request-Id")
 
-        // Expose headers for clients
         exposeHeader(HttpHeaders.ContentType)
         exposeHeader("X-Request-Id")
 
-        // Allow credentials (cookies, auth headers)
-        allowCredentials = true
-
-        // Cache preflight requests for 1 hour
-        // (Reduces OPTIONS requests from browsers)
+        allowCredentials = corsOrigins.isNotEmpty()
         maxAgeInSeconds = 3600
     }
 
@@ -166,7 +149,6 @@ fun Application.configureHTTP() {
     //
     // Health endpoints (/health, /ready) bypass rate limiting
     // ============================================
-    val config = environment.config
 
     // Read rate limit settings from environment or config
     val rps = (System.getenv("BFF_RATE_LIMIT_RPS")?.toLongOrNull()

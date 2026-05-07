@@ -17,3 +17,8 @@ nsw.apiKey=your-api-key-here
 # nsw.connectTimeoutMs=10000
 # nsw.readTimeoutMs=10000
 
+# Optional: CORS origins for local browser-based testing (comma-separated)
+# Example: bff.cors.origins=http://localhost:3000,http://localhost:63342
+# Leave unset (or empty) for production-like behaviour (no cross-origin allowed).
+# bff.cors.origins=
+
