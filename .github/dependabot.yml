@@ -1,0 +1,34 @@
+# Dependabot is complementary to Renovate (which handles version bumps).
+# This config focuses on **security-only** alerts so we don't double up on
+# version bumps but do hear about CVEs that affect the project.
+#
+# Renovate continues to handle the regular cadence of version updates
+# (see renovate.json at repo root).
+
+version: 2
+updates:
+  # GitHub Actions security advisories only (Renovate doesn't watch the actions
+  # graph as deeply as Dependabot does for SHA-pinned actions).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Gradle ecosystem — security advisories. Version bumps come via Renovate.
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "gradle"
+    # Keep the version-bump noise on Renovate; only let Dependabot file
+    # security PRs (i.e. when the GitHub advisory database flags a CVE).
+    open-pull-requests-limit: 0
