@@ -44,3 +44,8 @@ data:
         # Override via STOPS_MANIFEST_URL env var.
         # Empty/unset returns 404 from /v1/data/stops/manifest.
         manifestUrl: ""
+    routes:
+        # URL the routes manifest endpoint redirects to. Same shape as stops.
+        # Override via ROUTES_MANIFEST_URL env var.
+        # Empty/unset returns 404 from /v1/data/routes/manifest.
+        manifestUrl: ""
