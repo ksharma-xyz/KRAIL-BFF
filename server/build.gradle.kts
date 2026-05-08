@@ -57,7 +57,7 @@ tasks.named<JavaExec>("run") {
 }
 
 // Build the stops dataset (.pb + manifest.json) from one or more GTFS zip bundles.
-// Used by the .github/workflows/stops-dataset.yml cron + workflow_dispatch.
+// Used by the .github/workflows/datasets.yml cron + workflow_dispatch.
 // Args (positional): <gtfsDir> <output.pb> <version> <releaseUrl>
 tasks.register<JavaExec>("buildStopsDataset") {
     group = "data"
@@ -69,6 +69,22 @@ tasks.register<JavaExec>("buildStopsDataset") {
         project.findProperty("output")?.toString() ?: "${layout.buildDirectory.get().asFile}/dist/stops.pb",
         project.findProperty("version")?.toString() ?: "dev",
         project.findProperty("releaseUrl")?.toString() ?: "https://example.invalid/stops.pb",
+    )
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
+}
+
+// Build the routes dataset (.pb + routes-manifest.json) from one or more GTFS zip bundles.
+// Used by the .github/workflows/datasets.yml cron + workflow_dispatch.
+tasks.register<JavaExec>("buildRoutesDataset") {
+    group = "data"
+    description = "Build routes dataset .pb + manifest.json from GTFS zip bundles"
+    mainClass.set("app.krail.bff.tools.BuildRoutesDatasetKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    args = listOf(
+        project.findProperty("gtfsDir")?.toString() ?: "${layout.buildDirectory.get().asFile}/gtfs",
+        project.findProperty("output")?.toString() ?: "${layout.buildDirectory.get().asFile}/dist/routes.pb",
+        project.findProperty("version")?.toString() ?: "dev",
+        project.findProperty("releaseUrl")?.toString() ?: "https://example.invalid/routes.pb",
     )
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
 }

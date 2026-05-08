@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package app.krail.bff.proto.data;
+
+import "stops_dataset.proto";
+
+option java_package = "app.krail.bff.proto.data";
+option java_multiple_files = true;
+
+// Versioned routes dataset distributed via GitHub Releases. The KRAIL app
+// downloads on cold start (and every 24h) when the manifest version changes,
+// and runs route-number search locally against this file (e.g. typing "333"
+// to find bus 333).
+//
+// Mirrors the existing KRAIL `NswBusRoute.proto` shape so the migration is
+// mechanical: same nested structure (Group → Variant → Trip → stop sequence),
+// same lookup pattern. New: `transport_mode` per RouteGroup so trains / metro /
+// ferries can fit the same schema later (KRAIL today only ships bus routes).
+message RoutesDataset {
+  string version = 1;          // YYYYMMDD or semver tag
+  string generated_at = 2;     // ISO-8601 UTC
+  string attribution = 3;      // CC BY 4.0 attribution text
+  repeated RouteGroup routes = 4;
+}
+
+message RouteGroup {
+  string route_short_name = 1;        // "333", "T1", "L1"
+  TransportMode mode = 2;             // primary mode for this short name; uses TransportMode from stops_dataset.proto
+  repeated RouteVariant variants = 3; // per-network implementations, e.g. multiple operators of route "702"
+}
+
+message RouteVariant {
+  string route_id = 1;                // e.g. "2504_702"
+  string route_name = 2;              // "Blacktown to Seven Hills"
+  repeated TripOption trips = 3;      // one per direction / headsign
+}
+
+message TripOption {
+  string trip_id = 1;                 // representative trip for this direction
+  string headsign = 2;                // "Blacktown to Seven Hills"
+  repeated string stop_ids = 3;       // ordered; references DatasetStop.stop_id
+}
