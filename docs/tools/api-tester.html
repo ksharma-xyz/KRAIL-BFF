@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KRAIL BFF — API Tester</title>
+<title>KRAIL BFF — Dashboard</title>
 <style>
   :root {
     --bg: #0e1116;
@@ -20,125 +20,163 @@
     --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  html, body { background: var(--bg); color: var(--fg); }
+  html, body { background: var(--bg); color: var(--fg); height: 100%; }
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 14px;
     line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
   }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
-  header { padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
-  header h1 { font-size: 22px; margin: 0 0 4px; }
-  header p { color: var(--muted); margin: 0; }
-  header code { font-family: var(--mono); }
+  a { color: var(--accent); }
+  code, pre { font-family: var(--mono); }
 
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-  .panel h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-
-  .config-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
-  .config-row > div { flex: 1 1 240px; min-width: 200px; }
-  .config-row label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-  .config-row input {
-    width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 6px; color: var(--fg); font-family: var(--mono); font-size: 13px;
+  /* ------------------ TOP BAR ------------------ */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
   }
-  .config-row input:focus { outline: none; border-color: var(--accent); }
-  .session-note { color: var(--muted); font-size: 12px; margin-top: 12px; }
-  .session-note button {
-    background: transparent; border: 1px solid var(--border); color: var(--fg);
-    padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 8px;
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .tag { color: var(--muted); font-size: 12px; }
+  header .config-inline { display: flex; gap: 10px; flex-wrap: wrap; flex: 1; justify-content: flex-end; }
+  header .config-inline label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  header .config-inline input {
+    padding: 5px 8px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--fg); font-family: var(--mono); font-size: 12px;
+    min-width: 200px;
   }
-  .session-note button:hover { background: var(--panel-elev); }
+  header .config-inline input:focus { outline: none; border-color: var(--accent); }
+  header .config-inline button {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;
+  }
+  header .config-inline button:hover { border-color: var(--accent); color: var(--accent); }
 
-  .scenarios { display: flex; flex-wrap: wrap; gap: 8px; }
-  .scenarios button {
-    background: transparent; border: 1px solid var(--border); color: var(--fg);
-    padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;
+  /* ------------------ LAYOUT ------------------ */
+  .shell { display: flex; flex: 1; min-height: 0; }
+  .nav {
+    width: 280px; flex: 0 0 280px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 12px 0;
+  }
+  .nav .section-title {
+    padding: 8px 16px;
+    color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .nav .item {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 10px 16px; cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: background 0.05s;
+  }
+  .nav .item:hover { background: var(--panel-elev); }
+  .nav .item.active { background: var(--panel); border-left-color: var(--accent); }
+  .nav .item .row1 { display: flex; align-items: baseline; gap: 8px; }
+  .nav .item .method {
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    padding: 1px 5px; border-radius: 2px; background: var(--accent-soft); color: var(--accent);
+  }
+  .nav .item .path { font-family: var(--mono); font-size: 12px; color: var(--fg); flex: 1; word-break: break-all; }
+  .nav .item .name { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .nav .item .sparkline { display: block; height: 12px; margin-top: 4px; }
+  .nav .add-custom {
+    margin: 8px 16px;
+    padding: 8px 12px;
+    background: transparent; border: 1px dashed var(--border); color: var(--muted);
+    border-radius: 4px; cursor: pointer; font-size: 12px;
+    width: calc(100% - 32px);
     font-family: var(--mono);
+    text-align: left;
   }
-  .scenarios button:hover { background: var(--panel-elev); border-color: var(--accent); }
+  .nav .add-custom:hover { border-color: var(--accent); color: var(--accent); }
 
-  .endpoint {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-    margin-bottom: 16px; overflow: hidden;
+  .detail { flex: 1; min-width: 0; overflow-y: auto; padding: 20px 24px; }
+
+  .history {
+    width: 320px; flex: 0 0 320px;
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 12px 0;
   }
-  .endpoint-head {
-    display: flex; align-items: baseline; gap: 12px; padding: 12px 16px;
-    cursor: pointer; border-bottom: 1px solid var(--border); user-select: none;
+  .history h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--muted); padding: 8px 16px; margin: 0;
+    display: flex; align-items: center; justify-content: space-between;
   }
-  .endpoint-head:hover { background: var(--panel-elev); }
-  .endpoint-head .method {
-    font-family: var(--mono); font-size: 11px; font-weight: 600;
-    padding: 2px 8px; border-radius: 3px; background: var(--accent-soft); color: var(--accent);
+  .history h2 button {
+    background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 11px;
   }
-  .endpoint-head .path { font-family: var(--mono); flex: 1; color: var(--fg); }
-  .endpoint-head .name { color: var(--muted); font-size: 13px; }
-  .endpoint-body { padding: 16px; display: none; }
-  .endpoint.open .endpoint-body { display: block; }
-  .endpoint .params { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
-  .endpoint .params label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-  .endpoint .params input {
+  .history h2 button:hover { color: var(--accent); }
+  .history .filter {
+    margin: 0 16px 8px;
+    width: calc(100% - 32px);
+    padding: 5px 8px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--fg); font-family: var(--mono); font-size: 11px;
+  }
+  .history .filter:focus { outline: none; border-color: var(--accent); }
+  .history-row {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 8px 16px; cursor: pointer; border-left: 2px solid transparent;
+  }
+  .history-row:hover { background: var(--panel-elev); }
+  .history-row .row1 { display: flex; align-items: baseline; gap: 8px; font-family: var(--mono); font-size: 11px; }
+  .history-row .row1 .status-pill {
+    padding: 1px 6px; border-radius: 2px; font-weight: 600; font-size: 10px;
+  }
+  .history-row .status-pill.ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); }
+  .history-row .status-pill.warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
+  .history-row .status-pill.err { background: rgba(248, 81, 73, 0.15); color: var(--err); }
+  .history-row .row1 .ms { color: var(--muted); }
+  .history-row .row2 { font-family: var(--mono); font-size: 11px; color: var(--muted); word-break: break-all; }
+  .history-row .row3 { font-size: 10px; color: var(--muted); }
+  .history-empty { padding: 16px; color: var(--muted); font-size: 12px; font-style: italic; }
+
+  /* ------------------ DETAIL PANE ------------------ */
+  .endpoint-head-pane { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 16px; }
+  .endpoint-head-pane h1 { font-size: 18px; margin: 0 0 4px; }
+  .endpoint-head-pane .meta { color: var(--muted); font-size: 13px; }
+  .endpoint-head-pane .meta code { color: var(--fg); }
+
+  .params { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .params label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .params input {
     width: 100%; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border);
     border-radius: 4px; color: var(--fg); font-family: var(--mono); font-size: 12px;
   }
-  .endpoint .params input:focus { outline: none; border-color: var(--accent); }
-  .endpoint-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .endpoint-actions button {
+  .params input:focus { outline: none; border-color: var(--accent); }
+  .params textarea {
+    width: 100%; min-height: 70px; padding: 6px 8px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--fg); font-family: var(--mono); font-size: 12px; resize: vertical;
+  }
+  .params textarea:focus { outline: none; border-color: var(--accent); }
+
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .actions button {
     background: var(--accent); color: white; border: 0; padding: 7px 14px;
     border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;
   }
-  .endpoint-actions button:hover { background: #3683e1; }
-  .endpoint-actions button:disabled { opacity: 0.5; cursor: wait; }
-  .endpoint-actions button.secondary { background: transparent; border: 1px solid var(--border); color: var(--fg); }
-  .endpoint-actions button.secondary:hover { border-color: var(--accent); background: var(--accent-soft); }
-  .endpoint-actions input[type=number] {
+  .actions button:hover { background: #3683e1; }
+  .actions button:disabled { opacity: 0.5; cursor: wait; }
+  .actions button.secondary { background: transparent; border: 1px solid var(--border); color: var(--fg); }
+  .actions button.secondary:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .actions input[type=number] {
     width: 70px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border);
     border-radius: 4px; color: var(--fg); font-family: var(--mono); font-size: 12px;
   }
+  .actions .label { color: var(--muted); font-size: 12px; }
 
-  .response { margin-top: 12px; }
-  .response-head { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 8px; flex-wrap: wrap; }
-  .response-head .status { font-family: var(--mono); }
-  .response-head .metric { font-family: var(--mono); }
-  .response-head .metric strong { color: var(--fg); }
-  .status.ok { color: var(--ok); }
-  .status.warn { color: var(--warn); }
-  .status.err { color: var(--err); }
-  .response pre {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
-    padding: 10px 12px; margin: 0; font-family: var(--mono); font-size: 12px;
-    line-height: 1.5; white-space: pre-wrap; word-break: break-all;
-    max-height: 360px; overflow: auto;
-  }
-  .response .empty { color: var(--muted); font-style: italic; padding: 8px 0; }
-
-  .stats { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 12px; margin-top: 8px; font-family: var(--mono); font-size: 12px; }
-  .stats .row { display: flex; gap: 14px; padding: 2px 0; }
-  .stats .label { color: var(--muted); min-width: 130px; }
-  .stats .value { color: var(--fg); }
-  .stats .value strong { color: var(--accent); }
-  .stats-bar { display: flex; gap: 1px; height: 8px; margin-top: 6px; background: var(--panel-elev); border-radius: 2px; overflow: hidden; }
-  .stats-bar .seg { background: var(--accent); }
-  .stats-bar .seg.err { background: var(--err); }
-
-  .smoke-results { margin-top: 12px; font-family: var(--mono); font-size: 12px; }
-  .smoke-row { display: flex; gap: 10px; padding: 4px 0; }
-  .smoke-row .label { flex: 1; color: var(--muted); }
-  .smoke-row .pass { color: var(--ok); }
-  .smoke-row .fail { color: var(--err); }
-  .smoke-row .pending { color: var(--warn); }
-
-  /* Inspector — request/response details */
-  .inspector { margin-top: 12px; }
+  /* ------------------ INSPECTOR ------------------ */
   .inspector-status {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
     font-family: var(--mono); font-size: 13px;
   }
-  .inspector-status .badge {
-    padding: 3px 10px; border-radius: 3px; font-weight: 600; font-size: 12px;
-  }
+  .inspector-status .badge { padding: 3px 10px; border-radius: 3px; font-weight: 600; font-size: 12px; }
   .inspector-status .badge.ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); }
   .inspector-status .badge.warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
   .inspector-status .badge.err { background: rgba(248, 81, 73, 0.15); color: var(--err); }
@@ -153,15 +191,19 @@
     font-family: var(--mono);
   }
   .inspector-actions button:hover { border-color: var(--accent); color: var(--accent); }
-  .inspector details { margin-top: 8px; }
-  .inspector details summary {
+
+  details { margin-top: 8px; }
+  details summary {
     cursor: pointer; padding: 6px 10px; color: var(--muted); font-size: 12px;
     background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
-    user-select: none;
+    user-select: none; list-style: none;
   }
-  .inspector details[open] summary { border-radius: 4px 4px 0 0; border-bottom: 0; }
-  .inspector details summary:hover { color: var(--fg); }
-  .inspector details > div, .inspector details > pre {
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: '▸ '; color: var(--muted); }
+  details[open] summary::before { content: '▾ '; }
+  details[open] summary { border-radius: 4px 4px 0 0; border-bottom: 0; }
+  details summary:hover { color: var(--fg); }
+  details > div, details > pre {
     border: 1px solid var(--border); border-top: 0; border-radius: 0 0 4px 4px;
     padding: 10px 12px; margin: 0; background: var(--bg);
     font-family: var(--mono); font-size: 12px; line-height: 1.5;
@@ -169,253 +211,419 @@
     max-height: 360px; overflow: auto;
   }
   .diag-list { padding: 0; margin: 0; list-style: none; }
-  .diag-list li {
-    padding: 6px 0; color: var(--fg); font-size: 12px;
-    border-bottom: 1px solid var(--border);
-  }
+  .diag-list li { padding: 6px 0; color: var(--fg); font-size: 12px; border-bottom: 1px solid var(--border); }
   .diag-list li:last-child { border-bottom: 0; }
   .diag-list code { background: var(--panel-elev); padding: 1px 4px; border-radius: 2px; font-size: 11px; }
   .diag-fix { color: var(--accent); }
+
+  .stats { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 12px; margin-top: 8px; font-family: var(--mono); font-size: 12px; }
+  .stats .row { display: flex; gap: 14px; padding: 2px 0; flex-wrap: wrap; }
+  .stats .label { color: var(--muted); min-width: 130px; }
+  .stats .value strong { color: var(--accent); }
+
+  .empty-state {
+    color: var(--muted); font-size: 13px; padding: 40px 0; text-align: center;
+  }
+
+  /* ------------------ CUSTOM DEBUG ------------------ */
+  .custom-tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .custom-tabs button {
+    background: transparent; border: 0; color: var(--muted); cursor: pointer;
+    padding: 8px 14px; font-size: 13px; border-bottom: 2px solid transparent;
+  }
+  .custom-tabs button.active { color: var(--fg); border-bottom-color: var(--accent); }
+
+  /* ------------------ TRACE TIMELINE ------------------ */
+  .trace-table { margin-top: 8px; }
+  .trace-row {
+    display: grid; grid-template-columns: 280px 1fr; gap: 12px; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .trace-row:last-child { border-bottom: 0; }
+  .trace-meta { display: flex; flex-direction: column; gap: 2px; }
+  .trace-meta .status-pill {
+    display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 10px;
+    font-weight: 600; font-family: var(--mono); width: fit-content;
+  }
+  .trace-meta .status-pill.ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); }
+  .trace-meta .status-pill.warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
+  .trace-meta .status-pill.err { background: rgba(248, 81, 73, 0.15); color: var(--err); }
+  .trace-meta .trace-label { font-size: 12px; color: var(--fg); margin-top: 2px; }
+  .trace-meta .trace-detail { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+  .trace-timeline {
+    position: relative; height: 22px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 3px;
+  }
+  .trace-bar {
+    position: absolute; top: 0; bottom: 0;
+    background: var(--accent); border-radius: 2px;
+    display: flex; align-items: center; justify-content: flex-start;
+    padding: 0 6px; min-width: 6px;
+  }
+  .trace-bar.ok { background: var(--ok); }
+  .trace-bar.warn { background: var(--warn); }
+  .trace-bar.err { background: var(--err); }
+  .trace-bar-label {
+    color: white; font-size: 10px; font-family: var(--mono); font-weight: 600;
+    white-space: nowrap; text-shadow: 0 0 2px rgba(0,0,0,0.5);
+  }
+
+  /* ------------------ COMPARISON ------------------ */
+  .cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .cmp-cell {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; font-family: var(--mono); font-size: 12px;
+  }
+  .cmp-cell.err { border-color: var(--err); }
+  .cmp-head { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .cmp-status { font-weight: 600; padding: 3px 8px; border-radius: 2px; display: inline-block; margin-bottom: 8px; }
+  .cmp-status.ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); }
+  .cmp-status.err { background: rgba(248, 81, 73, 0.15); color: var(--err); }
+  .cmp-metric { display: flex; gap: 12px; color: var(--muted); margin-bottom: 6px; }
+  .cmp-metric span strong { color: var(--fg); }
+  .cmp-cell pre { background: var(--panel-elev); border: 1px solid var(--border); border-radius: 3px; padding: 6px; max-height: 200px; overflow: auto; margin: 0; font-size: 11px; }
+
+  @media (max-width: 1300px) {
+    .cmp-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ------------------ RESPONSIVE ------------------ */
+  @media (max-width: 1100px) {
+    .history { display: none; }
+  }
+  @media (max-width: 800px) {
+    .nav { width: 200px; flex-basis: 200px; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <header>
-    <h1>KRAIL BFF — API Tester</h1>
-    <p>Single page. Every endpoint. Real metrics. Config + form values in <strong>sessionStorage</strong> only — wiped on tab close.</p>
-  </header>
+<header>
+  <h1>KRAIL BFF</h1>
+  <span class="tag">Dashboard</span>
+  <div class="config-inline">
+    <label>Base URL: <input id="baseUrl" placeholder="http://localhost:8080"></label>
+    <label>Authorization: <input id="auth" type="password" placeholder="apikey ..."></label>
+    <label>X-Krail-Version: <input id="version" placeholder="1.5.0"></label>
+    <button id="clearSession" type="button" title="Clear all sessionStorage values">Clear session</button>
+  </div>
+</header>
 
-  <section class="panel">
-    <h2>Config</h2>
-    <div class="config-row">
-      <div>
-        <label for="baseUrl">Base URL</label>
-        <input id="baseUrl" placeholder="http://localhost:8080" autocomplete="off">
-      </div>
-      <div>
-        <label for="auth">Authorization (sent only if non-empty)</label>
-        <input id="auth" type="password" placeholder="apikey ..." autocomplete="off">
-      </div>
-      <div>
-        <label for="version">X-Krail-Version (sent only if non-empty)</label>
-        <input id="version" placeholder="1.5.0" autocomplete="off">
-      </div>
-    </div>
-    <p class="session-note">
-      Values persist for this tab only.
-      <button id="clearSession" type="button">Clear session storage now</button>
-    </p>
-  </section>
+<div class="shell">
+  <nav class="nav" id="nav"></nav>
 
-  <section class="panel">
-    <h2>Scenarios</h2>
-    <p style="color: var(--muted); margin: 0 0 10px;">One-click presets — fill an endpoint's inputs with realistic values then jump to it. Click again to re-fill.</p>
-    <div class="scenarios" id="scenarios"></div>
-  </section>
+  <main class="detail" id="detail">
+    <div class="empty-state">Pick an endpoint from the left.</div>
+  </main>
 
-  <main id="endpoints"></main>
-
-  <section class="panel">
-    <h2>Smoke tests</h2>
-    <p style="color: var(--muted); margin: 0 0 10px;">Hit every <code>GET</code> endpoint once with the inputs filled above and report pass/fail.</p>
-    <div class="endpoint-actions">
-      <button id="runSmoke" type="button">Run all GETs</button>
-      <button id="exportCsv" type="button" class="secondary">Export last run as CSV</button>
-    </div>
-    <div class="smoke-results" id="smokeResults"></div>
-  </section>
-
-  <p style="color: var(--muted); font-size: 12px; margin-top: 32px;">
-    Source: <code>docs/tools/api-tester.html</code>. Add new endpoints / scenarios via the arrays at the top of <code>&lt;script&gt;</code>.
-  </p>
+  <aside class="history">
+    <h2>
+      Request history
+      <button id="clearHistory" type="button" title="Clear history">clear</button>
+    </h2>
+    <input class="filter" id="historyFilter" placeholder="filter by URL or status…">
+    <div id="historyList"><div class="history-empty">No requests yet this session.</div></div>
+  </aside>
 </div>
 
 <script>
-  // --------------------------------------------------------------------------------
-  // Endpoint catalogue. Add new entries here to expose them in the UI + smoke runner.
-  // --------------------------------------------------------------------------------
+  // ============================================================
+  // Endpoint catalogue. Stable order; matches the server.
+  // ============================================================
   const endpoints = [
-    {
-      id: 'health', method: 'GET', path: '/health',
-      name: 'Health probe (no auth required)',
-      params: [], smoke: { include: true },
-    },
-    {
-      id: 'ready', method: 'GET', path: '/ready',
-      name: 'Readiness probe (NSW upstream check)',
-      params: [], smoke: { include: true },
-    },
-    {
-      id: 'tripPlanJson', method: 'GET', path: '/api/v1/trip/plan',
+    { id: 'health',              method: 'GET', path: '/health',
+      name: 'Health probe',
+      params: [] },
+    { id: 'ready',               method: 'GET', path: '/ready',
+      name: 'Readiness probe (NSW upstream)',
+      params: [] },
+    { id: 'tripPlanJson',        method: 'GET', path: '/api/v1/trip/plan',
       name: 'Trip planner — JSON',
       params: [
         { name: 'origin', default: '200060' },
         { name: 'destination', default: '10101100' },
         { name: 'depArr', default: 'dep' },
-        { name: 'date', placeholder: 'YYYYMMDD (optional)' },
-        { name: 'time', placeholder: 'HHmm (optional)' },
-        { name: 'excludedModes', placeholder: 'comma-separated (optional)' },
+        { name: 'date',   placeholder: 'YYYYMMDD (optional)' },
+        { name: 'time',   placeholder: 'HHmm (optional)' },
+        { name: 'excludedModes', placeholder: 'comma-separated' },
       ],
-      smoke: { include: true },
+      nswCompare: ({ q }) => `https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=${q.origin}&name_destination=${q.destination}&depArrMacro=${q.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON`,
     },
-    {
-      id: 'tripPlanProto', method: 'GET', path: '/api/v1/trip/plan-proto',
-      name: 'Trip planner — protobuf binary',
+    { id: 'tripPlanProto',       method: 'GET', path: '/api/v1/trip/plan-proto',
+      name: 'Trip planner — protobuf',
       binary: true,
       params: [
         { name: 'origin', default: '200060' },
         { name: 'destination', default: '10101100' },
         { name: 'depArr', default: 'dep' },
-      ],
-      smoke: { include: true },
-      pairWith: 'tripPlanJson', // for comparison: protobuf vs JSON savings
-    },
-    {
-      id: 'tripLegacy', method: 'GET', path: '/v1/tp/trip',
-      name: 'Trip planner — legacy NSW-shape JSON',
+      ] },
+    { id: 'tripLegacy',          method: 'GET', path: '/v1/tp/trip',
+      name: 'Trip planner — legacy NSW shape',
       params: [
         { name: 'origin', default: '200060' },
         { name: 'destination', default: '10101100' },
       ],
-      smoke: { include: false },
+      nswCompare: ({ q }) => `https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=${q.origin}&name_destination=${q.destination}&depArrMacro=dep&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&outputFormat=rapidJSON`,
     },
-    {
-      id: 'departures', method: 'GET', path: '/v1/stops/{stopId}/departures',
-      name: 'Departure board for a stop',
+    { id: 'departures',          method: 'GET', path: '/v1/stops/{stopId}/departures',
+      name: 'Departures for a stop',
       pathParams: [{ name: 'stopId', default: '200060' }],
       params: [
-        { name: 'date', placeholder: 'YYYYMMDD (optional)' },
-        { name: 'time', placeholder: 'HHmm (optional)' },
+        { name: 'date', placeholder: 'YYYYMMDD' },
+        { name: 'time', placeholder: 'HHmm' },
       ],
-      smoke: { include: true, pathFill: { stopId: '200060' } },
+      nswCompare: ({ p, q }) => `https://api.transport.nsw.gov.au/v1/tp/departure_mon?name_dm=${p.stopId}&type_dm=any&mode=direct&excludedMeans=checkbox&limit=20${q.date ? `&itdDate=${q.date}` : ''}${q.time ? `&itdTime=${q.time}` : ''}&outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&TfNSWDM=true&version=10.2.1.42`,
     },
-    {
-      id: 'parkingList', method: 'GET', path: '/v1/parking/facilities',
+    { id: 'parkingList',         method: 'GET', path: '/v1/parking/facilities',
       name: 'Park & Ride — facility list',
-      params: [], smoke: { include: true },
+      params: [],
+      nswCompare: () => `https://api.transport.nsw.gov.au/v1/carpark`,
     },
-    {
-      id: 'parkingAvailability', method: 'GET', path: '/v1/parking/facilities/{facilityId}/availability',
-      name: 'Park & Ride — availability for a facility',
+    { id: 'parkingAvail',        method: 'GET', path: '/v1/parking/facilities/{facilityId}/availability',
+      name: 'Park & Ride — availability',
       pathParams: [{ name: 'facilityId', default: '1' }],
-      params: [], smoke: { include: true, pathFill: { facilityId: '1' } },
+      params: [],
+      nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v1/carpark?facility=${p.facilityId}`,
     },
-    {
-      id: 'gtfsRtV1', method: 'GET', path: '/v1/gtfs/realtime/{feed}',
-      name: 'GTFS-RT trip updates v1 (binary)',
+    { id: 'gtfsRtV1',            method: 'GET', path: '/v1/gtfs/realtime/{feed}',
+      name: 'GTFS-RT trip updates v1',
       binary: true,
       pathParams: [{ name: 'feed', default: 'buses' }],
-      params: [], smoke: { include: true, pathFill: { feed: 'buses' } },
+      params: [],
+      nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v1/gtfs/realtime/${p.feed}`,
     },
-    {
-      id: 'gtfsRtV2', method: 'GET', path: '/v2/gtfs/realtime/{feed}',
-      name: 'GTFS-RT trip updates v2 (binary)',
+    { id: 'gtfsRtV2',            method: 'GET', path: '/v2/gtfs/realtime/{feed}',
+      name: 'GTFS-RT trip updates v2',
       binary: true,
       pathParams: [{ name: 'feed', default: 'sydneytrains' }],
-      params: [], smoke: { include: true, pathFill: { feed: 'sydneytrains' } },
+      params: [],
+      nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v2/gtfs/realtime/${p.feed}`,
     },
-    {
-      id: 'gtfsVehiclepos', method: 'GET', path: '/v2/gtfs/vehiclepos/{feed}',
-      name: 'GTFS-RT vehicle positions (binary)',
+    { id: 'gtfsVehiclepos',      method: 'GET', path: '/v2/gtfs/vehiclepos/{feed}',
+      name: 'GTFS-RT vehicle positions',
       binary: true,
       pathParams: [{ name: 'feed', default: 'sydneytrains' }],
-      params: [], smoke: { include: true, pathFill: { feed: 'sydneytrains' } },
+      params: [],
+      nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v2/gtfs/vehiclepos/${p.feed}`,
+    },
+    { id: 'stopsManifest',       method: 'GET', path: '/v1/data/stops/manifest',
+      name: 'Stops dataset manifest (302)',
+      params: [], followRedirect: true },
+    { id: 'routesManifest',      method: 'GET', path: '/v1/data/routes/manifest',
+      name: 'Routes dataset manifest (302)',
+      params: [], followRedirect: true },
+  ];
+  const endpointById = Object.fromEntries(endpoints.map(e => [e.id, e]));
+
+  // ============================================================
+  // User journeys ("traces") — what the mobile app actually calls.
+  // Each step references an endpoint id; params override defaults.
+  // ============================================================
+  const journeys = [
+    {
+      id: 'trip-search',
+      name: 'Search trip Wynyard → Town Hall',
+      desc: 'What KRAIL fires when the user submits a trip search.',
+      steps: [
+        { endpoint: 'tripPlanJson', params: { origin: '200070', destination: '200060' }, label: 'Trip plan' },
+      ],
     },
     {
-      id: 'stopsManifest', method: 'GET', path: '/v1/data/stops/manifest',
-      name: 'Stops dataset manifest (302 redirect)',
-      params: [], followRedirect: true, smoke: { include: true },
+      id: 'home-departures',
+      name: 'Open app, expand a saved trip card',
+      desc: 'Stops manifest check + departure-board polling for one stop.',
+      steps: [
+        { endpoint: 'stopsManifest', params: {}, label: 'Stops manifest (304/redirect)' },
+        { endpoint: 'departures', params: { stopId: '200060' }, label: 'Departures · Town Hall' },
+      ],
     },
     {
-      id: 'routesManifest', method: 'GET', path: '/v1/data/routes/manifest',
-      name: 'Routes dataset manifest (302 redirect)',
-      params: [], followRedirect: true, smoke: { include: true },
+      id: 'park-ride',
+      name: 'Park & Ride view',
+      desc: 'List facilities, then drill into one for availability.',
+      steps: [
+        { endpoint: 'parkingList', params: {}, label: 'Facility list' },
+        { endpoint: 'parkingAvail', params: { facilityId: '1' }, label: 'Facility 1 availability' },
+      ],
+    },
+    {
+      id: 'track-trip',
+      name: 'Tap Track on a journey',
+      desc: 'Static trip plan + GTFS-RT trip updates + vehicle positions, mirroring the live tracking screen.',
+      steps: [
+        { endpoint: 'tripPlanJson', params: { origin: '200070', destination: '200060' }, label: 'Static plan' },
+        { endpoint: 'gtfsRtV2', params: { feed: 'sydneytrains' }, label: 'Trip updates v2' },
+        { endpoint: 'gtfsVehiclepos', params: { feed: 'sydneytrains' }, label: 'Vehicle positions' },
+      ],
+    },
+    {
+      id: 'cold-start',
+      name: 'Cold start — manifests + first trip',
+      desc: 'What happens on the very first launch: dataset manifest checks before any feature loads.',
+      steps: [
+        { endpoint: 'stopsManifest', params: {}, label: 'Stops manifest' },
+        { endpoint: 'routesManifest', params: {}, label: 'Routes manifest' },
+        { endpoint: 'health', params: {}, label: 'Health probe' },
+      ],
     },
   ];
+  const journeyById = Object.fromEntries(journeys.map(j => [j.id, j]));
 
-  // --------------------------------------------------------------------------------
-  // Scenarios. A scenario fills one endpoint's inputs and scrolls to it.
-  // Add more here for common test cases you run repeatedly.
-  // --------------------------------------------------------------------------------
-  const scenarios = [
-    { name: 'Trip: Wynyard → Town Hall', endpoint: 'tripPlanJson', vals: { origin: '200070', destination: '200060' } },
-    { name: 'Trip: Central → Bondi Junction', endpoint: 'tripPlanJson', vals: { origin: '200080', destination: '202020' } },
-    { name: 'Trip (proto): Wynyard → Town Hall', endpoint: 'tripPlanProto', vals: { origin: '200070', destination: '200060' } },
-    { name: 'Departures: Town Hall', endpoint: 'departures', vals: { stopId: '200060' } },
-    { name: 'Departures: Wynyard', endpoint: 'departures', vals: { stopId: '200070' } },
-    { name: 'GTFS-RT: sydneytrains', endpoint: 'gtfsRtV2', vals: { feed: 'sydneytrains' } },
-    { name: 'Vehiclepos: sydneytrains', endpoint: 'gtfsVehiclepos', vals: { feed: 'sydneytrains' } },
-    { name: 'Parking: facility 1', endpoint: 'parkingAvailability', vals: { facilityId: '1' } },
-    { name: 'Stops manifest', endpoint: 'stopsManifest', vals: {} },
-    { name: 'Routes manifest', endpoint: 'routesManifest', vals: {} },
-  ];
-
-  // --------------------------------------------------------------------------------
-  // Storage (sessionStorage only — cleared on tab close).
-  // --------------------------------------------------------------------------------
+  // ============================================================
+  // sessionStorage (cleared on tab close)
+  // ============================================================
   const SS = window.sessionStorage;
-  const SS_PREFIX = 'krail-bff-tester:';
-  const ssGet = (k, fallback = '') => SS.getItem(SS_PREFIX + k) ?? fallback;
-  const ssSet = (k, v) => { v ? SS.setItem(SS_PREFIX + k, v) : SS.removeItem(SS_PREFIX + k); };
-  const ssClear = () => { Object.keys(SS).filter(k => k.startsWith(SS_PREFIX)).forEach(k => SS.removeItem(k)); };
+  const SSP = 'krail-bff-tester:';
+  const ssGet = (k, fb='') => SS.getItem(SSP + k) ?? fb;
+  const ssSet = (k, v)    => v ? SS.setItem(SSP + k, v) : SS.removeItem(SSP + k);
+  const ssGetJSON = (k, fb) => { try { return JSON.parse(ssGet(k)); } catch { return fb; } };
+  const ssSetJSON = (k, v)  => SS.setItem(SSP + k, JSON.stringify(v));
+  const ssClearAll = () => Object.keys(SS).filter(k => k.startsWith(SSP)).forEach(k => SS.removeItem(k));
 
-  // --------------------------------------------------------------------------------
-  // Config bar
-  // --------------------------------------------------------------------------------
+  // ============================================================
+  // State
+  // ============================================================
+  const state = {
+    activeId: ssGet('activeId') || null,   // endpoint id, or 'custom-debug'
+    history: ssGetJSON('history', []),     // {id, time, method, url, status, elapsed, decodedBytes, encodedBodySize}
+    latencies: ssGetJSON('latencies', {}), // endpointId -> [ms, ms, ...]
+    historyFilter: '',
+  };
+  const MAX_HISTORY = 100;
+  const MAX_SPARK_POINTS = 12;
+
+  // ============================================================
+  // Config bar wiring
+  // ============================================================
   const baseUrlEl = document.getElementById('baseUrl');
   const authEl = document.getElementById('auth');
   const versionEl = document.getElementById('version');
-
   baseUrlEl.value = ssGet('baseUrl', 'http://localhost:8080');
   authEl.value = ssGet('auth');
   versionEl.value = ssGet('version');
   baseUrlEl.addEventListener('input', () => ssSet('baseUrl', baseUrlEl.value.trim()));
-  authEl.addEventListener('input', () => ssSet('auth', authEl.value));
+  authEl.addEventListener('input',    () => ssSet('auth',    authEl.value));
   versionEl.addEventListener('input', () => ssSet('version', versionEl.value.trim()));
 
   document.getElementById('clearSession').addEventListener('click', () => {
-    ssClear();
-    baseUrlEl.value = 'http://localhost:8080';
-    authEl.value = '';
-    versionEl.value = '';
-    document.querySelectorAll('.endpoint .params input').forEach(i => { i.value = i.dataset.default || ''; });
-    document.querySelectorAll('.response').forEach(r => { r.innerHTML = '<div class="empty">No request sent yet.</div>'; });
-    document.querySelectorAll('.stats').forEach(s => s.remove());
+    if (!confirm('Clear all sessionStorage values (config + form values + history)?')) return;
+    ssClearAll();
+    location.reload();
+  });
+  document.getElementById('clearHistory').addEventListener('click', () => {
+    state.history = []; ssSetJSON('history', []);
+    state.latencies = {}; ssSetJSON('latencies', {});
+    renderHistory(); renderNav();
+  });
+  document.getElementById('historyFilter').addEventListener('input', (ev) => {
+    state.historyFilter = ev.target.value.toLowerCase();
+    renderHistory();
   });
 
-  // --------------------------------------------------------------------------------
-  // Render endpoints
-  // --------------------------------------------------------------------------------
-  const root = document.getElementById('endpoints');
-  const sectionByEndpoint = new Map();
+  // ============================================================
+  // Nav (left sidebar)
+  // ============================================================
+  function renderNav() {
+    const root = document.getElementById('nav');
+    const customActive = state.activeId === 'custom-debug';
+    root.innerHTML = `
+      <div class="section-title">Debug</div>
+      <button class="add-custom${customActive ? ' active' : ''}" type="button" id="navCustom">+ Debug any URL / curl</button>
 
-  function renderEndpoint(e) {
-    const wrap = document.createElement('section');
-    wrap.className = 'endpoint open';
-    wrap.dataset.id = e.id;
-    sectionByEndpoint.set(e.id, wrap);
+      <div class="section-title">Traces — what mobile calls</div>
+      <div id="navJourneys"></div>
 
-    const head = document.createElement('div');
-    head.className = 'endpoint-head';
-    head.innerHTML = `<span class="method">${e.method}</span><span class="path">${e.path}</span><span class="name">${e.name}</span>`;
-    head.addEventListener('click', () => wrap.classList.toggle('open'));
-    wrap.appendChild(head);
+      <div class="section-title">Endpoints</div>
+      <div id="navEndpoints"></div>
+    `;
+    document.getElementById('navCustom').addEventListener('click', () => activate('custom-debug'));
 
-    const body = document.createElement('div');
-    body.className = 'endpoint-body';
+    const jRoot = document.getElementById('navJourneys');
+    for (const j of journeys) {
+      const id = `trace:${j.id}`;
+      const item = document.createElement('div');
+      item.className = 'item' + (state.activeId === id ? ' active' : '');
+      item.innerHTML = `
+        <div class="row1"><span class="method" style="background: rgba(63, 185, 80, 0.15); color: var(--ok);">TRACE</span><span class="path">${j.name}</span></div>
+        <div class="name">${j.steps.length} step${j.steps.length === 1 ? '' : 's'}</div>
+      `;
+      item.addEventListener('click', () => activate(id));
+      jRoot.appendChild(item);
+    }
 
+    const eRoot = document.getElementById('navEndpoints');
+    for (const e of endpoints) {
+      const item = document.createElement('div');
+      item.className = 'item' + (state.activeId === e.id ? ' active' : '');
+      item.innerHTML = `
+        <div class="row1"><span class="method">${e.method}</span><span class="path">${e.path}</span></div>
+        <div class="name">${e.name}</div>
+        <svg class="sparkline" viewBox="0 0 60 12" preserveAspectRatio="none"></svg>
+      `;
+      const svg = item.querySelector('.sparkline');
+      const points = state.latencies[e.id] || [];
+      svg.innerHTML = sparklineSVG(points, 60, 12);
+      item.addEventListener('click', () => activate(e.id));
+      eRoot.appendChild(item);
+    }
+  }
+
+  function sparklineSVG(points, w, h) {
+    if (!points.length) return `<line x1="0" y1="${h - 1}" x2="${w}" y2="${h - 1}" stroke="#373e47" stroke-width="1"/>`;
+    const max = Math.max(...points, 1);
+    const step = w / Math.max(points.length - 1, 1);
+    const path = points.map((p, i) => `${i ? 'L' : 'M'}${(i * step).toFixed(2)},${(h - (p / max) * (h - 2)).toFixed(2)}`).join(' ');
+    return `<path d="${path}" fill="none" stroke="#4493f8" stroke-width="1.2"/>`;
+  }
+
+  // ============================================================
+  // Detail pane (centre)
+  // ============================================================
+  function activate(id) {
+    state.activeId = id;
+    ssSet('activeId', id);
+    renderNav();
+    renderDetail();
+  }
+
+  function renderDetail() {
+    const root = document.getElementById('detail');
+    if (state.activeId === 'custom-debug') return renderCustomDebug(root);
+    if (state.activeId && state.activeId.startsWith('trace:')) {
+      const journeyId = state.activeId.slice('trace:'.length);
+      return renderTrace(root, journeyById[journeyId]);
+    }
+    const e = endpointById[state.activeId];
+    if (!e) {
+      root.innerHTML = `<div class="empty-state">Pick an endpoint from the left, or use <strong>+ Debug any URL</strong>.</div>`;
+      return;
+    }
     const allParams = [...(e.pathParams || []), ...(e.params || [])];
+    root.innerHTML = `
+      <div class="endpoint-head-pane">
+        <h1>${e.name}</h1>
+        <div class="meta"><span style="background: var(--accent-soft); color: var(--accent); padding: 2px 8px; border-radius: 3px; font-family: var(--mono); font-size: 11px;">${e.method}</span> <code>${e.path}</code></div>
+      </div>
+      ${allParams.length ? '<div class="params" id="params"></div>' : ''}
+      <div class="actions">
+        <button class="send" type="button">Send</button>
+        <span class="label">or run</span>
+        <input type="number" class="runs" min="2" max="100" value="10">
+        <button class="run-multi secondary" type="button">× times</button>
+        ${e.nswCompare ? '<button class="compare secondary" type="button" title="Fire BFF and NSW direct in parallel, show side-by-side metrics">Compare with NSW</button>' : ''}
+        <span class="label" style="margin-left: auto;">${e.binary ? 'binary response' : ''}</span>
+      </div>
+      <div class="response" id="response"></div>
+    `;
     if (allParams.length) {
-      const grid = document.createElement('div');
-      grid.className = 'params';
+      const grid = document.getElementById('params');
       for (const p of allParams) {
         const isPath = (e.pathParams || []).some(pp => pp.name === p.name);
         const id = `${e.id}-${p.name}`;
         const w2 = document.createElement('div');
         w2.innerHTML = `
           <label for="${id}">${p.name}${isPath ? ' (path)' : ''}</label>
-          <input id="${id}" data-name="${p.name}" data-default="${p.default || ''}" placeholder="${p.placeholder || ''}">
+          <input id="${id}" data-name="${p.name}" placeholder="${p.placeholder || ''}">
         `;
         const input = w2.querySelector('input');
         const stored = ssGet(`p:${e.id}:${p.name}`);
@@ -423,91 +631,365 @@
         input.addEventListener('input', () => ssSet(`p:${e.id}:${p.name}`, input.value));
         grid.appendChild(w2);
       }
-      body.appendChild(grid);
     }
 
-    const actions = document.createElement('div');
-    actions.className = 'endpoint-actions';
-    actions.innerHTML = `
-      <button class="send" type="button">Send</button>
-      <span style="color: var(--muted); font-size: 12px;">or run</span>
-      <input type="number" class="runs" min="2" max="100" value="10">
-      <button class="run-multi secondary" type="button">× times</button>
-    `;
-    body.appendChild(actions);
-
-    const resp = document.createElement('div');
-    resp.className = 'response';
-    resp.innerHTML = '<div class="empty">No request sent yet.</div>';
-    body.appendChild(resp);
-
-    actions.querySelector('.send').addEventListener('click', async (ev) => {
-      const btn = ev.target;
-      btn.disabled = true; btn.textContent = 'Sending…';
-      const vals = paramValues(wrap, e);
-      const requestSnapshot = buildRequestSnapshot(e, vals);
-      try {
-        const result = await sendRequest(e, vals);
-        resp.innerHTML = renderInspector(result, requestSnapshot);
-        bindCopyButtons(resp, result, requestSnapshot);
-      } catch (err) {
-        resp.innerHTML = renderError(err, requestSnapshot);
-        bindCopyButtons(resp, null, requestSnapshot);
-      } finally {
-        btn.disabled = false; btn.textContent = 'Send';
-      }
+    root.querySelector('.send').addEventListener('click', () => sendActive(e, 1));
+    root.querySelector('.run-multi').addEventListener('click', () => {
+      const n = Math.max(2, Math.min(100, parseInt(root.querySelector('.runs').value) || 10));
+      sendActive(e, n);
     });
-
-    actions.querySelector('.run-multi').addEventListener('click', async (ev) => {
-      const btn = ev.target;
-      const n = Math.max(2, Math.min(100, parseInt(actions.querySelector('.runs').value) || 10));
-      btn.disabled = true; btn.textContent = `Running ${n}…`;
-      try {
-        const results = await runMultiple(e, paramValues(wrap, e), n);
-        resp.innerHTML = renderMulti(results, e);
-      } catch (err) {
-        resp.innerHTML = `<div class="response-head"><span class="status err">ERROR</span></div><pre>${esc(err.message || String(err))}</pre>`;
-      } finally {
-        btn.disabled = false; btn.textContent = '× times';
-      }
-    });
-
-    wrap.appendChild(body);
-    root.appendChild(wrap);
+    const cmpBtn = root.querySelector('.compare');
+    if (cmpBtn) cmpBtn.addEventListener('click', () => runCompare(e));
   }
 
-  endpoints.forEach(renderEndpoint);
+  // ============================================================
+  // Trace / journey view
+  // ============================================================
+  function renderTrace(root, j) {
+    if (!j) { root.innerHTML = `<div class="empty-state">Trace not found.</div>`; return; }
+    root.innerHTML = `
+      <div class="endpoint-head-pane">
+        <h1>${esc(j.name)}</h1>
+        <div class="meta">${esc(j.desc)} · ${j.steps.length} step${j.steps.length === 1 ? '' : 's'}</div>
+      </div>
+      <div class="actions">
+        <button class="run-trace" type="button">Run trace</button>
+        <span class="label">fires the steps in order, ~150 ms apart, then renders a timeline</span>
+      </div>
+      <div class="response" id="traceOutput"></div>
+    `;
+    root.querySelector('.run-trace').addEventListener('click', () => runJourney(j));
+  }
 
-  // --------------------------------------------------------------------------------
-  // Scenarios
-  // --------------------------------------------------------------------------------
-  const scRoot = document.getElementById('scenarios');
-  scenarios.forEach(s => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = s.name;
-    btn.addEventListener('click', () => {
-      const section = sectionByEndpoint.get(s.endpoint);
-      if (!section) return;
-      Object.entries(s.vals).forEach(([k, v]) => {
-        const input = section.querySelector(`input[data-name="${k}"]`);
-        if (input) {
-          input.value = v;
-          ssSet(`p:${s.endpoint}:${k}`, v);
+  async function runJourney(j) {
+    const out = document.getElementById('traceOutput');
+    const btn = document.querySelector('.run-trace');
+    btn.disabled = true; btn.textContent = 'Running…';
+    const results = [];
+    const traceStart = performance.now();
+    try {
+      for (const step of j.steps) {
+        const e = endpointById[step.endpoint];
+        if (!e) { results.push({ step, error: 'unknown endpoint' }); continue; }
+        const vals = { path: { ...(step.params || {}) }, query: { ...(step.params || {}) } };
+        // Strip path params from query, and vice-versa, to avoid duplicate appearance.
+        for (const pp of (e.pathParams || [])) delete vals.query[pp.name];
+        for (const qp of (e.params || [])) delete vals.path[qp.name];
+        // Fill in defaults for missing fields (so a step with sparse params still works).
+        for (const pp of (e.pathParams || [])) if (vals.path[pp.name] === undefined && pp.default) vals.path[pp.name] = pp.default;
+        const startedAt = performance.now() - traceStart;
+        try {
+          const r = await sendRequest(e, vals);
+          results.push({ step, e, startedAt, r });
+          recordHistory(e.id, buildRequestSnapshot(e, vals), r);
+          recordLatency(e.id, r.elapsed);
+        } catch (err) {
+          results.push({ step, e, startedAt, error: err.message || String(err) });
         }
-      });
-      section.classList.add('open');
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-    scRoot.appendChild(btn);
-  });
+        await new Promise(r => setTimeout(r, 150));
+      }
+      out.innerHTML = renderTraceResults(j, results);
+      renderHistory(); renderNav();
+    } finally {
+      btn.disabled = false; btn.textContent = 'Run trace';
+    }
+  }
 
-  // --------------------------------------------------------------------------------
+  function renderTraceResults(j, results) {
+    const totalMs = Math.max(...results.map(r => (r.startedAt || 0) + (r.r ? r.r.elapsed : 0)), 1);
+    const totalBytes = results.reduce((s, r) => s + (r.r?.decodedBytes || 0), 0);
+    const totalWire = results.reduce((s, r) => s + (r.r?.encodedBodySize || r.r?.decodedBytes || 0), 0);
+    const okCount = results.filter(r => r.r && r.r.status >= 200 && r.r.status < 400).length;
+
+    const rows = results.map((row, idx) => {
+      const status = row.error ? 'ERROR' : `${row.r.status}`;
+      const cls = row.error || row.r.status >= 400 ? 'err' : (row.r.status >= 300 ? 'warn' : 'ok');
+      const elapsed = row.r ? row.r.elapsed : 0;
+      const startPct = (row.startedAt / totalMs) * 100;
+      const widthPct = Math.max((elapsed / totalMs) * 100, 1);
+      const sizeStr = row.r ? fmtBytes(row.r.decodedBytes) : '—';
+      return `
+        <div class="trace-row">
+          <div class="trace-meta">
+            <span class="status-pill ${cls}">${status}</span>
+            <span class="trace-label">${esc(row.step.label || row.e?.name || row.step.endpoint)}</span>
+            <span class="trace-detail">${esc(row.e?.path || '')}</span>
+          </div>
+          <div class="trace-timeline">
+            <div class="trace-bar ${cls}" style="left: ${startPct.toFixed(1)}%; width: ${widthPct.toFixed(1)}%;" title="${elapsed} ms">
+              <span class="trace-bar-label">${elapsed} ms · ${sizeStr}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="stats">
+        <div class="row"><span class="label">Total</span><span class="value"><strong>${Math.round(totalMs)}</strong> ms · <strong>${fmtBytes(totalBytes)}</strong> body${totalWire !== totalBytes ? ` · <strong>${fmtBytes(totalWire)}</strong> wire` : ''}</span></div>
+        <div class="row"><span class="label">Steps</span><span class="value"><strong>${okCount}/${results.length}</strong> succeeded</span></div>
+      </div>
+      <div class="trace-table">${rows}</div>
+      <details><summary>Per-step responses</summary>
+        <pre>${results.map((row, i) => {
+          if (row.error) return `#${i + 1} ${row.step.endpoint}: ERROR ${row.error}`;
+          return `#${i + 1} ${row.step.endpoint}: ${row.r.status} · ${row.r.elapsed} ms · ${fmtBytes(row.r.decodedBytes)}\n${truncate(row.r.body, 800)}`;
+        }).join('\n\n')}</pre>
+      </details>
+    `;
+  }
+
+  // ============================================================
+  // BFF vs NSW direct comparison
+  // ============================================================
+  async function runCompare(e) {
+    const respEl = document.getElementById('response');
+    const btn = document.querySelector('.compare');
+    btn.disabled = true; btn.textContent = 'Comparing…';
+    const vals = endpointParamValues(e);
+    const bffReq = buildRequestSnapshot(e, vals);
+    const nswUrl = e.nswCompare({ p: vals.path, q: vals.query });
+    const passthroughUrl = `${(baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '')}/internal/passthrough?url=${encodeURIComponent(nswUrl)}`;
+
+    try {
+      const [bff, nsw] = await Promise.allSettled([
+        sendRequest(e, vals),
+        rawFetch(passthroughUrl, 'GET', { 'X-Krail-Version': versionEl.value.trim() || undefined }, { binary: e.binary }),
+      ]);
+      respEl.innerHTML = renderCompare(e, bffReq, nswUrl, bff, nsw);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Compare with NSW';
+    }
+  }
+
+  function renderCompare(e, bffReq, nswUrl, bffRes, nswRes) {
+    const cell = (res, label) => {
+      if (res.status === 'rejected') return `<div class="cmp-cell err"><div class="cmp-head">${label}</div><div class="cmp-status err">NETWORK ERROR</div><pre>${esc(res.reason?.message || String(res.reason))}</pre></div>`;
+      const r = res.value;
+      const cls = r.status >= 200 && r.status < 300 ? 'ok' : 'err';
+      const wireDelta = r.encodedBodySize != null && r.encodedBodySize > 0 ? ` (wire ${fmtBytes(r.encodedBodySize)})` : '';
+      return `
+        <div class="cmp-cell">
+          <div class="cmp-head">${label}</div>
+          <div class="cmp-status ${cls}">${r.status} ${esc(r.statusText)}</div>
+          <div class="cmp-metric"><span>${r.elapsed} ms</span><span>${fmtBytes(r.decodedBytes)}${wireDelta}</span></div>
+          <details><summary>Body (${fmtBytes(r.decodedBytes)})</summary><pre>${esc(truncate(r.body, 4000))}</pre></details>
+        </div>
+      `;
+    };
+    const summary = (() => {
+      if (bffRes.status !== 'fulfilled' || nswRes.status !== 'fulfilled') return '';
+      const b = bffRes.value, n = nswRes.value;
+      if (b.status >= 400 || n.status >= 400) return '';
+      const sizeWin = n.decodedBytes ? Math.round((1 - b.decodedBytes / n.decodedBytes) * 100) : 0;
+      const speedDelta = b.elapsed - n.elapsed;
+      return `
+        <div class="stats">
+          <div class="row"><span class="label">Body size</span><span class="value">BFF <strong>${fmtBytes(b.decodedBytes)}</strong> vs NSW <strong>${fmtBytes(n.decodedBytes)}</strong> → <strong style="color: ${sizeWin > 0 ? 'var(--ok)' : 'var(--warn)'};">BFF ${sizeWin > 0 ? '−' : '+'}${Math.abs(sizeWin)}%</strong></span></div>
+          <div class="row"><span class="label">Latency</span><span class="value">BFF <strong>${b.elapsed}</strong> ms vs NSW <strong>${n.elapsed}</strong> ms → <strong style="color: ${speedDelta < 0 ? 'var(--ok)' : 'var(--warn)'};">BFF ${speedDelta >= 0 ? '+' : ''}${speedDelta} ms</strong></span></div>
+          <div class="row"><span class="label">Note</span><span class="value" style="color: var(--muted);">BFF latency includes the BFF's call out to NSW + a tiny processing overhead. The size win is what matters most for mobile data plans.</span></div>
+        </div>
+      `;
+    })();
+
+    return `
+      <div class="inspector-status">
+        <span class="badge ok">COMPARE</span>
+        <span style="font-family: var(--mono); font-size: 12px;">${esc(e.name)}</span>
+        <span class="inspector-url">BFF ${esc(bffReq.url)}</span>
+        <span class="inspector-url">NSW ${esc(nswUrl)}</span>
+      </div>
+      ${summary}
+      <div class="cmp-grid">
+        ${cell(bffRes, 'BFF')}
+        ${cell(nswRes, 'NSW direct (via /internal/passthrough)')}
+      </div>
+      <p style="color: var(--muted); font-size: 11px; margin-top: 8px;">
+        ⓘ NSW comparison uses the BFF's <code>/internal/passthrough</code> endpoint (dev-only; disabled in production).
+        If you see "passthrough_failed", verify <code>BFF_DEV_PASSTHROUGH=true</code> is set in <code>local.properties</code> and restart the server.
+      </p>
+    `;
+  }
+
+  // ============================================================
+  // Custom debug (paste URL or curl)
+  // ============================================================
+  function renderCustomDebug(root) {
+    const initialMode = ssGet('customMode', 'url');
+    root.innerHTML = `
+      <div class="endpoint-head-pane">
+        <h1>Debug any URL</h1>
+        <div class="meta">Paste a URL to fire it with the current Authorization / X-Krail-Version headers, or paste a curl command and the dashboard parses it.</div>
+      </div>
+      <div class="custom-tabs">
+        <button data-mode="url" type="button">URL</button>
+        <button data-mode="curl" type="button">curl command</button>
+      </div>
+      <div class="params">
+        <div style="grid-column: 1 / -1;">
+          <label id="customLabel">URL (full)</label>
+          <textarea id="customInput" placeholder="${initialMode === 'curl' ? 'curl -H &#39;X-Krail-Version: 1.5.0&#39; http://localhost:8080/health' : 'http://localhost:8080/health'}"></textarea>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="send" type="button">Send</button>
+        <span class="label" id="customHint" style="color: var(--muted); font-size: 12px;"></span>
+      </div>
+      <div class="response" id="response"></div>
+    `;
+    const input = document.getElementById('customInput');
+    const stored = ssGet('customInput');
+    if (stored) input.value = stored;
+    input.addEventListener('input', () => ssSet('customInput', input.value));
+
+    const tabs = root.querySelectorAll('.custom-tabs button');
+    function setMode(m) {
+      ssSet('customMode', m);
+      tabs.forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+      document.getElementById('customLabel').textContent = m === 'curl' ? 'curl command' : 'URL (full)';
+      document.getElementById('customHint').textContent = m === 'curl'
+        ? 'Headers/method parsed from the curl. Authorization & X-Krail-Version override if set in the top bar.'
+        : 'Authorization / X-Krail-Version from the top bar will be added if non-empty.';
+    }
+    tabs.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    setMode(initialMode);
+
+    root.querySelector('.send').addEventListener('click', () => {
+      const mode = ssGet('customMode', 'url');
+      const raw = input.value.trim();
+      if (!raw) return;
+      let parsed;
+      try {
+        parsed = mode === 'curl' ? parseCurl(raw) : { method: 'GET', url: raw, headers: {} };
+      } catch (err) {
+        document.getElementById('response').innerHTML = `<div class="inspector-status"><span class="badge err">PARSE ERROR</span><span style="font-family: var(--mono); font-size: 12px;">${esc(err.message)}</span></div>`;
+        return;
+      }
+      sendCustom(parsed);
+    });
+  }
+
+  // ============================================================
+  // Curl parsing — handles common shapes
+  // ============================================================
+  function parseCurl(input) {
+    let s = input.replace(/\\\n/g, ' ').trim();
+    if (!s.toLowerCase().startsWith('curl')) throw new Error('Doesn\'t start with `curl`');
+    s = s.slice(4).trim();
+    const tokens = tokenizeShell(s);
+    let method = 'GET', url = null;
+    const headers = {};
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t === '-X' || t === '--request') { method = (tokens[++i] || 'GET').toUpperCase(); }
+      else if (t === '-H' || t === '--header') {
+        const h = tokens[++i] || '';
+        const idx = h.indexOf(':');
+        if (idx > 0) headers[h.slice(0, idx).trim()] = h.slice(idx + 1).trim();
+      }
+      else if (t === '-i' || t === '--include' || t === '-s' || t === '--silent' || t === '-S' || t === '--show-error' || t === '-f' || t === '--fail' || t === '-L' || t === '--location' || t === '-k' || t === '--insecure') { /* skip */ }
+      else if (t === '-d' || t === '--data' || t === '--data-raw' || t === '--data-binary') { method = method === 'GET' ? 'POST' : method; i++; /* body — not used for our endpoints */ }
+      else if (t.startsWith('-')) { /* unknown flag — skip its arg if next token isn't a flag */ if (tokens[i + 1] && !tokens[i + 1].startsWith('-') && !tokens[i + 1].startsWith('http')) i++; }
+      else if (t.startsWith('http')) { url = t; }
+    }
+    if (!url) throw new Error('No URL found in curl');
+    return { method, url, headers };
+  }
+
+  function tokenizeShell(s) {
+    const out = [];
+    let cur = '', q = null;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (q) {
+        if (c === q) q = null;
+        else cur += c;
+      } else if (c === '\'' || c === '"') {
+        q = c;
+      } else if (/\s/.test(c)) {
+        if (cur) { out.push(cur); cur = ''; }
+      } else {
+        cur += c;
+      }
+    }
+    if (cur) out.push(cur);
+    return out;
+  }
+
+  // ============================================================
   // Request execution
-  // --------------------------------------------------------------------------------
-  function paramValues(wrap, e) {
+  // ============================================================
+  async function sendActive(e, n) {
+    const detail = document.getElementById('detail');
+    const respEl = document.getElementById('response');
+    const sendBtn = detail.querySelector('.send');
+    const runBtn = detail.querySelector('.run-multi');
+    sendBtn.disabled = true; if (runBtn) runBtn.disabled = true;
+    sendBtn.textContent = n === 1 ? 'Sending…' : `Running ${n}…`;
+    try {
+      const vals = endpointParamValues(e);
+      const req = buildRequestSnapshot(e, vals);
+      if (n === 1) {
+        try {
+          const r = await sendRequest(e, vals);
+          respEl.innerHTML = renderInspector(r, req);
+          bindInspectorButtons(respEl, r, req);
+          recordHistory(e.id, req, r);
+          recordLatency(e.id, r.elapsed);
+          renderHistory(); renderNav();
+        } catch (err) {
+          respEl.innerHTML = renderError(err, req);
+          bindInspectorButtons(respEl, null, req);
+          recordHistory(e.id, req, null, err);
+          renderHistory();
+        }
+      } else {
+        const results = [];
+        for (let i = 0; i < n; i++) {
+          try { results.push(await sendRequest(e, vals)); } catch (err) { results.push({ error: err.message || String(err) }); }
+          await new Promise(r => setTimeout(r, 30));
+        }
+        respEl.innerHTML = renderMulti(results, e);
+        bindMultiButtons(respEl);
+        results.filter(r => !r.error).forEach(r => { recordHistory(e.id, req, r); recordLatency(e.id, r.elapsed); });
+        renderHistory(); renderNav();
+      }
+    } finally {
+      sendBtn.disabled = false; if (runBtn) runBtn.disabled = false;
+      sendBtn.textContent = 'Send';
+      if (runBtn) runBtn.textContent = '× times';
+    }
+  }
+
+  async function sendCustom(parsed) {
+    const respEl = document.getElementById('response');
+    const send = document.querySelector('.detail .send');
+    send.disabled = true; send.textContent = 'Sending…';
+    // Allow top-bar headers to override / supplement.
+    const headers = { ...parsed.headers };
+    const auth = authEl.value.trim();    if (auth) headers['Authorization']    = auth;
+    const ver  = versionEl.value.trim(); if (ver)  headers['X-Krail-Version']  = ver;
+    const req = { method: parsed.method, url: parsed.url, headers, hasAuth: !!headers['Authorization'], baseUrl: new URL(parsed.url).origin };
+    try {
+      const r = await rawFetch(parsed.url, parsed.method, headers);
+      respEl.innerHTML = renderInspector(r, req);
+      bindInspectorButtons(respEl, r, req);
+      recordHistory('custom-debug', req, r);
+      renderHistory();
+    } catch (err) {
+      respEl.innerHTML = renderError(err, req);
+      bindInspectorButtons(respEl, null, req);
+      recordHistory('custom-debug', req, null, err);
+      renderHistory();
+    } finally {
+      send.disabled = false; send.textContent = 'Send';
+    }
+  }
+
+  function endpointParamValues(e) {
+    const detail = document.getElementById('detail');
     const out = { path: {}, query: {} };
-    wrap.querySelectorAll('.params input').forEach(input => {
+    detail.querySelectorAll('.params input').forEach(input => {
       const name = input.dataset.name;
       const v = input.value.trim();
       if (!v) return;
@@ -526,156 +1008,134 @@
     return url.toString();
   }
 
+  function buildRequestSnapshot(e, vals) {
+    const base = (baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '');
+    const url = buildUrl(base, e, vals);
+    const headers = {};
+    const auth = authEl.value.trim();    if (auth) headers['Authorization']    = '<set>';
+    const ver  = versionEl.value.trim(); if (ver)  headers['X-Krail-Version']  = ver;
+    return { method: e.method, url, headers, hasAuth: !!auth, baseUrl: base };
+  }
+
   async function sendRequest(e, vals) {
     const base = (baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '');
     const url = buildUrl(base, e, vals);
-
     const headers = {};
-    const auth = authEl.value.trim();
-    if (auth) headers['Authorization'] = auth;
-    const ver = versionEl.value.trim();
-    if (ver) headers['X-Krail-Version'] = ver;
+    const auth = authEl.value.trim();    if (auth) headers['Authorization']    = auth;
+    const ver  = versionEl.value.trim(); if (ver)  headers['X-Krail-Version']  = ver;
+    return rawFetch(url, e.method, headers, { followRedirect: e.followRedirect, binary: e.binary });
+  }
 
+  async function rawFetch(url, method, headers, opts = {}) {
     const t0 = performance.now();
-    const res = await fetch(url, { method: e.method, headers, redirect: e.followRedirect === false ? 'manual' : 'follow' });
+    const res = await fetch(url, { method, headers, redirect: opts.followRedirect === false ? 'manual' : 'follow' });
     const elapsed = Math.round(performance.now() - t0);
 
     const ct = res.headers.get('Content-Type') || '';
     const isJson = ct.includes('application/json') || ct.includes('text/');
     const isProto = ct.includes('protobuf');
 
-    // Read full body so we can size it.
-    const bodyBuffer = await res.arrayBuffer();
-    const decodedBytes = bodyBuffer.byteLength;
-
-    let bodyText;
-    if (e.binary || isProto) {
-      bodyText = `<binary, ${decodedBytes} bytes>\n\n` + hexPreview(new Uint8Array(bodyBuffer), 256);
+    const buf = await res.arrayBuffer();
+    const decodedBytes = buf.byteLength;
+    let body;
+    if (opts.binary || isProto) {
+      body = `<binary, ${decodedBytes} bytes>\n\n` + hexPreview(new Uint8Array(buf), 256);
     } else if (isJson) {
-      const text = new TextDecoder().decode(bodyBuffer);
-      try { bodyText = JSON.stringify(JSON.parse(text), null, 2); } catch { bodyText = text; }
+      const text = new TextDecoder().decode(buf);
+      try { body = JSON.stringify(JSON.parse(text), null, 2); } catch { body = text; }
     } else {
-      bodyText = new TextDecoder().decode(bodyBuffer);
+      body = new TextDecoder().decode(buf);
     }
 
     const headerLines = [];
     res.headers.forEach((v, k) => headerLines.push(`${k}: ${v}`));
 
-    // Performance API gives us the wire-encoded size when available.
     let transferSize = null, encodedBodySize = null;
     try {
       const entries = performance.getEntriesByName(url);
       const last = entries[entries.length - 1];
-      if (last) {
-        transferSize = last.transferSize ?? null;
-        encodedBodySize = last.encodedBodySize ?? null;
-      }
-    } catch (_) {}
+      if (last) { transferSize = last.transferSize ?? null; encodedBodySize = last.encodedBodySize ?? null; }
+    } catch {}
 
-    return {
-      url, status: res.status, statusText: res.statusText, elapsed,
-      headers: headerLines.join('\n'), body: bodyText,
-      decodedBytes, encodedBodySize, transferSize, contentType: ct,
-    };
+    return { url, method, status: res.status, statusText: res.statusText, elapsed,
+             headers: headerLines.join('\n'), body, decodedBytes, encodedBodySize, transferSize };
   }
 
-  // Build a snapshot of what we're about to send, so we can show it on success AND on error.
-  function buildRequestSnapshot(e, vals) {
-    const base = (baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '');
-    const url = buildUrl(base, e, vals);
-    const headers = {};
-    const auth = authEl.value.trim();
-    if (auth) headers['Authorization'] = '<set>';  // mask in display
-    const ver = versionEl.value.trim();
-    if (ver) headers['X-Krail-Version'] = ver;
-    return { method: e.method, url, headers, hasAuth: !!auth, baseUrl: base };
-  }
-
+  // ============================================================
+  // Inspector rendering
+  // ============================================================
   function renderInspector(r, req) {
     const cls = r.status >= 200 && r.status < 300 ? 'ok' : r.status >= 400 ? 'err' : 'warn';
-    const sizeMetrics = renderSizeMetrics(r);
-    const reqHeadersRendered = renderHeadersBlock(req.headers);
     return `
-      <div class="inspector">
-        <div class="inspector-status">
-          <span class="method-pill">${esc(r.method || req.method)}</span>
-          <span class="badge ${cls}">${r.status} ${esc(r.statusText)}</span>
-          <span><strong>${r.elapsed}</strong> ms</span>
-          ${sizeMetrics}
-          <span class="inspector-url">${esc(r.url)}</span>
-          <div class="inspector-actions">
-            <button class="copy-url" type="button">Copy URL</button>
-            <button class="copy-curl" type="button">Copy as curl</button>
-            <button class="copy-body" type="button">Copy body</button>
-          </div>
+      <div class="inspector-status">
+        <span class="method-pill">${esc(r.method || req.method)}</span>
+        <span class="badge ${cls}">${r.status} ${esc(r.statusText)}</span>
+        <span><strong>${r.elapsed}</strong> ms</span>
+        ${renderSizeMetrics(r)}
+        <span class="inspector-url">${esc(r.url)}</span>
+        <div class="inspector-actions">
+          <button class="copy-url" type="button">Copy URL</button>
+          <button class="copy-curl" type="button">Copy as curl</button>
+          <button class="copy-body" type="button">Copy body</button>
         </div>
-
-        <details><summary>Request headers ${req.hasAuth ? '<span style="color: var(--warn);"> · Authorization set</span>' : ''}</summary>
-          <pre>${reqHeadersRendered || '<em style="color: var(--muted)">(none beyond browser defaults)</em>'}</pre>
-        </details>
-
-        <details open><summary>Response headers</summary>
-          <pre>${esc(r.headers || '(none)')}</pre>
-        </details>
-
-        <details open><summary>Response body${r.decodedBytes ? ` · ${fmtBytes(r.decodedBytes)}` : ''}</summary>
-          <pre>${esc(r.body)}</pre>
-        </details>
       </div>
+      <details><summary>Request headers ${req.hasAuth ? '<span style="color: var(--warn);">· Authorization set</span>' : ''}</summary>
+        <pre>${renderHeadersBlock(req.headers) || '<em style="color: var(--muted)">(none)</em>'}</pre></details>
+      <details open><summary>Response headers</summary><pre>${esc(r.headers || '(none)')}</pre></details>
+      <details open><summary>Response body${r.decodedBytes ? ` · ${fmtBytes(r.decodedBytes)}` : ''}</summary><pre>${esc(r.body)}</pre></details>
     `;
   }
 
   function renderError(err, req) {
     const msg = err.message || String(err);
     const isFetchFail = /failed to fetch|network/i.test(msg);
-    const reqHeadersRendered = renderHeadersBlock(req.headers);
-    const diag = isFetchFail ? renderFetchFailDiagnostic(req) : `<p style="color: var(--muted); font-size: 12px;">No response received from the server. Check the browser DevTools Network panel for the underlying error.</p>`;
+    const diag = isFetchFail ? renderFetchFailDiag(req) : `<p style="color: var(--muted); font-size: 12px;">No response received. DevTools → Network has the underlying error.</p>`;
     return `
-      <div class="inspector">
-        <div class="inspector-status">
-          <span class="method-pill">${esc(req.method)}</span>
-          <span class="badge err">NETWORK ERROR</span>
-          <span style="color: var(--err); font-family: var(--mono); font-size: 12px;">${esc(msg)}</span>
-          <span class="inspector-url">${esc(req.url)}</span>
-          <div class="inspector-actions">
-            <button class="copy-url" type="button">Copy URL</button>
-            <button class="copy-curl" type="button">Copy as curl</button>
-          </div>
+      <div class="inspector-status">
+        <span class="method-pill">${esc(req.method)}</span>
+        <span class="badge err">NETWORK ERROR</span>
+        <span style="color: var(--err); font-family: var(--mono); font-size: 12px;">${esc(msg)}</span>
+        <span class="inspector-url">${esc(req.url)}</span>
+        <div class="inspector-actions">
+          <button class="copy-url" type="button">Copy URL</button>
+          <button class="copy-curl" type="button">Copy as curl</button>
         </div>
-
-        <details open><summary>What this means + how to fix</summary>
-          <div>${diag}</div>
-        </details>
-
-        <details><summary>Request headers ${req.hasAuth ? '<span style="color: var(--warn);"> · Authorization set</span>' : ''}</summary>
-          <pre>${reqHeadersRendered || '<em style="color: var(--muted)">(none)</em>'}</pre>
-        </details>
       </div>
+      <details open><summary>What this means + how to fix</summary><div>${diag}</div></details>
+      <details><summary>Request headers ${req.hasAuth ? '<span style="color: var(--warn);">· Authorization set</span>' : ''}</summary>
+        <pre>${renderHeadersBlock(req.headers) || '<em style="color: var(--muted)">(none)</em>'}</pre></details>
     `;
   }
 
-  function renderHeadersBlock(headers) {
-    return Object.entries(headers).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join('\n');
-  }
+  function renderHeadersBlock(h) { return Object.entries(h).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join('\n'); }
 
-  function renderFetchFailDiagnostic(req) {
+  function renderFetchFailDiag(req) {
     const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)/.test(req.url);
     const items = [];
     if (isLocal) {
-      items.push(`<li><strong>Server not running.</strong> Verify with <code>curl ${esc(req.baseUrl)}/health</code> in a terminal. <span class="diag-fix">Fix: <code>./scripts/dev.sh up</code> from the repo root.</span></li>`);
-      items.push(`<li><strong>CORS — origin blocked.</strong> If this page is loaded over <code>file://</code> the BFF won't allow it. <span class="diag-fix">Fix: open via <code>http://localhost:8000/api-tester.html</code> instead (the dev script does this for you).</span></li>`);
+      items.push(`<li><strong>Server not running.</strong> <code>curl ${esc(req.baseUrl)}/health</code> to verify. <span class="diag-fix">Fix: <code>./scripts/dev.sh up</code> from repo root.</span></li>`);
+      items.push(`<li><strong>CORS — origin blocked.</strong> If this page is loaded over <code>file://</code> the BFF won't allow it. <span class="diag-fix">Fix: open via <code>http://localhost:8000/api-tester.html</code> (the dev script does this).</span></li>`);
     } else {
-      items.push(`<li><strong>Cross-origin request blocked.</strong> NSW Open Data and most external APIs don't send CORS headers; browsers can't talk to them directly. <span class="diag-fix">Fix: point Base URL at <code>http://localhost:8080</code> (the BFF) and let the BFF talk to upstream server-side.</span></li>`);
-      items.push(`<li><strong>Mixed content.</strong> If this page is on <code>https://</code>, browsers block <code>http://</code> calls. <span class="diag-fix">Fix: use the same scheme on both sides.</span></li>`);
+      items.push(`<li><strong>Cross-origin blocked.</strong> NSW Open Data + most external APIs don't send CORS headers. <span class="diag-fix">Fix: point Base URL at <code>http://localhost:8080</code> (BFF) and let the BFF talk upstream.</span></li>`);
+      items.push(`<li><strong>Mixed content.</strong> If this page is on <code>https://</code>, browsers block <code>http://</code> calls.</li>`);
     }
-    items.push(`<li><strong>DevTools tells the truth.</strong> Open <code>F12 → Network</code>, run the request again, click the failing row. The <em>Status</em> column or the red CORS message there is the real error; "Failed to fetch" is the JS-level placeholder.</li>`);
-    items.push(`<li><strong>Try with curl</strong> using the "Copy as curl" button above — if curl works and the browser doesn't, it's CORS. If neither works, the server is unreachable.</li>`);
+    items.push(`<li><strong>DevTools tells the truth.</strong> F12 → Network → click failing row. The Status / red CORS message there is the actual error.</li>`);
+    items.push(`<li><strong>Try with curl</strong> — Copy as curl above. If curl works, browser doesn't → CORS.</li>`);
     return `<ul class="diag-list">${items.join('')}</ul>`;
   }
 
-  function bindCopyButtons(scope, result, req) {
-    const buttons = scope.querySelectorAll('.copy-url, .copy-curl, .copy-body');
-    buttons.forEach(btn => {
+  function renderSizeMetrics(r) {
+    const parts = [];
+    if (r.decodedBytes != null) parts.push(`<span>body <strong>${fmtBytes(r.decodedBytes)}</strong></span>`);
+    if (r.encodedBodySize != null && r.encodedBodySize > 0 && r.encodedBodySize < r.decodedBytes) {
+      const savings = Math.round((1 - r.encodedBodySize / r.decodedBytes) * 100);
+      parts.push(`<span>wire <strong>${fmtBytes(r.encodedBodySize)}</strong> (gzip −${savings}%)</span>`);
+    }
+    return parts.join(' ');
+  }
+
+  function bindInspectorButtons(scope, result, req) {
+    scope.querySelectorAll('.copy-url, .copy-curl, .copy-body').forEach(btn => {
       btn.addEventListener('click', () => {
         let text = '';
         if (btn.classList.contains('copy-url')) text = req.url;
@@ -693,7 +1153,6 @@
   function toCurl(req) {
     const parts = [`curl -i -X ${req.method} '${req.url.replace(/'/g, `'\\''`)}'`];
     Object.entries(req.headers).forEach(([k, v]) => {
-      // Substitute the actual values from current input fields, not the masked '<set>' placeholder.
       let actual = v;
       if (k === 'Authorization' && v === '<set>') actual = authEl.value.trim();
       parts.push(`  -H '${k}: ${actual.replace(/'/g, `'\\''`)}'`);
@@ -701,115 +1160,123 @@
     return parts.join(' \\\n');
   }
 
-  function renderSizeMetrics(r) {
-    const parts = [];
-    parts.push(`<span class="metric">body <strong>${fmtBytes(r.decodedBytes)}</strong></span>`);
-    if (r.encodedBodySize != null && r.encodedBodySize > 0 && r.encodedBodySize < r.decodedBytes) {
-      const savings = Math.round((1 - r.encodedBodySize / r.decodedBytes) * 100);
-      parts.push(`<span class="metric">wire <strong>${fmtBytes(r.encodedBodySize)}</strong> (gzip −${savings}%)</span>`);
-    } else if (r.encodedBodySize != null && r.encodedBodySize > 0) {
-      parts.push(`<span class="metric">wire <strong>${fmtBytes(r.encodedBodySize)}</strong></span>`);
-    }
-    return parts.join(' ');
-  }
-
-  // --------------------------------------------------------------------------------
-  // Multi-run stats
-  // --------------------------------------------------------------------------------
-  async function runMultiple(e, vals, n) {
-    const results = [];
-    for (let i = 0; i < n; i++) {
-      try {
-        results.push(await sendRequest(e, vals));
-      } catch (err) {
-        results.push({ error: err.message || String(err) });
-      }
-      // Tiny delay so we don't slam local server with N parallel calls.
-      await new Promise(r => setTimeout(r, 30));
-    }
-    return results;
-  }
-
+  // ============================================================
+  // Multi-run
+  // ============================================================
   function renderMulti(results, e) {
-    const okResults = results.filter(r => !r.error && r.status >= 200 && r.status < 400);
-    const failed = results.length - okResults.length;
-    if (okResults.length === 0) {
-      return `<div class="response-head"><span class="status err">ALL FAILED</span><span class="metric">${results.length} attempts</span></div>` +
-        `<pre>${results.map((r, i) => `#${i + 1}: ${r.error || (r.status + ' ' + r.statusText)}`).join('\n')}</pre>`;
+    const ok = results.filter(r => !r.error && r.status >= 200 && r.status < 400);
+    if (!ok.length) {
+      return `<div class="inspector-status"><span class="badge err">ALL FAILED</span><span>${results.length} attempts</span></div>` +
+             `<pre>${results.map((r, i) => `#${i + 1}: ${r.error || (r.status + ' ' + r.statusText)}`).join('\n')}</pre>`;
     }
-    const lat = okResults.map(r => r.elapsed).sort((a, b) => a - b);
-    const sizes = okResults.map(r => r.decodedBytes).sort((a, b) => a - b);
-    const wire = okResults.map(r => r.encodedBodySize).filter(x => x != null && x > 0).sort((a, b) => a - b);
-
-    const stat = (arr) => ({
-      count: arr.length,
-      mean: Math.round(arr.reduce((a, b) => a + b, 0) / arr.length),
-      min: arr[0],
-      max: arr[arr.length - 1],
-      p50: arr[Math.floor(arr.length * 0.5)],
-      p95: arr[Math.floor(arr.length * 0.95)] ?? arr[arr.length - 1],
-    });
-    const lStats = stat(lat);
-    const sStats = stat(sizes);
-    const wStats = wire.length ? stat(wire) : null;
-
-    const failBar = renderBar(okResults.length, results.length);
-    const csvLines = ['#,status,elapsed_ms,decoded_bytes,wire_bytes', ...results.map((r, i) => {
-      if (r.error) return `${i + 1},ERROR,,,`;
-      return `${i + 1},${r.status},${r.elapsed},${r.decodedBytes},${r.encodedBodySize ?? ''}`;
-    })];
-    const csv = csvLines.join('\n');
+    const lat = ok.map(r => r.elapsed).sort((a, b) => a - b);
+    const sizes = ok.map(r => r.decodedBytes).sort((a, b) => a - b);
+    const wire = ok.map(r => r.encodedBodySize).filter(x => x != null && x > 0).sort((a, b) => a - b);
+    const stat = a => ({ count: a.length, mean: Math.round(a.reduce((s, x) => s + x, 0) / a.length), min: a[0], max: a[a.length - 1], p50: a[Math.floor(a.length / 2)], p95: a[Math.floor(a.length * 0.95)] ?? a[a.length - 1] });
+    const L = stat(lat), S = stat(sizes), W = wire.length ? stat(wire) : null;
+    const csv = ['#,status,elapsed_ms,decoded_bytes,wire_bytes', ...results.map((r, i) => r.error ? `${i + 1},ERROR,,,` : `${i + 1},${r.status},${r.elapsed},${r.decodedBytes},${r.encodedBodySize ?? ''}`)].join('\n');
     window._lastMultiCsv = csv;
-
     return `
-      <div class="response-head">
-        <span class="status ${failed > 0 ? 'warn' : 'ok'}">${okResults.length}/${results.length} succeeded</span>
-      </div>
-      ${failBar}
+      <div class="inspector-status"><span class="badge ${ok.length === results.length ? 'ok' : 'warn'}">${ok.length}/${results.length} succeeded</span></div>
       <div class="stats">
-        <div class="row"><span class="label">Latency (ms)</span>
-          <span class="value">mean <strong>${lStats.mean}</strong> · p50 <strong>${lStats.p50}</strong> · p95 <strong>${lStats.p95}</strong> · min <strong>${lStats.min}</strong> · max <strong>${lStats.max}</strong></span>
-        </div>
-        <div class="row"><span class="label">Body size (decoded)</span>
-          <span class="value">mean <strong>${fmtBytes(sStats.mean)}</strong> · p50 <strong>${fmtBytes(sStats.p50)}</strong> · min <strong>${fmtBytes(sStats.min)}</strong> · max <strong>${fmtBytes(sStats.max)}</strong></span>
-        </div>
-        ${wStats ? `<div class="row"><span class="label">Wire size (encoded)</span>
-          <span class="value">mean <strong>${fmtBytes(wStats.mean)}</strong> · p50 <strong>${fmtBytes(wStats.p50)}</strong> · min <strong>${fmtBytes(wStats.min)}</strong> · max <strong>${fmtBytes(wStats.max)}</strong></span>
-        </div>
-        <div class="row"><span class="label">Compression</span>
-          <span class="value"><strong>−${Math.round((1 - wStats.mean / sStats.mean) * 100)}%</strong> on the wire vs decoded</span>
-        </div>` : ''}
-        <div class="row" style="margin-top: 8px;"><span class="label">Export</span>
-          <span class="value"><a href="#" id="copyMultiCsv" style="color: var(--accent);">copy CSV</a> (status,elapsed_ms,decoded_bytes,wire_bytes per run)</span>
-        </div>
+        <div class="row"><span class="label">Latency (ms)</span><span class="value">mean <strong>${L.mean}</strong> · p50 <strong>${L.p50}</strong> · p95 <strong>${L.p95}</strong> · min <strong>${L.min}</strong> · max <strong>${L.max}</strong></span></div>
+        <div class="row"><span class="label">Body size</span><span class="value">mean <strong>${fmtBytes(S.mean)}</strong> · min <strong>${fmtBytes(S.min)}</strong> · max <strong>${fmtBytes(S.max)}</strong></span></div>
+        ${W ? `<div class="row"><span class="label">Wire size</span><span class="value">mean <strong>${fmtBytes(W.mean)}</strong> (gzip <strong>−${Math.round((1 - W.mean / S.mean) * 100)}%</strong>)</span></div>` : ''}
+        <div class="row"><span class="label">Export</span><span class="value"><a href="#" id="copyMultiCsv">copy CSV</a></span></div>
       </div>
-      <details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--muted); font-size: 12px;">Last response body</summary><pre>${esc(okResults[okResults.length - 1].body)}</pre></details>
+      <details><summary>Last response body</summary><pre>${esc(ok[ok.length - 1].body)}</pre></details>
     `;
   }
 
-  // Bind copy-CSV after every multi-run render.
-  document.addEventListener('click', (ev) => {
-    if (ev.target.id === 'copyMultiCsv') {
+  function bindMultiButtons(scope) {
+    const link = scope.querySelector('#copyMultiCsv');
+    if (!link) return;
+    link.addEventListener('click', (ev) => {
       ev.preventDefault();
       navigator.clipboard.writeText(window._lastMultiCsv || '').then(
-        () => { ev.target.textContent = 'copied!'; setTimeout(() => ev.target.textContent = 'copy CSV', 1500); },
-        () => { ev.target.textContent = 'clipboard denied'; },
+        () => { link.textContent = 'copied!'; setTimeout(() => link.textContent = 'copy CSV', 1500); }
       );
+    });
+  }
+
+  // ============================================================
+  // History
+  // ============================================================
+  function recordHistory(endpointId, req, r, err) {
+    const item = {
+      time: Date.now(),
+      endpointId,
+      method: req.method,
+      url: req.url,
+      status: err ? 'ERROR' : r.status,
+      elapsed: err ? null : r.elapsed,
+      decodedBytes: err ? null : r.decodedBytes,
+      encodedBodySize: err ? null : r.encodedBodySize,
+      pathParams: req.pathParams || null,
+      queryParams: req.queryParams || null,
+    };
+    state.history.unshift(item);
+    if (state.history.length > MAX_HISTORY) state.history = state.history.slice(0, MAX_HISTORY);
+    ssSetJSON('history', state.history);
+  }
+
+  function recordLatency(endpointId, ms) {
+    if (!state.latencies[endpointId]) state.latencies[endpointId] = [];
+    state.latencies[endpointId].push(ms);
+    if (state.latencies[endpointId].length > MAX_SPARK_POINTS) {
+      state.latencies[endpointId] = state.latencies[endpointId].slice(-MAX_SPARK_POINTS);
     }
-  });
-
-  function renderBar(ok, total) {
-    const okPct = (ok / total) * 100;
-    const failPct = 100 - okPct;
-    return `<div class="stats-bar"><div class="seg" style="width:${okPct}%"></div>${failPct > 0 ? `<div class="seg err" style="width:${failPct}%"></div>` : ''}</div>`;
+    ssSetJSON('latencies', state.latencies);
   }
 
-  // --------------------------------------------------------------------------------
+  function renderHistory() {
+    const list = document.getElementById('historyList');
+    const filtered = state.history.filter(h => {
+      if (!state.historyFilter) return true;
+      const f = state.historyFilter;
+      return h.url.toLowerCase().includes(f) || String(h.status).toLowerCase().includes(f);
+    });
+    if (!filtered.length) {
+      list.innerHTML = `<div class="history-empty">${state.history.length === 0 ? 'No requests yet this session.' : 'No matches.'}</div>`;
+      return;
+    }
+    list.innerHTML = filtered.map(h => {
+      const cls = h.status === 'ERROR' || h.status >= 400 ? 'err' : (h.status >= 300 ? 'warn' : 'ok');
+      const time = new Date(h.time).toLocaleTimeString();
+      const path = (() => { try { return new URL(h.url).pathname + new URL(h.url).search; } catch { return h.url; } })();
+      const sizeStr = h.decodedBytes != null ? ' · ' + fmtBytes(h.decodedBytes) : '';
+      return `
+        <div class="history-row" data-time="${h.time}">
+          <div class="row1">
+            <span class="status-pill ${cls}">${h.status}</span>
+            <span>${esc(h.method)}</span>
+            <span class="ms">${h.elapsed != null ? h.elapsed + ' ms' : ''}${sizeStr}</span>
+          </div>
+          <div class="row2">${esc(truncate(path, 50))}</div>
+          <div class="row3">${time}${h.endpointId !== 'custom-debug' ? '' : ' · custom debug'}</div>
+        </div>
+      `;
+    }).join('');
+    list.querySelectorAll('.history-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const time = parseInt(row.dataset.time);
+        const item = state.history.find(h => h.time === time);
+        if (!item) return;
+        if (item.endpointId === 'custom-debug') {
+          activate('custom-debug');
+          const inp = document.getElementById('customInput');
+          if (inp) inp.value = item.url;
+        } else {
+          activate(item.endpointId);
+        }
+      });
+    });
+  }
+
+  // ============================================================
   // Helpers
-  // --------------------------------------------------------------------------------
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-  }
+  // ============================================================
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
   function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
   function fmtBytes(b) {
     if (b == null) return '?';
@@ -830,64 +1297,12 @@
     return lines.join('\n');
   }
 
-  // --------------------------------------------------------------------------------
-  // Smoke runner
-  // --------------------------------------------------------------------------------
-  document.getElementById('runSmoke').addEventListener('click', runSmoke);
-  document.getElementById('exportCsv').addEventListener('click', exportSmokeCsv);
-
-  let lastSmoke = [];
-
-  async function runSmoke() {
-    const btn = document.getElementById('runSmoke');
-    const out = document.getElementById('smokeResults');
-    btn.disabled = true;
-    out.innerHTML = '';
-    lastSmoke = [];
-    const targets = endpoints.filter(e => e.smoke?.include);
-    let pass = 0, fail = 0;
-    for (const e of targets) {
-      const row = document.createElement('div');
-      row.className = 'smoke-row';
-      row.innerHTML = `<span class="label">${e.method} ${e.path}</span><span class="pending">running…</span>`;
-      out.appendChild(row);
-
-      const wrap = sectionByEndpoint.get(e.id);
-      const vals = paramValues(wrap, e);
-      for (const [k, v] of Object.entries(e.smoke?.pathFill || {})) {
-        if (!vals.path[k]) vals.path[k] = v;
-      }
-      try {
-        const r = await sendRequest(e, vals);
-        const ok = (r.status >= 200 && r.status < 300) || (e.followRedirect && r.status >= 300 && r.status < 400);
-        const sizeStr = `${fmtBytes(r.decodedBytes)}` + (r.encodedBodySize != null && r.encodedBodySize !== r.decodedBytes ? ` / ${fmtBytes(r.encodedBodySize)} wire` : '');
-        row.lastElementChild.outerHTML = `<span class="${ok ? 'pass' : 'fail'}">${r.status} (${r.elapsed} ms, ${sizeStr})</span>`;
-        ok ? pass++ : fail++;
-        lastSmoke.push({ endpoint: e.id, path: e.path, status: r.status, elapsed: r.elapsed, body_bytes: r.decodedBytes, wire_bytes: r.encodedBodySize ?? '' });
-      } catch (err) {
-        row.lastElementChild.outerHTML = `<span class="fail">ERROR: ${esc(err.message || String(err))}</span>`;
-        fail++;
-        lastSmoke.push({ endpoint: e.id, path: e.path, status: 'ERROR', elapsed: '', body_bytes: '', wire_bytes: '' });
-      }
-    }
-    const summary = document.createElement('div');
-    summary.className = 'smoke-row';
-    summary.innerHTML = `<span class="label">Summary</span><span class="${fail === 0 ? 'pass' : 'fail'}">${pass} passed, ${fail} failed</span>`;
-    out.appendChild(summary);
-    btn.disabled = false;
-  }
-
-  function exportSmokeCsv() {
-    if (!lastSmoke.length) { alert('Run the smoke tests first.'); return; }
-    const headers = ['endpoint', 'path', 'status', 'elapsed_ms', 'body_bytes', 'wire_bytes'];
-    const lines = [headers.join(','), ...lastSmoke.map(r => headers.map(h => r[h] ?? '').join(','))];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `krail-bff-smoke-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+  // ============================================================
+  // Boot
+  // ============================================================
+  renderNav();
+  renderDetail();
+  renderHistory();
 </script>
 </body>
 </html>

@@ -61,6 +61,8 @@ tasks.named<JavaExec>("run") {
             "bff.perIp.rps" to "BFF_PER_IP_RPS",
             "bff.perIp.burst" to "BFF_PER_IP_BURST",
             "bff.perIp.maxIps" to "BFF_PER_IP_MAX",
+            // Dev-only API-tester passthrough (NEVER set in production)
+            "bff.devPassthrough" to "BFF_DEV_PASSTHROUGH",
             // Static data manifests
             "data.stops.manifestUrl" to "STOPS_MANIFEST_URL",
             "data.routes.manifestUrl" to "ROUTES_MANIFEST_URL",
