@@ -37,6 +37,10 @@ bff:
     # Transform Rule value). Empty/unset disables the gate (dev/test default).
     # Override via CF_ORIGIN_TOKEN env var.
     cfOriginToken: ""
+    # Dev-only: enables /internal/passthrough?url=<NSW URL>, used by the
+    # API tester to fire NSW-direct calls for comparison without browser CORS.
+    # MUST stay false in production. Override via BFF_DEV_PASSTHROUGH=true.
+    devPassthrough: "false"
 
 data:
     stops:
