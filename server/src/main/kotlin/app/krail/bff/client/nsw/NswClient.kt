@@ -91,6 +91,12 @@ class NswClientImpl(
             explicitNulls = false
             isLenient = true
         }
+
+        // 80-char separator used in the verbose request/response diagnostic
+        // logging. Was being recomputed via "=".repeat(80) on every NSW call
+        // (8 allocations per trip-planner request); now constant.
+        private const val LOG_SEPARATOR =
+            "================================================================================"
     }
 
     private val logger = LoggerFactory.getLogger(NswClientImpl::class.java)
@@ -175,9 +181,9 @@ class NswClientImpl(
         return try {
             val baseUrl = "${config.baseUrl.trimEnd('/')}/v1/tp/trip"
 
-            logger.info("=" .repeat(80))
+            logger.info(LOG_SEPARATOR)
             logger.info("🚀 NSW TRIP API REQUEST")
-            logger.info("=" .repeat(80))
+            logger.info(LOG_SEPARATOR)
             logger.info("📋 Input Parameters:")
             logger.info("   Origin Stop ID: {}", originStopId)
             logger.info("   Destination Stop ID: {}", destinationStopId)
@@ -241,9 +247,9 @@ class NswClientImpl(
             }
             logger.info("   Method: {}", response.call.request.method.value)
 
-            logger.info("=" .repeat(80))
+            logger.info(LOG_SEPARATOR)
             logger.info("📥 NSW TRIP API RESPONSE")
-            logger.info("=" .repeat(80))
+            logger.info(LOG_SEPARATOR)
             logger.info("HTTP Status: {}", response.status.value)
             logger.info("HTTP Status Description: {}", response.status.description)
 
@@ -260,7 +266,7 @@ class NswClientImpl(
             if (responseText.length > 2000) {
                 logger.info("... (truncated, showing first 2000 of {} chars)", responseText.length)
             }
-            logger.info("=" .repeat(80))
+            logger.info(LOG_SEPARATOR)
 
             // Check HTTP status code before parsing.
             // Counter is incremented in the outer catch block — don't double-count here.
@@ -313,9 +319,9 @@ class NswClientImpl(
         // Convert to proto and log
         val journeyList = JourneyListMapper.toProto(jsonResponse)
 
-        logger.info("=" .repeat(80))
+        logger.info(LOG_SEPARATOR)
         logger.info("🚊 PROTOBUF JOURNEY LIST")
-        logger.info("=" .repeat(80))
+        logger.info(LOG_SEPARATOR)
         logger.info("Number of journeys: {}", journeyList.journeys.size)
         journeyList.journeys.forEachIndexed { index, journey ->
             logger.info("\n--- Journey #{} ---", index + 1)
@@ -340,7 +346,7 @@ class NswClientImpl(
                 logger.info("  Departure Deviation: {}", deviationText)
             }
         }
-        logger.info("=" .repeat(80))
+        logger.info(LOG_SEPARATOR)
 
         // Convert to proto
         return journeyList
