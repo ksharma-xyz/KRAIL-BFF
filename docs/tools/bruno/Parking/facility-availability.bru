@@ -1,0 +1,25 @@
+meta {
+  name: Park & Ride — single facility availability
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/v1/parking/facilities/1/availability
+  body: none
+  auth: none
+}
+
+headers {
+  X-Krail-Version: {{appVersion}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
+
+docs {
+  Replace `1` with a real facility ID from the list (`facilities-list.bru`).
+}

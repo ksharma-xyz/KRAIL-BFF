@@ -1,0 +1,24 @@
+meta {
+  name: GTFS-RT trip updates v1
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/v1/gtfs/realtime/buses
+  body: none
+  auth: none
+}
+
+headers {
+  X-Krail-Version: {{appVersion}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test("returns protobuf", function() {
+    expect(res.getHeader("content-type")).to.match(/protobuf/);
+  });
+}

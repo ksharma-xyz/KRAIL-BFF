@@ -1,0 +1,21 @@
+meta {
+  name: Routes dataset manifest
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/v1/data/routes/manifest
+  body: none
+  auth: none
+}
+
+headers {
+  X-Krail-Version: {{appVersion}}
+}
+
+tests {
+  test("status is 302 or 200 or 404", function() {
+    expect([200, 302, 404]).to.include(res.getStatus());
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Park & Ride — facilities list
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/v1/parking/facilities
+  body: none
+  auth: none
+}
+
+headers {
+  X-Krail-Version: {{appVersion}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: GTFS-RT trip updates v2 (sydneytrains, metro)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/v2/gtfs/realtime/sydneytrains
+  body: none
+  auth: none
+}
+
+headers {
+  X-Krail-Version: {{appVersion}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

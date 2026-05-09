@@ -1,0 +1,21 @@
+meta {
+  name: GTFS-RT vehicle positions
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/v2/gtfs/vehiclepos/sydneytrains
+  body: none
+  auth: none
+}
+
+headers {
+  X-Krail-Version: {{appVersion}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
