@@ -105,7 +105,11 @@ wire {
     }
 
     sourcePath {
-        srcDir("src/main/proto")
+        // The .proto contract lives in the KRAIL-API-PROTO submodule, pinned
+        // to a tag (see .gitmodules + krail-api-proto/version.txt). Wire
+        // resolves imports relative to this directory, so both proto/api/
+        // and proto/data/ are visible without listing them individually.
+        srcDir("$rootDir/krail-api-proto/proto")
     }
 }
 
