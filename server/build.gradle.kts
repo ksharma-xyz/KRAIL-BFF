@@ -31,24 +31,44 @@ tasks.named<JavaExec>("run") {
         systemProperty("ktor.deployment.port", it)
     }
 
-    // Load local.properties if it exists
+    // Load local.properties (dev-only) and forward known keys as env vars,
+    // because the BFF reads its config from env > yaml at runtime — production
+    // sets env vars on the platform; dev mirrors that here.
     val localPropertiesFile = rootProject.file("local.properties")
     if (localPropertiesFile.exists()) {
         val localProperties = Properties()
         localProperties.load(localPropertiesFile.inputStream())
 
-        // Pass NSW API key from local.properties to the application
-        localProperties.getProperty("nsw.apiKey")?.let { key ->
-            environment("NSW_API_KEY", key)
-        }
-        localProperties.getProperty("nsw.baseUrl")?.let { url ->
-            environment("NSW_BASE_URL", url)
-        }
-        localProperties.getProperty("nsw.connectTimeoutMs")?.let { timeout ->
-            environment("NSW_CONNECT_TIMEOUT_MS", timeout)
-        }
-        localProperties.getProperty("nsw.readTimeoutMs")?.let { timeout ->
-            environment("NSW_READ_TIMEOUT_MS", timeout)
+        // Property name in local.properties → env var name expected by the app.
+        // Add new entries here when the app gains a new config knob; keeping the
+        // map explicit avoids surprise leaks (e.g. accidental forwarding of arbitrary
+        // local.properties entries into the JVM environment).
+        val propToEnv = linkedMapOf(
+            // NSW upstream
+            "nsw.apiKey" to "NSW_API_KEY",
+            "nsw.baseUrl" to "NSW_BASE_URL",
+            "nsw.connectTimeoutMs" to "NSW_CONNECT_TIMEOUT_MS",
+            "nsw.readTimeoutMs" to "NSW_READ_TIMEOUT_MS",
+            "nsw.breakerFailureThreshold" to "NSW_BREAKER_FAILURE_THRESHOLD",
+            "nsw.breakerResetTimeoutMs" to "NSW_BREAKER_RESET_TIMEOUT_MS",
+            "nsw.dailyBudget" to "NSW_DAILY_BUDGET",
+            // BFF gates / CORS / rate limit
+            "bff.cors.origins" to "BFF_CORS_ORIGINS",
+            "bff.minAppVersion" to "MIN_APP_VERSION",
+            "bff.cfOriginToken" to "CF_ORIGIN_TOKEN",
+            "bff.rateLimit.rps" to "BFF_RATE_LIMIT_RPS",
+            "bff.rateLimit.burst" to "BFF_RATE_LIMIT_BURST",
+            "bff.perIp.rps" to "BFF_PER_IP_RPS",
+            "bff.perIp.burst" to "BFF_PER_IP_BURST",
+            "bff.perIp.maxIps" to "BFF_PER_IP_MAX",
+            // Static data manifests
+            "data.stops.manifestUrl" to "STOPS_MANIFEST_URL",
+            "data.routes.manifestUrl" to "ROUTES_MANIFEST_URL",
+        )
+        propToEnv.forEach { (prop, envName) ->
+            localProperties.getProperty(prop)?.takeIf { it.isNotBlank() }?.let { value ->
+                environment(envName, value)
+            }
         }
     }
 
