@@ -110,7 +110,6 @@ private fun provideNswConfig(config: ApplicationConfig): NswConfig {
         else -> "application.yaml"
     }
     logger.info("✅ NSW API Key loaded successfully from: {}", configSource)
-    logger.info("   API Key length: {} chars", apiKey.length)
     logger.info("   Base URL: {}", baseUrl)
 
     val connectTimeout = System.getenv("NSW_CONNECT_TIMEOUT_MS")?.toLongOrNull()

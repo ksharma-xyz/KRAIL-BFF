@@ -38,5 +38,18 @@ out/
 ### Local Configuration ###
 # Keep your API keys and secrets here - never commit this file!
 local.properties
+.env
+.env.*
+!.env.example
+
+### Secrets / certs ###
+*.pem
+*.p12
+*.key
+*.keystore
+*.jks
+
+### macOS ###
+.DS_Store
 
 .kotlin

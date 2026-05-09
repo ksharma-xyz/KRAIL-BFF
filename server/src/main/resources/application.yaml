@@ -13,3 +13,9 @@ nsw:
     readTimeoutMs: 10000
     breakerFailureThreshold: 3
     breakerResetTimeoutMs: 60000
+
+bff:
+    cors:
+        # Comma-separated origins. Empty = reject all cross-origin requests (production default).
+        # Override per-environment via BFF_CORS_ORIGINS env var.
+        origins: ""
