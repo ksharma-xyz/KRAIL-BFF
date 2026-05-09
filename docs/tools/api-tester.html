@@ -208,8 +208,68 @@
     padding: 10px 12px; margin: 0; background: var(--bg);
     font-family: var(--mono); font-size: 12px; line-height: 1.5;
     white-space: pre-wrap; word-break: break-all;
-    max-height: 360px; overflow: auto;
+    max-height: 70vh; overflow: auto;
   }
+  details > pre.full { max-height: 80vh; }
+  details.full-body > pre { max-height: 80vh; }
+
+  /* ------------------ NAV GROUPS ------------------ */
+  .nav .group { margin-bottom: 6px; }
+  .nav .group-title {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px 6px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted); cursor: pointer; user-select: none;
+  }
+  .nav .group-title:hover { color: var(--fg); }
+  .nav .group-title .count { color: var(--muted); font-weight: 400; font-size: 10px; }
+  .nav .group-title .caret { font-size: 9px; color: var(--muted); margin-right: 4px; transition: transform 0.1s; }
+  .nav .group.collapsed .caret { transform: rotate(-90deg); }
+  .nav .group.collapsed .group-body { display: none; }
+  .nav .item .method.method-trace { background: rgba(63, 185, 80, 0.15); color: var(--ok); }
+  .nav .item .method.method-saved { background: rgba(210, 153, 34, 0.18); color: var(--warn); }
+  .nav .item.postman .name { font-style: italic; }
+  .nav .item.postman .path { font-size: 10px; opacity: 0.85; }
+
+  /* ------------------ HIGHLIGHTS PANEL ------------------ */
+  .highlights {
+    background: linear-gradient(180deg, rgba(68, 147, 248, 0.08), rgba(68, 147, 248, 0.02));
+    border: 1px solid var(--accent-soft); border-left: 3px solid var(--accent);
+    border-radius: 6px; padding: 10px 14px; margin: 8px 0;
+  }
+  .highlights .hl-title {
+    color: var(--accent); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
+  }
+  .highlights .hl-row {
+    display: flex; align-items: baseline; gap: 8px; padding: 3px 0;
+    font-size: 12px; flex-wrap: wrap;
+  }
+  .highlights .hl-row .hl-key { color: var(--muted); min-width: 110px; font-size: 11px; }
+  .highlights .hl-row .hl-val { color: var(--fg); font-family: var(--mono); flex: 1; word-break: break-all; }
+  .highlights .hl-row .hl-val strong { color: var(--accent); }
+  .highlights .hl-copy {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 1px 6px; border-radius: 3px; font-size: 10px; cursor: pointer; font-family: var(--mono);
+  }
+  .highlights .hl-copy:hover { border-color: var(--accent); color: var(--accent); }
+  .highlights .hl-copy.copied { color: var(--ok); border-color: var(--ok); }
+
+  /* JSON tree (collapsible) */
+  .json-tree { font-family: var(--mono); font-size: 12px; line-height: 1.55; }
+  .json-tree .jt-row { display: flex; align-items: baseline; gap: 4px; }
+  .json-tree .jt-toggle {
+    cursor: pointer; user-select: none; color: var(--muted);
+    width: 12px; display: inline-block; text-align: center;
+  }
+  .json-tree .jt-toggle:hover { color: var(--accent); }
+  .json-tree .jt-key { color: #79c0ff; }
+  .json-tree .jt-string { color: #a5d6ff; }
+  .json-tree .jt-number { color: #ff7b72; }
+  .json-tree .jt-bool, .json-tree .jt-null { color: #d2a8ff; }
+  .json-tree .jt-summary { color: var(--muted); font-style: italic; }
+  .json-tree .jt-children { padding-left: 18px; border-left: 1px dashed var(--border); margin-left: 4px; }
+  .json-tree .jt-collapsed .jt-children { display: none; }
   .diag-list { padding: 0; margin: 0; list-style: none; }
   .diag-list li { padding: 6px 0; color: var(--fg); font-size: 12px; border-bottom: 1px solid var(--border); }
   .diag-list li:last-child { border-bottom: 0; }
@@ -281,7 +341,7 @@
   .cmp-status.err { background: rgba(248, 81, 73, 0.15); color: var(--err); }
   .cmp-metric { display: flex; gap: 12px; color: var(--muted); margin-bottom: 6px; }
   .cmp-metric span strong { color: var(--fg); }
-  .cmp-cell pre { background: var(--panel-elev); border: 1px solid var(--border); border-radius: 3px; padding: 6px; max-height: 200px; overflow: auto; margin: 0; font-size: 11px; }
+  .cmp-cell pre { background: var(--panel-elev); border: 1px solid var(--border); border-radius: 3px; padding: 6px; max-height: 60vh; overflow: auto; margin: 0; font-size: 11px; }
 
   @media (max-width: 1300px) {
     .cmp-grid { grid-template-columns: 1fr; }
@@ -332,13 +392,13 @@
   // ============================================================
   const endpoints = [
     { id: 'health',              method: 'GET', path: '/health',
-      name: 'Health probe',
+      name: 'Health probe', group: 'admin',
       params: [] },
     { id: 'ready',               method: 'GET', path: '/ready',
-      name: 'Readiness probe (NSW upstream)',
+      name: 'Readiness probe (NSW upstream)', group: 'admin',
       params: [] },
     { id: 'tripPlanJson',        method: 'GET', path: '/api/v1/trip/plan',
-      name: 'Trip planner — JSON',
+      name: 'Trip planner — JSON', group: 'trips',
       params: [
         { name: 'origin', default: '200060' },
         { name: 'destination', default: '10101100' },
@@ -350,7 +410,7 @@
       nswCompare: ({ q }) => `https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=${q.origin}&name_destination=${q.destination}&depArrMacro=${q.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON`,
     },
     { id: 'tripPlanProto',       method: 'GET', path: '/api/v1/trip/plan-proto',
-      name: 'Trip planner — protobuf',
+      name: 'Trip planner — protobuf', group: 'trips',
       binary: true,
       params: [
         { name: 'origin', default: '200060' },
@@ -358,7 +418,7 @@
         { name: 'depArr', default: 'dep' },
       ] },
     { id: 'tripLegacy',          method: 'GET', path: '/v1/tp/trip',
-      name: 'Trip planner — legacy NSW shape',
+      name: 'Trip planner — legacy NSW shape', group: 'trips',
       params: [
         { name: 'origin', default: '200060' },
         { name: 'destination', default: '10101100' },
@@ -366,7 +426,7 @@
       nswCompare: ({ q }) => `https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=${q.origin}&name_destination=${q.destination}&depArrMacro=dep&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&outputFormat=rapidJSON`,
     },
     { id: 'departures',          method: 'GET', path: '/v1/stops/{stopId}/departures',
-      name: 'Departures for a stop',
+      name: 'Departures for a stop', group: 'home',
       pathParams: [{ name: 'stopId', default: '200060' }],
       params: [
         { name: 'date', placeholder: 'YYYYMMDD' },
@@ -375,45 +435,95 @@
       nswCompare: ({ p, q }) => `https://api.transport.nsw.gov.au/v1/tp/departure_mon?name_dm=${p.stopId}&type_dm=any&mode=direct&excludedMeans=checkbox&limit=20${q.date ? `&itdDate=${q.date}` : ''}${q.time ? `&itdTime=${q.time}` : ''}&outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&TfNSWDM=true&version=10.2.1.42`,
     },
     { id: 'parkingList',         method: 'GET', path: '/v1/parking/facilities',
-      name: 'Park & Ride — facility list',
+      name: 'Park & Ride — facility list', group: 'home',
       params: [],
       nswCompare: () => `https://api.transport.nsw.gov.au/v1/carpark`,
     },
     { id: 'parkingAvail',        method: 'GET', path: '/v1/parking/facilities/{facilityId}/availability',
-      name: 'Park & Ride — availability',
+      name: 'Park & Ride — availability', group: 'home',
       pathParams: [{ name: 'facilityId', default: '1' }],
       params: [],
       nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v1/carpark?facility=${p.facilityId}`,
     },
     { id: 'gtfsRtV1',            method: 'GET', path: '/v1/gtfs/realtime/{feed}',
-      name: 'GTFS-RT trip updates v1',
+      name: 'GTFS-RT trip updates v1', group: 'track',
       binary: true,
       pathParams: [{ name: 'feed', default: 'buses' }],
       params: [],
       nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v1/gtfs/realtime/${p.feed}`,
     },
     { id: 'gtfsRtV2',            method: 'GET', path: '/v2/gtfs/realtime/{feed}',
-      name: 'GTFS-RT trip updates v2',
+      name: 'GTFS-RT trip updates v2', group: 'track',
       binary: true,
       pathParams: [{ name: 'feed', default: 'sydneytrains' }],
       params: [],
       nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v2/gtfs/realtime/${p.feed}`,
     },
     { id: 'gtfsVehiclepos',      method: 'GET', path: '/v2/gtfs/vehiclepos/{feed}',
-      name: 'GTFS-RT vehicle positions',
+      name: 'GTFS-RT vehicle positions', group: 'track',
       binary: true,
       pathParams: [{ name: 'feed', default: 'sydneytrains' }],
       params: [],
       nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v2/gtfs/vehiclepos/${p.feed}`,
     },
     { id: 'stopsManifest',       method: 'GET', path: '/v1/data/stops/manifest',
-      name: 'Stops dataset manifest (302)',
+      name: 'Stops dataset manifest (302)', group: 'search',
       params: [], followRedirect: true },
     { id: 'routesManifest',      method: 'GET', path: '/v1/data/routes/manifest',
-      name: 'Routes dataset manifest (302)',
+      name: 'Routes dataset manifest (302)', group: 'search',
       params: [], followRedirect: true },
   ];
   const endpointById = Object.fromEntries(endpoints.map(e => [e.id, e]));
+
+  // Group definitions ordered as they appear in the nav.
+  const GROUPS = [
+    { id: 'home',   title: 'Home (saved trips, departures, parking)' },
+    { id: 'search', title: 'Stop search + reference data' },
+    { id: 'trips',  title: 'Trip search + results' },
+    { id: 'track',  title: 'Track trip + map (GTFS-RT)' },
+    { id: 'admin',  title: 'Server health' },
+  ];
+
+  // Slot a URL into a group based on path patterns. Used for Postman saved entries.
+  function categoriseUrl(url) {
+    const u = url.toLowerCase();
+    if (u.includes('/departure_mon') || u.includes('/carpark') || u.includes('/parking/')) return 'home';
+    if (u.includes('/stop_finder') || u.includes('/coord') || u.includes('/data/stops/') || u.includes('/data/routes/')) return 'search';
+    if (u.includes('/tp/trip') || u.includes('/trip/plan') || u.includes('/screens/trip-results')) return 'trips';
+    if (u.includes('/gtfs/realtime') || u.includes('/gtfs/vehiclepos') || u.includes('/journey/')) return 'track';
+    if (u.endsWith('/health') || u.endsWith('/ready')) return 'admin';
+    return null; // unrecognised → "Other"
+  }
+
+  // ============================================================
+  // Saved requests imported from your Postman collections.
+  // The source .postman_collection.json files were intentionally NOT
+  // committed (they contained real NSW API keys baked into Authorization
+  // headers). Only the URLs + names live here; auth is added at request
+  // time via the dashboard's Authorization field, and NSW URLs are
+  // automatically routed through /internal/passthrough so the browser
+  // doesn't choke on NSW's missing CORS headers.
+  // ============================================================
+  const postmanRequests = [
+    {"collection":"Open Data NSW","name":"sydneyTrains Location","method":"GET","url":"https://api.transport.nsw.gov.au/v2/gtfs/vehiclepos/sydneytrains?accept=application/x-google-protobuf"},
+    {"collection":"NSW Trip Planning","name":"Toongabbie Station","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/coord"},
+    {"collection":"NSW Departures","name":"departure_mon · name_dm=200060","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/departure_mon?outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&mode=direct&type_dm=stop&name_dm=200060&departureMonitorMacro=true&TfNSWDM=true"},
+    {"collection":"NSW Departures","name":"departure_mon · name_dm=200070","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/departure_mon?outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&mode=direct&type_dm=stop&name_dm=200070&departureMonitorMacro=true&TfNSWDM=true"},
+    {"collection":"NSW Departures","name":"Ferry","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/departure_mon?outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&mode=direct&type_dm=stop&name_dm=20883&departureMonitorMacro=true&TfNSWDM=true"},
+    {"collection":"NSW Trip Planning","name":"Central_Stop_Finder","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/stop_finder?name_sf=sea&type_sf=stop&coordOutputFormat=EPSG%3A4326&outputFormat=rapidJSON&TfNSWSF=true"},
+    {"collection":"NSW Trip Planning","name":"StopFinder","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/stop_finder?outputFormat=rapidJSON&name_sf=TownHall&coordOutputFormat=EPSG:4326&TfNSWSF=true&type_sf=any"},
+    {"collection":"NSW Trip Planning","name":"stop_finder · name_sf=centr","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/stop_finder?outputFormat=rapidJSON&name_sf=centr&type_sf=stop&coordOutputFormat=EPSG%3A4326&TfNSWSF=truew"},
+    {"collection":"NSW Trip Planning","name":"TownHall-SevenHills","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=10101101&name_destination=10101234&depArrMacro=dep&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG%3A4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON"},
+    {"collection":"NSW Trip Planning","name":"TownHall-Central","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=10101101&name_destination=200060&depArrMacro=dep&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG%3A4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON"},
+    {"collection":"NSW Trip Planning","name":"LightRail + Train","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=200080&name_destination=10101101&depArrMacro=dep&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG%3A4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON"},
+    {"collection":"NSW Trip Planning","name":"OranPark-SevenHills","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=2570303&name_destination=214710&depArrMacro=arr&itdDate=20260419&itdTime=1139&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG%3A4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON&excludedMeans=checkbox"},
+    {"collection":"NSW Trip Planning","name":"SevenHills-TownHall-GTFS-ID","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/trip?outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&depArrMacro=dep&type_origin=any&name_origin=10101234&type_destination=any&name_destination=10101101&calcNumberOfTrips=6&TfNSWTR=true&version=10.2.1.42&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1"},
+    {"collection":"NSW Trip Planning","name":"SevenHills-TownHall-ID","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/trip?outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&depArrMacro=dep&type_origin=any&name_origin=10101234&type_destination=any&name_destination=10101101&calcNumberOfTrips=6&TfNSWTR=true&version=10.6.21.17&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1"},
+    {"collection":"NSW Trip Planning","name":"Trip-Data - KEY Works","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/trip?outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&depArrMacro=dep&type_origin=any&name_origin=10101326&type_destination=any&name_destination=10123359&calcNumberOfTrips=6&TfNSWTR=true&version=10.2.1.42&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1"},
+    {"collection":"NSW Trip Planning","name":"Ferry Train","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/trip?outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&depArrMacro=dep&type_origin=any&name_origin=10102027&type_destination=any&name_destination=10101324&calcNumberOfTrips=6&TfNSWTR=true&version=10.2.1.42&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1"},
+    {"collection":"NSW Trip Planning","name":"Central - TownHall","method":"GET","url":"https://api.transport.nsw.gov.au/v1/tp/trip?outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&depArrMacro=dep&type_origin=any&name_origin=200060&type_destination=any&name_destination=10101101&calcNumberOfTrips=6&TfNSWTR=true&version=10.2.1.42&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1"},
+    {"collection":"Open Data NSW","name":"sydneytrains · vehiclepos","method":"GET","url":"https://api.transport.nsw.gov.au/v2/gtfs/vehiclepos/sydneytrains"},
+  ].map((r, i) => ({ ...r, id: `postman:${i}`, group: categoriseUrl(r.url) || 'other' }));
 
   // ============================================================
   // User journeys ("traces") — what the mobile app actually calls.
@@ -523,49 +633,142 @@
   // ============================================================
   // Nav (left sidebar)
   // ============================================================
+  // Per-group collapsed state — persists in sessionStorage so reloads keep your view.
+  function isGroupCollapsed(gid) { return ssGet(`navGroup:${gid}`) === '1'; }
+  function setGroupCollapsed(gid, v) { ssSet(`navGroup:${gid}`, v ? '1' : '0'); }
+
   function renderNav() {
     const root = document.getElementById('nav');
     const customActive = state.activeId === 'custom-debug';
+
+    // 1. Bucket endpoints + Postman entries + journeys by group.
+    const endpointsByGroup = {};
+    for (const e of endpoints) {
+      const g = e.group || 'admin';
+      (endpointsByGroup[g] ||= []).push(e);
+    }
+    const postmanByGroup = {};
+    for (const r of postmanRequests) {
+      const g = r.group || 'other';
+      (postmanByGroup[g] ||= []).push(r);
+    }
+    // Journeys all sit in a dedicated section above the screen groups.
     root.innerHTML = `
       <div class="section-title">Debug</div>
       <button class="add-custom${customActive ? ' active' : ''}" type="button" id="navCustom">+ Debug any URL / curl</button>
 
-      <div class="section-title">Traces — what mobile calls</div>
-      <div id="navJourneys"></div>
-
-      <div class="section-title">Endpoints</div>
-      <div id="navEndpoints"></div>
+      <div id="navJourneysGroup"></div>
+      <div id="navGroups"></div>
+      <div id="navOther"></div>
     `;
     document.getElementById('navCustom').addEventListener('click', () => activate('custom-debug'));
 
-    const jRoot = document.getElementById('navJourneys');
-    for (const j of journeys) {
-      const id = `trace:${j.id}`;
-      const item = document.createElement('div');
-      item.className = 'item' + (state.activeId === id ? ' active' : '');
-      item.innerHTML = `
-        <div class="row1"><span class="method" style="background: rgba(63, 185, 80, 0.15); color: var(--ok);">TRACE</span><span class="path">${j.name}</span></div>
-        <div class="name">${j.steps.length} step${j.steps.length === 1 ? '' : 's'}</div>
-      `;
-      item.addEventListener('click', () => activate(id));
-      jRoot.appendChild(item);
+    // 2. Journeys group (mobile-call traces).
+    if (journeys.length) {
+      const jWrap = document.getElementById('navJourneysGroup');
+      jWrap.appendChild(renderGroup({
+        id: 'journeys',
+        title: 'Mobile call traces',
+        children: journeys.map(j => {
+          const id = `trace:${j.id}`;
+          return navItem({
+            active: state.activeId === id,
+            method: 'TRACE', methodClass: 'method-trace',
+            path: j.name, name: `${j.steps.length} step${j.steps.length === 1 ? '' : 's'}`,
+            onClick: () => activate(id),
+          });
+        }),
+      }));
     }
 
-    const eRoot = document.getElementById('navEndpoints');
-    for (const e of endpoints) {
-      const item = document.createElement('div');
-      item.className = 'item' + (state.activeId === e.id ? ' active' : '');
-      item.innerHTML = `
-        <div class="row1"><span class="method">${e.method}</span><span class="path">${e.path}</span></div>
-        <div class="name">${e.name}</div>
-        <svg class="sparkline" viewBox="0 0 60 12" preserveAspectRatio="none"></svg>
-      `;
-      const svg = item.querySelector('.sparkline');
-      const points = state.latencies[e.id] || [];
-      svg.innerHTML = sparklineSVG(points, 60, 12);
-      item.addEventListener('click', () => activate(e.id));
-      eRoot.appendChild(item);
+    // 3. Five canonical KRAIL-screen groups.
+    const groupsRoot = document.getElementById('navGroups');
+    for (const g of GROUPS) {
+      const eps = endpointsByGroup[g.id] || [];
+      const saved = postmanByGroup[g.id] || [];
+      if (!eps.length && !saved.length) continue;
+
+      const children = [];
+      for (const e of eps) {
+        const points = state.latencies[e.id] || [];
+        children.push(navItem({
+          active: state.activeId === e.id,
+          method: e.method, path: e.path, name: e.name,
+          sparkline: sparklineSVG(points, 60, 12),
+          onClick: () => activate(e.id),
+        }));
+      }
+      for (const r of saved) {
+        children.push(navItem({
+          active: state.activeId === r.id,
+          method: 'SAVED', methodClass: 'method-saved',
+          path: r.name, name: shortPathFor(r.url),
+          extraClass: 'postman',
+          onClick: () => activate(r.id),
+        }));
+      }
+      groupsRoot.appendChild(renderGroup({ id: g.id, title: g.title, children }));
     }
+
+    // 4. "Other" — Postman URLs we couldn't classify (rare).
+    const others = postmanByGroup.other || [];
+    if (others.length) {
+      const oRoot = document.getElementById('navOther');
+      oRoot.appendChild(renderGroup({
+        id: 'other',
+        title: 'Other saved requests',
+        children: others.map(r => navItem({
+          active: state.activeId === r.id,
+          method: 'SAVED', methodClass: 'method-saved',
+          path: r.name, name: shortPathFor(r.url),
+          extraClass: 'postman',
+          onClick: () => activate(r.id),
+        })),
+      }));
+    }
+  }
+
+  function renderGroup({ id, title, children }) {
+    const wrap = document.createElement('div');
+    wrap.className = 'group' + (isGroupCollapsed(id) ? ' collapsed' : '');
+    const header = document.createElement('div');
+    header.className = 'group-title';
+    header.innerHTML = `
+      <span><span class="caret">▼</span>${esc(title)}</span>
+      <span class="count">${children.length}</span>
+    `;
+    header.addEventListener('click', () => {
+      const collapsed = wrap.classList.toggle('collapsed');
+      setGroupCollapsed(id, collapsed);
+    });
+    wrap.appendChild(header);
+    const body = document.createElement('div');
+    body.className = 'group-body';
+    for (const c of children) body.appendChild(c);
+    wrap.appendChild(body);
+    return wrap;
+  }
+
+  function navItem({ active, method, methodClass, path, name, sparkline, onClick, extraClass }) {
+    const item = document.createElement('div');
+    item.className = 'item' + (active ? ' active' : '') + (extraClass ? ' ' + extraClass : '');
+    item.innerHTML = `
+      <div class="row1"><span class="method ${methodClass || ''}">${esc(method)}</span><span class="path">${esc(path)}</span></div>
+      <div class="name">${esc(name || '')}</div>
+      ${sparkline ? `<svg class="sparkline" viewBox="0 0 60 12" preserveAspectRatio="none">${sparkline}</svg>` : ''}
+    `;
+    item.addEventListener('click', onClick);
+    return item;
+  }
+
+  // Drop the host + collapse the path; nav has limited width.
+  function shortPathFor(url) {
+    try {
+      const u = new URL(url);
+      let p = u.pathname;
+      if (p.length > 38) p = p.slice(0, 18) + '…' + p.slice(-18);
+      return p + (u.search ? '?…' : '');
+    } catch { return url.length > 50 ? url.slice(0, 50) + '…' : url; }
   }
 
   function sparklineSVG(points, w, h) {
@@ -586,12 +789,18 @@
     renderDetail();
   }
 
+  // Lookup helpers for the new sources.
+  const postmanById = Object.fromEntries(postmanRequests.map(r => [r.id, r]));
+
   function renderDetail() {
     const root = document.getElementById('detail');
     if (state.activeId === 'custom-debug') return renderCustomDebug(root);
     if (state.activeId && state.activeId.startsWith('trace:')) {
       const journeyId = state.activeId.slice('trace:'.length);
       return renderTrace(root, journeyById[journeyId]);
+    }
+    if (state.activeId && state.activeId.startsWith('postman:')) {
+      return renderPostmanDetail(root, postmanById[state.activeId]);
     }
     const e = endpointById[state.activeId];
     if (!e) {
@@ -640,6 +849,88 @@
     });
     const cmpBtn = root.querySelector('.compare');
     if (cmpBtn) cmpBtn.addEventListener('click', () => runCompare(e));
+  }
+
+  // ============================================================
+  // Postman entry — rendered like a custom debug, but pre-filled.
+  // NSW URLs are routed through /internal/passthrough so the browser
+  // doesn't choke on NSW's missing CORS headers; the BFF adds the
+  // server-side API key.
+  // ============================================================
+  function renderPostmanDetail(root, r) {
+    if (!r) {
+      root.innerHTML = `<div class="empty-state">Saved request not found.</div>`;
+      return;
+    }
+    const isNsw = r.url.startsWith('https://api.transport.nsw.gov.au');
+    root.innerHTML = `
+      <div class="endpoint-head-pane">
+        <h1>${esc(r.name)}</h1>
+        <div class="meta">
+          <span style="background: rgba(210, 153, 34, 0.18); color: var(--warn); padding: 2px 8px; border-radius: 3px; font-family: var(--mono); font-size: 11px;">SAVED · ${esc(r.collection)}</span>
+          <span style="background: var(--accent-soft); color: var(--accent); padding: 2px 8px; border-radius: 3px; font-family: var(--mono); font-size: 11px; margin-left: 6px;">${esc(r.method)}</span>
+        </div>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: var(--muted); font-size: 12px; display: block; margin-bottom: 4px;">URL</label>
+        <textarea id="pmUrl" style="width: 100%; min-height: 70px; padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--fg); font-family: var(--mono); font-size: 12px; resize: vertical;">${esc(r.url)}</textarea>
+      </div>
+      <p style="color: var(--muted); font-size: 12px; margin: -6px 0 12px;">
+        ${isNsw
+          ? `ⓘ NSW URL — the dashboard fires this through the BFF's <code>/internal/passthrough</code> so your browser doesn't get blocked by CORS. The BFF adds the API key server-side; the <strong>Authorization</strong> field at the top of the page is ignored for NSW URLs.`
+          : `ⓘ Sent directly with the top-bar <strong>Authorization</strong> header (if set).`}
+      </p>
+      <div class="actions">
+        <button class="send" type="button">Send</button>
+        <button class="copy-curl secondary" type="button">Copy as curl (NSW direct)</button>
+        <span class="label" style="margin-left: auto;">${isNsw ? 'via /internal/passthrough' : 'direct'}</span>
+      </div>
+      <div class="response" id="response"></div>
+    `;
+    root.querySelector('.send').addEventListener('click', () => sendPostman(r));
+    root.querySelector('.copy-curl').addEventListener('click', () => {
+      const url = document.getElementById('pmUrl').value.trim();
+      const curl = `curl -i -X ${r.method} '${url.replace(/'/g, `'\\''`)}' \\\n  -H 'Authorization: apikey YOUR_NSW_API_KEY'`;
+      navigator.clipboard.writeText(curl).then(
+        () => { const btn = root.querySelector('.copy-curl'); const orig = btn.textContent; btn.textContent = 'copied!'; setTimeout(() => btn.textContent = orig, 1200); },
+        () => {},
+      );
+    });
+  }
+
+  async function sendPostman(saved) {
+    const respEl = document.getElementById('response');
+    const sendBtn = document.querySelector('.detail .send');
+    sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
+    const url = document.getElementById('pmUrl').value.trim();
+    const isNsw = url.startsWith('https://api.transport.nsw.gov.au');
+    const base = (baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '');
+    const fetchUrl = isNsw ? `${base}/internal/passthrough?url=${encodeURIComponent(url)}` : url;
+    const headers = {};
+    if (!isNsw) {
+      const auth = authEl.value.trim(); if (auth) headers['Authorization'] = auth;
+    }
+    const req = {
+      method: saved.method, url: fetchUrl, headers,
+      hasAuth: !!headers['Authorization'],
+      baseUrl: (() => { try { return new URL(fetchUrl).origin; } catch { return ''; } })(),
+      // Annotate the inspector with the upstream URL when going via passthrough.
+      noteLine: isNsw ? `via BFF /internal/passthrough → ${url}` : null,
+    };
+    try {
+      const r = await rawFetch(fetchUrl, saved.method, headers);
+      respEl.innerHTML = renderInspector(r, req);
+      bindInspectorButtons(respEl, r, req);
+      recordHistory(saved.id, req, r);
+      renderHistory();
+    } catch (err) {
+      respEl.innerHTML = renderError(err, req);
+      bindInspectorButtons(respEl, null, req);
+      recordHistory(saved.id, req, null, err);
+      renderHistory();
+    } finally {
+      sendBtn.disabled = false; sendBtn.textContent = 'Send';
+    }
   }
 
   // ============================================================
@@ -730,12 +1021,19 @@
         <div class="row"><span class="label">Steps</span><span class="value"><strong>${okCount}/${results.length}</strong> succeeded</span></div>
       </div>
       <div class="trace-table">${rows}</div>
-      <details><summary>Per-step responses</summary>
-        <pre>${results.map((row, i) => {
-          if (row.error) return `#${i + 1} ${row.step.endpoint}: ERROR ${row.error}`;
-          return `#${i + 1} ${row.step.endpoint}: ${row.r.status} · ${row.r.elapsed} ms · ${fmtBytes(row.r.decodedBytes)}\n${truncate(row.r.body, 800)}`;
-        }).join('\n\n')}</pre>
-      </details>
+      ${results.map((row, i) => {
+        if (row.error) {
+          return `<details><summary>#${i + 1} ${esc(row.step.endpoint)} — <span style="color: var(--err);">ERROR</span></summary><pre>${esc(row.error)}</pre></details>`;
+        }
+        const r = row.r;
+        const cls = r.status >= 200 && r.status < 400 ? 'ok' : 'err';
+        const head = `#${i + 1} ${esc(row.step.endpoint)} · <span class="status-pill ${cls}" style="display:inline-block; padding:1px 6px; border-radius:2px; font-size:10px; font-weight:600; font-family:var(--mono);">${r.status}</span> · ${r.elapsed} ms · ${fmtBytes(r.decodedBytes)}`;
+        const hl = renderHighlightsBlock(extractHighlights(row.e, r));
+        return `<details${i === 0 ? ' open' : ''} class="full-body">
+          <summary>${head}</summary>
+          <div>${hl}<pre style="border: 0; border-top: 1px solid var(--border); padding: 8px 0 0; margin-top: 8px; max-height: 60vh;">${esc(r.body)}</pre></div>
+        </details>`;
+      }).join('')}
     `;
   }
 
@@ -773,7 +1071,7 @@
           <div class="cmp-head">${label}</div>
           <div class="cmp-status ${cls}">${r.status} ${esc(r.statusText)}</div>
           <div class="cmp-metric"><span>${r.elapsed} ms</span><span>${fmtBytes(r.decodedBytes)}${wireDelta}</span></div>
-          <details><summary>Body (${fmtBytes(r.decodedBytes)})</summary><pre>${esc(truncate(r.body, 4000))}</pre></details>
+          <details><summary>Body (${fmtBytes(r.decodedBytes)})</summary><pre>${esc(r.body)}</pre></details>
         </div>
       `;
     };
@@ -1066,6 +1364,9 @@
   // ============================================================
   function renderInspector(r, req) {
     const cls = r.status >= 200 && r.status < 300 ? 'ok' : r.status >= 400 ? 'err' : 'warn';
+    // Try to attach the active endpoint def for shape-aware highlights.
+    const e = endpointById[state.activeId];
+    const highlights = renderHighlightsBlock(extractHighlights(e, r));
     return `
       <div class="inspector-status">
         <span class="method-pill">${esc(r.method || req.method)}</span>
@@ -1073,17 +1374,67 @@
         <span><strong>${r.elapsed}</strong> ms</span>
         ${renderSizeMetrics(r)}
         <span class="inspector-url">${esc(r.url)}</span>
+        ${req.noteLine ? `<span class="inspector-url" style="color: var(--muted); font-size: 11px;">${esc(req.noteLine)}</span>` : ''}
         <div class="inspector-actions">
           <button class="copy-url" type="button">Copy URL</button>
           <button class="copy-curl" type="button">Copy as curl</button>
           <button class="copy-body" type="button">Copy body</button>
+          <button class="copy-headers" type="button">Copy headers</button>
         </div>
       </div>
+      ${highlights}
       <details><summary>Request headers ${req.hasAuth ? '<span style="color: var(--warn);">· Authorization set</span>' : ''}</summary>
         <pre>${renderHeadersBlock(req.headers) || '<em style="color: var(--muted)">(none)</em>'}</pre></details>
-      <details open><summary>Response headers</summary><pre>${esc(r.headers || '(none)')}</pre></details>
-      <details open><summary>Response body${r.decodedBytes ? ` · ${fmtBytes(r.decodedBytes)}` : ''}</summary><pre>${esc(r.body)}</pre></details>
+      <details><summary>Response headers</summary><pre>${esc(r.headers || '(none)')}</pre></details>
+      <details open class="full-body"><summary>Response body${r.decodedBytes ? ` · ${fmtBytes(r.decodedBytes)}` : ''} <span style="color: var(--muted); font-weight: 400;">· scrollable, full body</span></summary>
+        <div>${maybeJsonTree(r.body)}</div>
+      </details>
     `;
+  }
+
+  // Render JSON as a foldable tree if it parses; otherwise a scrollable <pre>.
+  function maybeJsonTree(body) {
+    if (!body || body.length > 500_000) {
+      return `<pre style="max-height: 75vh;">${esc(body || '')}</pre>`;
+    }
+    try {
+      const parsed = JSON.parse(body);
+      return `<div class="json-tree" style="max-height: 75vh; overflow: auto; padding: 8px 12px; background: var(--bg);">${renderJsonNode(parsed, '', true)}</div>`;
+    } catch {
+      return `<pre style="max-height: 75vh;">${esc(body)}</pre>`;
+    }
+  }
+
+  // Recursive JSON tree. Keeps top two levels open; deeper levels start collapsed
+  // so 200 KB trip plans don't dump 1000+ lines of expanded children at once.
+  function renderJsonNode(value, key, openByDefault, depth = 0) {
+    const keyPart = key !== '' ? `<span class="jt-key">${esc(key)}</span>: ` : '';
+    if (value === null) return `<div class="jt-row">${keyPart}<span class="jt-null">null</span></div>`;
+    if (typeof value === 'string') return `<div class="jt-row">${keyPart}<span class="jt-string">${esc(JSON.stringify(value))}</span></div>`;
+    if (typeof value === 'number') return `<div class="jt-row">${keyPart}<span class="jt-number">${value}</span></div>`;
+    if (typeof value === 'boolean') return `<div class="jt-row">${keyPart}<span class="jt-bool">${value}</span></div>`;
+    if (Array.isArray(value)) {
+      if (value.length === 0) return `<div class="jt-row">${keyPart}[]</div>`;
+      const open = openByDefault && depth < 2;
+      const summary = `<span class="jt-summary">[${value.length} item${value.length === 1 ? '' : 's'}]</span>`;
+      const children = value.map((v, i) => renderJsonNode(v, String(i), false, depth + 1)).join('');
+      return `<div class="jt-node${open ? '' : ' jt-collapsed'}">
+        <div class="jt-row"><span class="jt-toggle" data-toggle>${open ? '▾' : '▸'}</span>${keyPart}${summary}</div>
+        <div class="jt-children">${children}</div>
+      </div>`;
+    }
+    if (typeof value === 'object') {
+      const keys = Object.keys(value);
+      if (keys.length === 0) return `<div class="jt-row">${keyPart}{}</div>`;
+      const open = openByDefault && depth < 2;
+      const summary = `<span class="jt-summary">{${keys.length} key${keys.length === 1 ? '' : 's'}}</span>`;
+      const children = keys.map(k => renderJsonNode(value[k], k, false, depth + 1)).join('');
+      return `<div class="jt-node${open ? '' : ' jt-collapsed'}">
+        <div class="jt-row"><span class="jt-toggle" data-toggle>${open ? '▾' : '▸'}</span>${keyPart}${summary}</div>
+        <div class="jt-children">${children}</div>
+      </div>`;
+    }
+    return `<div class="jt-row">${keyPart}${esc(String(value))}</div>`;
   }
 
   function renderError(err, req) {
@@ -1135,17 +1486,32 @@
   }
 
   function bindInspectorButtons(scope, result, req) {
-    scope.querySelectorAll('.copy-url, .copy-curl, .copy-body').forEach(btn => {
+    scope.querySelectorAll('.copy-url, .copy-curl, .copy-body, .copy-headers, .hl-copy').forEach(btn => {
       btn.addEventListener('click', () => {
         let text = '';
         if (btn.classList.contains('copy-url')) text = req.url;
         else if (btn.classList.contains('copy-curl')) text = toCurl(req);
         else if (btn.classList.contains('copy-body') && result) text = result.body;
+        else if (btn.classList.contains('copy-headers') && result) text = result.headers;
+        else if (btn.classList.contains('hl-copy')) text = btn.dataset.value || '';
         if (!text) return;
         navigator.clipboard.writeText(text).then(
-          () => { const orig = btn.textContent; btn.textContent = 'copied!'; setTimeout(() => btn.textContent = orig, 1200); },
+          () => {
+            const orig = btn.textContent;
+            btn.textContent = 'copied!'; btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1200);
+          },
           () => { btn.textContent = 'clipboard denied'; },
         );
+      });
+    });
+    // JSON tree fold/unfold.
+    scope.querySelectorAll('[data-toggle]').forEach(t => {
+      t.addEventListener('click', () => {
+        const node = t.closest('.jt-node');
+        if (!node) return;
+        const collapsed = node.classList.toggle('jt-collapsed');
+        t.textContent = collapsed ? '▸' : '▾';
       });
     });
   }
@@ -1276,6 +1642,130 @@
   // ============================================================
   // Helpers
   // ============================================================
+  // ============================================================
+  // Response highlights — extract the debug-relevant bits per shape
+  // and surface them at the top of the inspector. The goal is "I should
+  // not have to scroll through 200 KB of JSON to find out the trip
+  // returned 6 journeys, the first leg is a Train, and the response
+  // was traceId abc123."
+  // ============================================================
+  function extractHighlights(endpointDef, r) {
+    const out = [];
+    // Always-on signals from headers.
+    const headerLines = (r.headers || '').split('\n');
+    const findHeader = (name) => {
+      const lower = name.toLowerCase();
+      for (const line of headerLines) {
+        const idx = line.indexOf(':');
+        if (idx > 0 && line.slice(0, idx).trim().toLowerCase() === lower) {
+          return line.slice(idx + 1).trim();
+        }
+      }
+      return null;
+    };
+    const correlation = findHeader('X-Correlation-Id') || findHeader('X-Request-Id');
+    if (correlation) out.push({ key: 'Correlation ID', value: correlation, copy: true, mono: true });
+    const cacheStatus = findHeader('X-Cache-Status');
+    if (cacheStatus) out.push({ key: 'Cache', value: cacheStatus });
+    const ratelimit = findHeader('X-RateLimit-Remaining');
+    if (ratelimit) out.push({ key: 'Rate-limit remaining', value: ratelimit });
+
+    // Body-shape-aware highlights. Only attempt JSON parse if it looks JSON.
+    let json = null;
+    if (r.body && r.body[0] === '{' || r.body && r.body[0] === '[') {
+      try { json = JSON.parse(r.body); } catch {}
+    }
+
+    // Error envelope (BFF and most NSW errors).
+    if (json && json.error) {
+      const e = json.error;
+      out.push({ key: 'Error code', value: e.code || '(none)', copy: true, mono: true, emphasis: true });
+      if (e.message) out.push({ key: 'Error message', value: e.message, copy: true });
+      if (e.detail) out.push({ key: 'Detail', value: typeof e.detail === 'string' ? e.detail : JSON.stringify(e.detail), copy: true });
+    }
+
+    const epId = endpointDef?.id || '';
+    // Trip planner (BFF JSON shape: `{ journeys: [...] }`).
+    if (json && Array.isArray(json.journeys)) {
+      out.push({ key: 'Journeys', value: `<strong>${json.journeys.length}</strong>`, html: true });
+      const j0 = json.journeys[0];
+      if (j0) {
+        const legs = Array.isArray(j0.legs) ? j0.legs : [];
+        const modes = legs.map(l => l.mode || l.transportMode || l.transportation?.product?.iconId).filter(Boolean);
+        if (modes.length) out.push({ key: 'First journey legs', value: `${legs.length} (${modes.join(' → ')})` });
+        if (j0.duration) out.push({ key: 'First journey duration', value: typeof j0.duration === 'number' ? `${Math.round(j0.duration / 60)} min` : String(j0.duration) });
+        if (j0.startTime) out.push({ key: 'Departs', value: j0.startTime, copy: true });
+        if (j0.endTime) out.push({ key: 'Arrives', value: j0.endTime, copy: true });
+      }
+    }
+
+    // NSW legacy trip-planner shape: `{ journeys: [...] }` with `.legs[].duration`.
+    // (handled by the block above as well — same shape)
+
+    // Departures shape: `{ stopEvents: [...] }` for NSW; BFF surfaces `{ departures: [...] }`.
+    if (json && (Array.isArray(json.stopEvents) || Array.isArray(json.departures))) {
+      const arr = json.stopEvents || json.departures;
+      out.push({ key: 'Departures', value: `<strong>${arr.length}</strong>`, html: true });
+      const next = arr[0];
+      if (next) {
+        const line = next.transportation?.number || next.line || next.route || next.lineNumber;
+        const dest = next.transportation?.destination?.name || next.destination || next.headsign;
+        const when = next.departureTimeEstimated || next.departureTimePlanned || next.eta || next.time;
+        if (line) out.push({ key: 'Next service', value: `${line}${dest ? ' → ' + dest : ''}`, copy: true });
+        if (when) out.push({ key: 'Next departure', value: when, copy: true });
+      }
+    }
+
+    // Stop finder shape: `{ locations: [...] }`.
+    if (json && Array.isArray(json.locations)) {
+      out.push({ key: 'Locations', value: `<strong>${json.locations.length}</strong>`, html: true });
+      const first = json.locations[0];
+      if (first?.name) out.push({ key: 'Top match', value: `${first.name}${first.id ? ` (id ${first.id})` : ''}`, copy: true });
+    }
+
+    // Manifest 302: surface the redirect target so you can curl it.
+    if ((epId === 'data-stops-manifest' || epId === 'data-routes-manifest') && r.status >= 300 && r.status < 400) {
+      const loc = findHeader('Location');
+      if (loc) out.push({ key: 'Redirects to', value: loc, copy: true, mono: true });
+    }
+
+    // Health / readiness shape: `{ status: "UP", upstream: {...} }` etc.
+    if (json && (epId === 'health' || epId === 'ready') && json.status) {
+      out.push({ key: 'Status', value: json.status, emphasis: json.status !== 'UP' && json.status !== 'OK' });
+      if (json.checks) {
+        for (const [k, v] of Object.entries(json.checks)) {
+          out.push({ key: `· ${k}`, value: typeof v === 'string' ? v : JSON.stringify(v) });
+        }
+      }
+    }
+
+    // Binary protobuf — surface the size + first bytes (hex preview already in body).
+    if (r.body?.startsWith('<binary,')) {
+      const m = r.body.match(/<binary, (\d+) bytes>/);
+      if (m) out.push({ key: 'Protobuf size', value: `${m[1]} bytes (decoded)`, mono: true });
+    }
+
+    return out;
+  }
+
+  function renderHighlightsBlock(items) {
+    if (!items || !items.length) return '';
+    const rows = items.map(it => {
+      const valHtml = it.html ? it.value : esc(String(it.value));
+      const valStyle = it.emphasis ? 'color: var(--err); font-weight: 600;' : '';
+      const monoStyle = it.mono ? 'font-family: var(--mono);' : '';
+      const copyBtn = it.copy ? `<button class="hl-copy" type="button" data-value="${esc(String(it.value))}">copy</button>` : '';
+      return `
+        <div class="hl-row">
+          <span class="hl-key">${esc(it.key)}</span>
+          <span class="hl-val" style="${valStyle}${monoStyle}">${valHtml}</span>
+          ${copyBtn}
+        </div>
+      `;
+    }).join('');
+    return `<div class="highlights"><div class="hl-title">Highlights</div>${rows}</div>`;
+  }
+
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
   function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
   function fmtBytes(b) {
