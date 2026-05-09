@@ -33,66 +33,44 @@
   header p { color: var(--muted); margin: 0; }
   header code { font-family: var(--mono); }
 
-  .config {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 24px;
-  }
-  .config h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .panel h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
   .config-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
   .config-row > div { flex: 1 1 240px; min-width: 200px; }
   .config-row label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
   .config-row input {
-    width: 100%;
-    padding: 8px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--fg);
-    font-family: var(--mono);
-    font-size: 13px;
+    width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--fg); font-family: var(--mono); font-size: 13px;
   }
   .config-row input:focus { outline: none; border-color: var(--accent); }
   .session-note { color: var(--muted); font-size: 12px; margin-top: 12px; }
   .session-note button {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--fg);
-    padding: 4px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    margin-left: 8px;
+    background: transparent; border: 1px solid var(--border); color: var(--fg);
+    padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 8px;
   }
   .session-note button:hover { background: var(--panel-elev); }
 
+  .scenarios { display: flex; flex-wrap: wrap; gap: 8px; }
+  .scenarios button {
+    background: transparent; border: 1px solid var(--border); color: var(--fg);
+    padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;
+    font-family: var(--mono);
+  }
+  .scenarios button:hover { background: var(--panel-elev); border-color: var(--accent); }
+
   .endpoint {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 16px;
-    overflow: hidden;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    margin-bottom: 16px; overflow: hidden;
   }
   .endpoint-head {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    padding: 12px 16px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--border);
-    user-select: none;
+    display: flex; align-items: baseline; gap: 12px; padding: 12px 16px;
+    cursor: pointer; border-bottom: 1px solid var(--border); user-select: none;
   }
   .endpoint-head:hover { background: var(--panel-elev); }
   .endpoint-head .method {
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 3px;
-    background: var(--accent-soft);
-    color: var(--accent);
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 3px; background: var(--accent-soft); color: var(--accent);
   }
   .endpoint-head .path { font-family: var(--mono); flex: 1; color: var(--fg); }
   .endpoint-head .name { color: var(--muted); font-size: 13px; }
@@ -101,70 +79,49 @@
   .endpoint .params { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
   .endpoint .params label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
   .endpoint .params input {
-    width: 100%;
-    padding: 6px 8px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--fg);
-    font-family: var(--mono);
-    font-size: 12px;
+    width: 100%; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--fg); font-family: var(--mono); font-size: 12px;
   }
   .endpoint .params input:focus { outline: none; border-color: var(--accent); }
-  .endpoint button.send {
-    background: var(--accent);
-    color: white;
-    border: 0;
-    padding: 7px 14px;
-    border-radius: 4px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
+  .endpoint-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .endpoint-actions button {
+    background: var(--accent); color: white; border: 0; padding: 7px 14px;
+    border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;
   }
-  .endpoint button.send:hover { background: #3683e1; }
-  .endpoint button.send:disabled { opacity: 0.5; cursor: wait; }
+  .endpoint-actions button:hover { background: #3683e1; }
+  .endpoint-actions button:disabled { opacity: 0.5; cursor: wait; }
+  .endpoint-actions button.secondary { background: transparent; border: 1px solid var(--border); color: var(--fg); }
+  .endpoint-actions button.secondary:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .endpoint-actions input[type=number] {
+    width: 70px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--fg); font-family: var(--mono); font-size: 12px;
+  }
 
   .response { margin-top: 12px; }
   .response-head { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 8px; flex-wrap: wrap; }
   .response-head .status { font-family: var(--mono); }
+  .response-head .metric { font-family: var(--mono); }
+  .response-head .metric strong { color: var(--fg); }
   .status.ok { color: var(--ok); }
   .status.warn { color: var(--warn); }
   .status.err { color: var(--err); }
   .response pre {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 10px 12px;
-    margin: 0;
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-all;
-    max-height: 360px;
-    overflow: auto;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: 10px 12px; margin: 0; font-family: var(--mono); font-size: 12px;
+    line-height: 1.5; white-space: pre-wrap; word-break: break-all;
+    max-height: 360px; overflow: auto;
   }
   .response .empty { color: var(--muted); font-style: italic; padding: 8px 0; }
 
-  .smoke {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 16px;
-    margin-top: 24px;
-  }
-  .smoke h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-  .smoke button {
-    background: transparent;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    padding: 7px 14px;
-    border-radius: 4px;
-    font-size: 13px;
-    cursor: pointer;
-  }
-  .smoke button:hover { background: var(--accent-soft); }
-  .smoke button:disabled { opacity: 0.5; cursor: wait; }
+  .stats { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 12px; margin-top: 8px; font-family: var(--mono); font-size: 12px; }
+  .stats .row { display: flex; gap: 14px; padding: 2px 0; }
+  .stats .label { color: var(--muted); min-width: 130px; }
+  .stats .value { color: var(--fg); }
+  .stats .value strong { color: var(--accent); }
+  .stats-bar { display: flex; gap: 1px; height: 8px; margin-top: 6px; background: var(--panel-elev); border-radius: 2px; overflow: hidden; }
+  .stats-bar .seg { background: var(--accent); }
+  .stats-bar .seg.err { background: var(--err); }
+
   .smoke-results { margin-top: 12px; font-family: var(--mono); font-size: 12px; }
   .smoke-row { display: flex; gap: 10px; padding: 4px 0; }
   .smoke-row .label { flex: 1; color: var(--muted); }
@@ -178,10 +135,10 @@
 
   <header>
     <h1>KRAIL BFF — API Tester</h1>
-    <p>Single-page tester for every BFF endpoint. Open <code>file://</code> or via any local server. Config + form values are kept in <strong>sessionStorage</strong> (cleared on tab close).</p>
+    <p>Single page. Every endpoint. Real metrics. Config + form values in <strong>sessionStorage</strong> only — wiped on tab close.</p>
   </header>
 
-  <section class="config">
+  <section class="panel">
     <h2>Config</h2>
     <div class="config-row">
       <div>
@@ -189,7 +146,7 @@
         <input id="baseUrl" placeholder="http://localhost:8080" autocomplete="off">
       </div>
       <div>
-        <label for="auth">Authorization (sessionStorage; sent only if non-empty)</label>
+        <label for="auth">Authorization (sent only if non-empty)</label>
         <input id="auth" type="password" placeholder="apikey ..." autocomplete="off">
       </div>
       <div>
@@ -198,48 +155,51 @@
       </div>
     </div>
     <p class="session-note">
-      Values persist for this tab only. Closing the tab wipes everything.
+      Values persist for this tab only.
       <button id="clearSession" type="button">Clear session storage now</button>
     </p>
   </section>
 
+  <section class="panel">
+    <h2>Scenarios</h2>
+    <p style="color: var(--muted); margin: 0 0 10px;">One-click presets — fill an endpoint's inputs with realistic values then jump to it. Click again to re-fill.</p>
+    <div class="scenarios" id="scenarios"></div>
+  </section>
+
   <main id="endpoints"></main>
 
-  <section class="smoke">
+  <section class="panel">
     <h2>Smoke tests</h2>
-    <p style="color: var(--muted); margin: 0 0 10px;">Runs every <code>GET</code> endpoint in sequence with the inputs filled above. Useful after a deploy or when the server is first stood up locally.</p>
-    <button id="runSmoke" type="button">Run all GETs</button>
+    <p style="color: var(--muted); margin: 0 0 10px;">Hit every <code>GET</code> endpoint once with the inputs filled above and report pass/fail.</p>
+    <div class="endpoint-actions">
+      <button id="runSmoke" type="button">Run all GETs</button>
+      <button id="exportCsv" type="button" class="secondary">Export last run as CSV</button>
+    </div>
     <div class="smoke-results" id="smokeResults"></div>
   </section>
 
   <p style="color: var(--muted); font-size: 12px; margin-top: 32px;">
-    Source: <code>docs/tools/api-tester.html</code>. Future: extend the <code>endpoints</code> array below to add more tests.
+    Source: <code>docs/tools/api-tester.html</code>. Add new endpoints / scenarios via the arrays at the top of <code>&lt;script&gt;</code>.
   </p>
 </div>
 
 <script>
-  // Endpoint catalogue. Add new entries here to expose them in the UI and smoke runner.
+  // --------------------------------------------------------------------------------
+  // Endpoint catalogue. Add new entries here to expose them in the UI + smoke runner.
+  // --------------------------------------------------------------------------------
   const endpoints = [
     {
-      id: 'health',
-      method: 'GET',
-      path: '/health',
+      id: 'health', method: 'GET', path: '/health',
       name: 'Health probe (no auth required)',
-      params: [],
-      smoke: { include: true },
+      params: [], smoke: { include: true },
     },
     {
-      id: 'ready',
-      method: 'GET',
-      path: '/ready',
+      id: 'ready', method: 'GET', path: '/ready',
       name: 'Readiness probe (NSW upstream check)',
-      params: [],
-      smoke: { include: true },
+      params: [], smoke: { include: true },
     },
     {
-      id: 'tripPlanJson',
-      method: 'GET',
-      path: '/api/v1/trip/plan',
+      id: 'tripPlanJson', method: 'GET', path: '/api/v1/trip/plan',
       name: 'Trip planner — JSON',
       params: [
         { name: 'origin', default: '200060' },
@@ -252,9 +212,7 @@
       smoke: { include: true },
     },
     {
-      id: 'tripPlanProto',
-      method: 'GET',
-      path: '/api/v1/trip/plan-proto',
+      id: 'tripPlanProto', method: 'GET', path: '/api/v1/trip/plan-proto',
       name: 'Trip planner — protobuf binary',
       binary: true,
       params: [
@@ -263,11 +221,10 @@
         { name: 'depArr', default: 'dep' },
       ],
       smoke: { include: true },
+      pairWith: 'tripPlanJson', // for comparison: protobuf vs JSON savings
     },
     {
-      id: 'tripLegacy',
-      method: 'GET',
-      path: '/v1/tp/trip',
+      id: 'tripLegacy', method: 'GET', path: '/v1/tp/trip',
       name: 'Trip planner — legacy NSW-shape JSON',
       params: [
         { name: 'origin', default: '200060' },
@@ -276,9 +233,7 @@
       smoke: { include: false },
     },
     {
-      id: 'departures',
-      method: 'GET',
-      path: '/v1/stops/{stopId}/departures',
+      id: 'departures', method: 'GET', path: '/v1/stops/{stopId}/departures',
       name: 'Departure board for a stop',
       pathParams: [{ name: 'stopId', default: '200060' }],
       params: [
@@ -288,84 +243,78 @@
       smoke: { include: true, pathFill: { stopId: '200060' } },
     },
     {
-      id: 'parkingList',
-      method: 'GET',
-      path: '/v1/parking/facilities',
+      id: 'parkingList', method: 'GET', path: '/v1/parking/facilities',
       name: 'Park & Ride — facility list',
-      params: [],
-      smoke: { include: true },
+      params: [], smoke: { include: true },
     },
     {
-      id: 'parkingAvailability',
-      method: 'GET',
-      path: '/v1/parking/facilities/{facilityId}/availability',
+      id: 'parkingAvailability', method: 'GET', path: '/v1/parking/facilities/{facilityId}/availability',
       name: 'Park & Ride — availability for a facility',
       pathParams: [{ name: 'facilityId', default: '1' }],
-      params: [],
-      smoke: { include: true, pathFill: { facilityId: '1' } },
+      params: [], smoke: { include: true, pathFill: { facilityId: '1' } },
     },
     {
-      id: 'gtfsRtV1',
-      method: 'GET',
-      path: '/v1/gtfs/realtime/{feed}',
+      id: 'gtfsRtV1', method: 'GET', path: '/v1/gtfs/realtime/{feed}',
       name: 'GTFS-RT trip updates v1 (binary)',
       binary: true,
       pathParams: [{ name: 'feed', default: 'buses' }],
-      params: [],
-      smoke: { include: true, pathFill: { feed: 'buses' } },
+      params: [], smoke: { include: true, pathFill: { feed: 'buses' } },
     },
     {
-      id: 'gtfsRtV2',
-      method: 'GET',
-      path: '/v2/gtfs/realtime/{feed}',
+      id: 'gtfsRtV2', method: 'GET', path: '/v2/gtfs/realtime/{feed}',
       name: 'GTFS-RT trip updates v2 (binary)',
       binary: true,
       pathParams: [{ name: 'feed', default: 'sydneytrains' }],
-      params: [],
-      smoke: { include: true, pathFill: { feed: 'sydneytrains' } },
+      params: [], smoke: { include: true, pathFill: { feed: 'sydneytrains' } },
     },
     {
-      id: 'gtfsVehiclepos',
-      method: 'GET',
-      path: '/v2/gtfs/vehiclepos/{feed}',
+      id: 'gtfsVehiclepos', method: 'GET', path: '/v2/gtfs/vehiclepos/{feed}',
       name: 'GTFS-RT vehicle positions (binary)',
       binary: true,
       pathParams: [{ name: 'feed', default: 'sydneytrains' }],
-      params: [],
-      smoke: { include: true, pathFill: { feed: 'sydneytrains' } },
+      params: [], smoke: { include: true, pathFill: { feed: 'sydneytrains' } },
     },
     {
-      id: 'stopsManifest',
-      method: 'GET',
-      path: '/v1/data/stops/manifest',
+      id: 'stopsManifest', method: 'GET', path: '/v1/data/stops/manifest',
       name: 'Stops dataset manifest (302 redirect)',
-      params: [],
-      followRedirect: true,
-      smoke: { include: true },
+      params: [], followRedirect: true, smoke: { include: true },
     },
     {
-      id: 'routesManifest',
-      method: 'GET',
-      path: '/v1/data/routes/manifest',
+      id: 'routesManifest', method: 'GET', path: '/v1/data/routes/manifest',
       name: 'Routes dataset manifest (302 redirect)',
-      params: [],
-      followRedirect: true,
-      smoke: { include: true },
+      params: [], followRedirect: true, smoke: { include: true },
     },
   ];
 
-  // ---- Storage helpers (sessionStorage only — wiped on tab close) ----
+  // --------------------------------------------------------------------------------
+  // Scenarios. A scenario fills one endpoint's inputs and scrolls to it.
+  // Add more here for common test cases you run repeatedly.
+  // --------------------------------------------------------------------------------
+  const scenarios = [
+    { name: 'Trip: Wynyard → Town Hall', endpoint: 'tripPlanJson', vals: { origin: '200070', destination: '200060' } },
+    { name: 'Trip: Central → Bondi Junction', endpoint: 'tripPlanJson', vals: { origin: '200080', destination: '202020' } },
+    { name: 'Trip (proto): Wynyard → Town Hall', endpoint: 'tripPlanProto', vals: { origin: '200070', destination: '200060' } },
+    { name: 'Departures: Town Hall', endpoint: 'departures', vals: { stopId: '200060' } },
+    { name: 'Departures: Wynyard', endpoint: 'departures', vals: { stopId: '200070' } },
+    { name: 'GTFS-RT: sydneytrains', endpoint: 'gtfsRtV2', vals: { feed: 'sydneytrains' } },
+    { name: 'Vehiclepos: sydneytrains', endpoint: 'gtfsVehiclepos', vals: { feed: 'sydneytrains' } },
+    { name: 'Parking: facility 1', endpoint: 'parkingAvailability', vals: { facilityId: '1' } },
+    { name: 'Stops manifest', endpoint: 'stopsManifest', vals: {} },
+    { name: 'Routes manifest', endpoint: 'routesManifest', vals: {} },
+  ];
 
+  // --------------------------------------------------------------------------------
+  // Storage (sessionStorage only — cleared on tab close).
+  // --------------------------------------------------------------------------------
   const SS = window.sessionStorage;
   const SS_PREFIX = 'krail-bff-tester:';
   const ssGet = (k, fallback = '') => SS.getItem(SS_PREFIX + k) ?? fallback;
   const ssSet = (k, v) => { v ? SS.setItem(SS_PREFIX + k, v) : SS.removeItem(SS_PREFIX + k); };
-  const ssClear = () => {
-    Object.keys(SS).filter(k => k.startsWith(SS_PREFIX)).forEach(k => SS.removeItem(k));
-  };
+  const ssClear = () => { Object.keys(SS).filter(k => k.startsWith(SS_PREFIX)).forEach(k => SS.removeItem(k)); };
 
-  // ---- Config bar ----
-
+  // --------------------------------------------------------------------------------
+  // Config bar
+  // --------------------------------------------------------------------------------
   const baseUrlEl = document.getElementById('baseUrl');
   const authEl = document.getElementById('auth');
   const versionEl = document.getElementById('version');
@@ -373,7 +322,6 @@
   baseUrlEl.value = ssGet('baseUrl', 'http://localhost:8080');
   authEl.value = ssGet('auth');
   versionEl.value = ssGet('version');
-
   baseUrlEl.addEventListener('input', () => ssSet('baseUrl', baseUrlEl.value.trim()));
   authEl.addEventListener('input', () => ssSet('auth', authEl.value));
   versionEl.addEventListener('input', () => ssSet('version', versionEl.value.trim()));
@@ -385,24 +333,24 @@
     versionEl.value = '';
     document.querySelectorAll('.endpoint .params input').forEach(i => { i.value = i.dataset.default || ''; });
     document.querySelectorAll('.response').forEach(r => { r.innerHTML = '<div class="empty">No request sent yet.</div>'; });
+    document.querySelectorAll('.stats').forEach(s => s.remove());
   });
 
-  // ---- Render endpoint catalogue ----
-
+  // --------------------------------------------------------------------------------
+  // Render endpoints
+  // --------------------------------------------------------------------------------
   const root = document.getElementById('endpoints');
+  const sectionByEndpoint = new Map();
 
   function renderEndpoint(e) {
     const wrap = document.createElement('section');
     wrap.className = 'endpoint open';
     wrap.dataset.id = e.id;
+    sectionByEndpoint.set(e.id, wrap);
 
     const head = document.createElement('div');
     head.className = 'endpoint-head';
-    head.innerHTML = `
-      <span class="method">${e.method}</span>
-      <span class="path">${e.path}</span>
-      <span class="name">${e.name}</span>
-    `;
+    head.innerHTML = `<span class="method">${e.method}</span><span class="path">${e.path}</span><span class="name">${e.name}</span>`;
     head.addEventListener('click', () => wrap.classList.toggle('open'));
     wrap.appendChild(head);
 
@@ -416,42 +364,59 @@
       for (const p of allParams) {
         const isPath = (e.pathParams || []).some(pp => pp.name === p.name);
         const id = `${e.id}-${p.name}`;
-        const wrap2 = document.createElement('div');
-        wrap2.innerHTML = `
+        const w2 = document.createElement('div');
+        w2.innerHTML = `
           <label for="${id}">${p.name}${isPath ? ' (path)' : ''}</label>
           <input id="${id}" data-name="${p.name}" data-default="${p.default || ''}" placeholder="${p.placeholder || ''}">
         `;
-        const input = wrap2.querySelector('input');
+        const input = w2.querySelector('input');
         const stored = ssGet(`p:${e.id}:${p.name}`);
         input.value = stored || (p.default || '');
         input.addEventListener('input', () => ssSet(`p:${e.id}:${p.name}`, input.value));
-        grid.appendChild(wrap2);
+        grid.appendChild(w2);
       }
       body.appendChild(grid);
     }
 
-    const sendBtn = document.createElement('button');
-    sendBtn.className = 'send';
-    sendBtn.type = 'button';
-    sendBtn.textContent = 'Send';
-    body.appendChild(sendBtn);
+    const actions = document.createElement('div');
+    actions.className = 'endpoint-actions';
+    actions.innerHTML = `
+      <button class="send" type="button">Send</button>
+      <span style="color: var(--muted); font-size: 12px;">or run</span>
+      <input type="number" class="runs" min="2" max="100" value="10">
+      <button class="run-multi secondary" type="button">× times</button>
+    `;
+    body.appendChild(actions);
 
     const resp = document.createElement('div');
     resp.className = 'response';
     resp.innerHTML = '<div class="empty">No request sent yet.</div>';
     body.appendChild(resp);
 
-    sendBtn.addEventListener('click', async () => {
-      sendBtn.disabled = true;
-      sendBtn.textContent = 'Sending…';
+    actions.querySelector('.send').addEventListener('click', async (ev) => {
+      const btn = ev.target;
+      btn.disabled = true; btn.textContent = 'Sending…';
       try {
         const result = await sendRequest(e, paramValues(wrap, e));
         resp.innerHTML = renderResult(result);
       } catch (err) {
-        resp.innerHTML = `<div class="response-head"><span class="status err">ERROR</span></div><pre>${escapeHtml(err.message || String(err))}</pre>`;
+        resp.innerHTML = `<div class="response-head"><span class="status err">ERROR</span></div><pre>${esc(err.message || String(err))}</pre>`;
       } finally {
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'Send';
+        btn.disabled = false; btn.textContent = 'Send';
+      }
+    });
+
+    actions.querySelector('.run-multi').addEventListener('click', async (ev) => {
+      const btn = ev.target;
+      const n = Math.max(2, Math.min(100, parseInt(actions.querySelector('.runs').value) || 10));
+      btn.disabled = true; btn.textContent = `Running ${n}…`;
+      try {
+        const results = await runMultiple(e, paramValues(wrap, e), n);
+        resp.innerHTML = renderMulti(results, e);
+      } catch (err) {
+        resp.innerHTML = `<div class="response-head"><span class="status err">ERROR</span></div><pre>${esc(err.message || String(err))}</pre>`;
+      } finally {
+        btn.disabled = false; btn.textContent = '× times';
       }
     });
 
@@ -461,31 +426,51 @@
 
   endpoints.forEach(renderEndpoint);
 
-  // ---- Request execution ----
+  // --------------------------------------------------------------------------------
+  // Scenarios
+  // --------------------------------------------------------------------------------
+  const scRoot = document.getElementById('scenarios');
+  scenarios.forEach(s => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = s.name;
+    btn.addEventListener('click', () => {
+      const section = sectionByEndpoint.get(s.endpoint);
+      if (!section) return;
+      Object.entries(s.vals).forEach(([k, v]) => {
+        const input = section.querySelector(`input[data-name="${k}"]`);
+        if (input) {
+          input.value = v;
+          ssSet(`p:${s.endpoint}:${k}`, v);
+        }
+      });
+      section.classList.add('open');
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    scRoot.appendChild(btn);
+  });
 
+  // --------------------------------------------------------------------------------
+  // Request execution
+  // --------------------------------------------------------------------------------
   function paramValues(wrap, e) {
     const out = { path: {}, query: {} };
-    const inputs = wrap.querySelectorAll('input');
-    for (const input of inputs) {
+    wrap.querySelectorAll('.params input').forEach(input => {
       const name = input.dataset.name;
       const v = input.value.trim();
-      if (!v) continue;
+      if (!v) return;
       const isPath = (e.pathParams || []).some(pp => pp.name === name);
       if (isPath) out.path[name] = v;
       else out.query[name] = v;
-    }
+    });
     return out;
   }
 
   function buildUrl(base, e, vals) {
     let path = e.path;
-    for (const [k, v] of Object.entries(vals.path)) {
-      path = path.replace('{' + k + '}', encodeURIComponent(v));
-    }
+    for (const [k, v] of Object.entries(vals.path)) path = path.replace('{' + k + '}', encodeURIComponent(v));
     const url = new URL(path, base.endsWith('/') ? base : base + '/');
-    for (const [k, v] of Object.entries(vals.query)) {
-      url.searchParams.set(k, v);
-    }
+    for (const [k, v] of Object.entries(vals.query)) url.searchParams.set(k, v);
     return url.toString();
   }
 
@@ -500,50 +485,178 @@
     if (ver) headers['X-Krail-Version'] = ver;
 
     const t0 = performance.now();
-    const res = await fetch(url, {
-      method: e.method,
-      headers,
-      redirect: e.followRedirect === false ? 'manual' : 'follow',
-    });
+    const res = await fetch(url, { method: e.method, headers, redirect: e.followRedirect === false ? 'manual' : 'follow' });
     const elapsed = Math.round(performance.now() - t0);
 
     const ct = res.headers.get('Content-Type') || '';
     const isJson = ct.includes('application/json') || ct.includes('text/');
     const isProto = ct.includes('protobuf');
 
+    // Read full body so we can size it.
+    const bodyBuffer = await res.arrayBuffer();
+    const decodedBytes = bodyBuffer.byteLength;
+
     let bodyText;
     if (e.binary || isProto) {
-      const buf = await res.arrayBuffer();
-      bodyText = `<binary, ${buf.byteLength} bytes>\n\n` + hexPreview(new Uint8Array(buf), 256);
+      bodyText = `<binary, ${decodedBytes} bytes>\n\n` + hexPreview(new Uint8Array(bodyBuffer), 256);
     } else if (isJson) {
-      const text = await res.text();
+      const text = new TextDecoder().decode(bodyBuffer);
       try { bodyText = JSON.stringify(JSON.parse(text), null, 2); } catch { bodyText = text; }
     } else {
-      bodyText = await res.text();
+      bodyText = new TextDecoder().decode(bodyBuffer);
     }
 
     const headerLines = [];
     res.headers.forEach((v, k) => headerLines.push(`${k}: ${v}`));
 
-    return { url, status: res.status, statusText: res.statusText, elapsed, headers: headerLines.join('\n'), body: bodyText };
+    // Performance API gives us the wire-encoded size when available.
+    let transferSize = null, encodedBodySize = null;
+    try {
+      const entries = performance.getEntriesByName(url);
+      const last = entries[entries.length - 1];
+      if (last) {
+        transferSize = last.transferSize ?? null;
+        encodedBodySize = last.encodedBodySize ?? null;
+      }
+    } catch (_) {}
+
+    return {
+      url, status: res.status, statusText: res.statusText, elapsed,
+      headers: headerLines.join('\n'), body: bodyText,
+      decodedBytes, encodedBodySize, transferSize, contentType: ct,
+    };
   }
 
-  function renderResult({ url, status, statusText, elapsed, headers, body }) {
-    const cls = status >= 200 && status < 300 ? 'ok' : status >= 400 ? 'err' : 'warn';
+  function renderResult(r) {
+    const cls = r.status >= 200 && r.status < 300 ? 'ok' : r.status >= 400 ? 'err' : 'warn';
+    const sizeMetrics = renderSizeMetrics(r);
     return `
       <div class="response-head">
-        <span class="status ${cls}">${status} ${escapeHtml(statusText)}</span>
-        <span>${elapsed} ms</span>
-        <span class="path-display" title="${escapeHtml(url)}">${truncate(escapeHtml(url), 80)}</span>
+        <span class="status ${cls}">${r.status} ${esc(r.statusText)}</span>
+        <span class="metric"><strong>${r.elapsed}</strong> ms</span>
+        ${sizeMetrics}
+        <span class="path-display" title="${esc(r.url)}">${truncate(esc(r.url), 80)}</span>
       </div>
-      <pre>${escapeHtml(headers)}\n\n${escapeHtml(body)}</pre>
+      <pre>${esc(r.headers)}\n\n${esc(r.body)}</pre>
     `;
   }
 
-  function escapeHtml(s) {
+  function renderSizeMetrics(r) {
+    const parts = [];
+    parts.push(`<span class="metric">body <strong>${fmtBytes(r.decodedBytes)}</strong></span>`);
+    if (r.encodedBodySize != null && r.encodedBodySize > 0 && r.encodedBodySize < r.decodedBytes) {
+      const savings = Math.round((1 - r.encodedBodySize / r.decodedBytes) * 100);
+      parts.push(`<span class="metric">wire <strong>${fmtBytes(r.encodedBodySize)}</strong> (gzip −${savings}%)</span>`);
+    } else if (r.encodedBodySize != null && r.encodedBodySize > 0) {
+      parts.push(`<span class="metric">wire <strong>${fmtBytes(r.encodedBodySize)}</strong></span>`);
+    }
+    return parts.join(' ');
+  }
+
+  // --------------------------------------------------------------------------------
+  // Multi-run stats
+  // --------------------------------------------------------------------------------
+  async function runMultiple(e, vals, n) {
+    const results = [];
+    for (let i = 0; i < n; i++) {
+      try {
+        results.push(await sendRequest(e, vals));
+      } catch (err) {
+        results.push({ error: err.message || String(err) });
+      }
+      // Tiny delay so we don't slam local server with N parallel calls.
+      await new Promise(r => setTimeout(r, 30));
+    }
+    return results;
+  }
+
+  function renderMulti(results, e) {
+    const okResults = results.filter(r => !r.error && r.status >= 200 && r.status < 400);
+    const failed = results.length - okResults.length;
+    if (okResults.length === 0) {
+      return `<div class="response-head"><span class="status err">ALL FAILED</span><span class="metric">${results.length} attempts</span></div>` +
+        `<pre>${results.map((r, i) => `#${i + 1}: ${r.error || (r.status + ' ' + r.statusText)}`).join('\n')}</pre>`;
+    }
+    const lat = okResults.map(r => r.elapsed).sort((a, b) => a - b);
+    const sizes = okResults.map(r => r.decodedBytes).sort((a, b) => a - b);
+    const wire = okResults.map(r => r.encodedBodySize).filter(x => x != null && x > 0).sort((a, b) => a - b);
+
+    const stat = (arr) => ({
+      count: arr.length,
+      mean: Math.round(arr.reduce((a, b) => a + b, 0) / arr.length),
+      min: arr[0],
+      max: arr[arr.length - 1],
+      p50: arr[Math.floor(arr.length * 0.5)],
+      p95: arr[Math.floor(arr.length * 0.95)] ?? arr[arr.length - 1],
+    });
+    const lStats = stat(lat);
+    const sStats = stat(sizes);
+    const wStats = wire.length ? stat(wire) : null;
+
+    const failBar = renderBar(okResults.length, results.length);
+    const csvLines = ['#,status,elapsed_ms,decoded_bytes,wire_bytes', ...results.map((r, i) => {
+      if (r.error) return `${i + 1},ERROR,,,`;
+      return `${i + 1},${r.status},${r.elapsed},${r.decodedBytes},${r.encodedBodySize ?? ''}`;
+    })];
+    const csv = csvLines.join('\n');
+    window._lastMultiCsv = csv;
+
+    return `
+      <div class="response-head">
+        <span class="status ${failed > 0 ? 'warn' : 'ok'}">${okResults.length}/${results.length} succeeded</span>
+      </div>
+      ${failBar}
+      <div class="stats">
+        <div class="row"><span class="label">Latency (ms)</span>
+          <span class="value">mean <strong>${lStats.mean}</strong> · p50 <strong>${lStats.p50}</strong> · p95 <strong>${lStats.p95}</strong> · min <strong>${lStats.min}</strong> · max <strong>${lStats.max}</strong></span>
+        </div>
+        <div class="row"><span class="label">Body size (decoded)</span>
+          <span class="value">mean <strong>${fmtBytes(sStats.mean)}</strong> · p50 <strong>${fmtBytes(sStats.p50)}</strong> · min <strong>${fmtBytes(sStats.min)}</strong> · max <strong>${fmtBytes(sStats.max)}</strong></span>
+        </div>
+        ${wStats ? `<div class="row"><span class="label">Wire size (encoded)</span>
+          <span class="value">mean <strong>${fmtBytes(wStats.mean)}</strong> · p50 <strong>${fmtBytes(wStats.p50)}</strong> · min <strong>${fmtBytes(wStats.min)}</strong> · max <strong>${fmtBytes(wStats.max)}</strong></span>
+        </div>
+        <div class="row"><span class="label">Compression</span>
+          <span class="value"><strong>−${Math.round((1 - wStats.mean / sStats.mean) * 100)}%</strong> on the wire vs decoded</span>
+        </div>` : ''}
+        <div class="row" style="margin-top: 8px;"><span class="label">Export</span>
+          <span class="value"><a href="#" id="copyMultiCsv" style="color: var(--accent);">copy CSV</a> (status,elapsed_ms,decoded_bytes,wire_bytes per run)</span>
+        </div>
+      </div>
+      <details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--muted); font-size: 12px;">Last response body</summary><pre>${esc(okResults[okResults.length - 1].body)}</pre></details>
+    `;
+  }
+
+  // Bind copy-CSV after every multi-run render.
+  document.addEventListener('click', (ev) => {
+    if (ev.target.id === 'copyMultiCsv') {
+      ev.preventDefault();
+      navigator.clipboard.writeText(window._lastMultiCsv || '').then(
+        () => { ev.target.textContent = 'copied!'; setTimeout(() => ev.target.textContent = 'copy CSV', 1500); },
+        () => { ev.target.textContent = 'clipboard denied'; },
+      );
+    }
+  });
+
+  function renderBar(ok, total) {
+    const okPct = (ok / total) * 100;
+    const failPct = 100 - okPct;
+    return `<div class="stats-bar"><div class="seg" style="width:${okPct}%"></div>${failPct > 0 ? `<div class="seg err" style="width:${failPct}%"></div>` : ''}</div>`;
+  }
+
+  // --------------------------------------------------------------------------------
+  // Helpers
+  // --------------------------------------------------------------------------------
+  function esc(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   }
   function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+  function fmtBytes(b) {
+    if (b == null) return '?';
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1024 / 1024).toFixed(2) + ' MB';
+  }
   function hexPreview(bytes, max = 256) {
     const slice = bytes.slice(0, max);
     const lines = [];
@@ -557,15 +670,20 @@
     return lines.join('\n');
   }
 
-  // ---- Smoke runner ----
-
+  // --------------------------------------------------------------------------------
+  // Smoke runner
+  // --------------------------------------------------------------------------------
   document.getElementById('runSmoke').addEventListener('click', runSmoke);
+  document.getElementById('exportCsv').addEventListener('click', exportSmokeCsv);
+
+  let lastSmoke = [];
 
   async function runSmoke() {
     const btn = document.getElementById('runSmoke');
     const out = document.getElementById('smokeResults');
     btn.disabled = true;
     out.innerHTML = '';
+    lastSmoke = [];
     const targets = endpoints.filter(e => e.smoke?.include);
     let pass = 0, fail = 0;
     for (const e of targets) {
@@ -574,7 +692,7 @@
       row.innerHTML = `<span class="label">${e.method} ${e.path}</span><span class="pending">running…</span>`;
       out.appendChild(row);
 
-      const wrap = root.querySelector(`section.endpoint[data-id="${e.id}"]`);
+      const wrap = sectionByEndpoint.get(e.id);
       const vals = paramValues(wrap, e);
       for (const [k, v] of Object.entries(e.smoke?.pathFill || {})) {
         if (!vals.path[k]) vals.path[k] = v;
@@ -582,11 +700,14 @@
       try {
         const r = await sendRequest(e, vals);
         const ok = (r.status >= 200 && r.status < 300) || (e.followRedirect && r.status >= 300 && r.status < 400);
-        row.lastElementChild.outerHTML = `<span class="${ok ? 'pass' : 'fail'}">${r.status} ${escapeHtml(r.statusText)} (${r.elapsed} ms)</span>`;
+        const sizeStr = `${fmtBytes(r.decodedBytes)}` + (r.encodedBodySize != null && r.encodedBodySize !== r.decodedBytes ? ` / ${fmtBytes(r.encodedBodySize)} wire` : '');
+        row.lastElementChild.outerHTML = `<span class="${ok ? 'pass' : 'fail'}">${r.status} (${r.elapsed} ms, ${sizeStr})</span>`;
         ok ? pass++ : fail++;
+        lastSmoke.push({ endpoint: e.id, path: e.path, status: r.status, elapsed: r.elapsed, body_bytes: r.decodedBytes, wire_bytes: r.encodedBodySize ?? '' });
       } catch (err) {
-        row.lastElementChild.outerHTML = `<span class="fail">ERROR: ${escapeHtml(err.message || String(err))}</span>`;
+        row.lastElementChild.outerHTML = `<span class="fail">ERROR: ${esc(err.message || String(err))}</span>`;
         fail++;
+        lastSmoke.push({ endpoint: e.id, path: e.path, status: 'ERROR', elapsed: '', body_bytes: '', wire_bytes: '' });
       }
     }
     const summary = document.createElement('div');
@@ -594,6 +715,18 @@
     summary.innerHTML = `<span class="label">Summary</span><span class="${fail === 0 ? 'pass' : 'fail'}">${pass} passed, ${fail} failed</span>`;
     out.appendChild(summary);
     btn.disabled = false;
+  }
+
+  function exportSmokeCsv() {
+    if (!lastSmoke.length) { alert('Run the smoke tests first.'); return; }
+    const headers = ['endpoint', 'path', 'status', 'elapsed_ms', 'body_bytes', 'wire_bytes'];
+    const lines = [headers.join(','), ...lastSmoke.map(r => headers.map(h => r[h] ?? '').join(','))];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `krail-bff-smoke-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 </script>
 </body>
