@@ -128,6 +128,54 @@
   .smoke-row .pass { color: var(--ok); }
   .smoke-row .fail { color: var(--err); }
   .smoke-row .pending { color: var(--warn); }
+
+  /* Inspector — request/response details */
+  .inspector { margin-top: 12px; }
+  .inspector-status {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    font-family: var(--mono); font-size: 13px;
+  }
+  .inspector-status .badge {
+    padding: 3px 10px; border-radius: 3px; font-weight: 600; font-size: 12px;
+  }
+  .inspector-status .badge.ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); }
+  .inspector-status .badge.warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
+  .inspector-status .badge.err { background: rgba(248, 81, 73, 0.15); color: var(--err); }
+  .inspector-status .method-pill {
+    background: var(--accent-soft); color: var(--accent); padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600;
+  }
+  .inspector-url { word-break: break-all; color: var(--fg); flex: 1 1 100%; padding: 8px 0 0; font-size: 12px; }
+  .inspector-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .inspector-actions button {
+    background: transparent; border: 1px solid var(--border); color: var(--fg);
+    padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 11px;
+    font-family: var(--mono);
+  }
+  .inspector-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .inspector details { margin-top: 8px; }
+  .inspector details summary {
+    cursor: pointer; padding: 6px 10px; color: var(--muted); font-size: 12px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    user-select: none;
+  }
+  .inspector details[open] summary { border-radius: 4px 4px 0 0; border-bottom: 0; }
+  .inspector details summary:hover { color: var(--fg); }
+  .inspector details > div, .inspector details > pre {
+    border: 1px solid var(--border); border-top: 0; border-radius: 0 0 4px 4px;
+    padding: 10px 12px; margin: 0; background: var(--bg);
+    font-family: var(--mono); font-size: 12px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-all;
+    max-height: 360px; overflow: auto;
+  }
+  .diag-list { padding: 0; margin: 0; list-style: none; }
+  .diag-list li {
+    padding: 6px 0; color: var(--fg); font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .diag-list li:last-child { border-bottom: 0; }
+  .diag-list code { background: var(--panel-elev); padding: 1px 4px; border-radius: 2px; font-size: 11px; }
+  .diag-fix { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -396,11 +444,15 @@
     actions.querySelector('.send').addEventListener('click', async (ev) => {
       const btn = ev.target;
       btn.disabled = true; btn.textContent = 'Sending…';
+      const vals = paramValues(wrap, e);
+      const requestSnapshot = buildRequestSnapshot(e, vals);
       try {
-        const result = await sendRequest(e, paramValues(wrap, e));
-        resp.innerHTML = renderResult(result);
+        const result = await sendRequest(e, vals);
+        resp.innerHTML = renderInspector(result, requestSnapshot);
+        bindCopyButtons(resp, result, requestSnapshot);
       } catch (err) {
-        resp.innerHTML = `<div class="response-head"><span class="status err">ERROR</span></div><pre>${esc(err.message || String(err))}</pre>`;
+        resp.innerHTML = renderError(err, requestSnapshot);
+        bindCopyButtons(resp, null, requestSnapshot);
       } finally {
         btn.disabled = false; btn.textContent = 'Send';
       }
@@ -527,18 +579,126 @@
     };
   }
 
-  function renderResult(r) {
+  // Build a snapshot of what we're about to send, so we can show it on success AND on error.
+  function buildRequestSnapshot(e, vals) {
+    const base = (baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '');
+    const url = buildUrl(base, e, vals);
+    const headers = {};
+    const auth = authEl.value.trim();
+    if (auth) headers['Authorization'] = '<set>';  // mask in display
+    const ver = versionEl.value.trim();
+    if (ver) headers['X-Krail-Version'] = ver;
+    return { method: e.method, url, headers, hasAuth: !!auth, baseUrl: base };
+  }
+
+  function renderInspector(r, req) {
     const cls = r.status >= 200 && r.status < 300 ? 'ok' : r.status >= 400 ? 'err' : 'warn';
     const sizeMetrics = renderSizeMetrics(r);
+    const reqHeadersRendered = renderHeadersBlock(req.headers);
     return `
-      <div class="response-head">
-        <span class="status ${cls}">${r.status} ${esc(r.statusText)}</span>
-        <span class="metric"><strong>${r.elapsed}</strong> ms</span>
-        ${sizeMetrics}
-        <span class="path-display" title="${esc(r.url)}">${truncate(esc(r.url), 80)}</span>
+      <div class="inspector">
+        <div class="inspector-status">
+          <span class="method-pill">${esc(r.method || req.method)}</span>
+          <span class="badge ${cls}">${r.status} ${esc(r.statusText)}</span>
+          <span><strong>${r.elapsed}</strong> ms</span>
+          ${sizeMetrics}
+          <span class="inspector-url">${esc(r.url)}</span>
+          <div class="inspector-actions">
+            <button class="copy-url" type="button">Copy URL</button>
+            <button class="copy-curl" type="button">Copy as curl</button>
+            <button class="copy-body" type="button">Copy body</button>
+          </div>
+        </div>
+
+        <details><summary>Request headers ${req.hasAuth ? '<span style="color: var(--warn);"> · Authorization set</span>' : ''}</summary>
+          <pre>${reqHeadersRendered || '<em style="color: var(--muted)">(none beyond browser defaults)</em>'}</pre>
+        </details>
+
+        <details open><summary>Response headers</summary>
+          <pre>${esc(r.headers || '(none)')}</pre>
+        </details>
+
+        <details open><summary>Response body${r.decodedBytes ? ` · ${fmtBytes(r.decodedBytes)}` : ''}</summary>
+          <pre>${esc(r.body)}</pre>
+        </details>
       </div>
-      <pre>${esc(r.headers)}\n\n${esc(r.body)}</pre>
     `;
+  }
+
+  function renderError(err, req) {
+    const msg = err.message || String(err);
+    const isFetchFail = /failed to fetch|network/i.test(msg);
+    const reqHeadersRendered = renderHeadersBlock(req.headers);
+    const diag = isFetchFail ? renderFetchFailDiagnostic(req) : `<p style="color: var(--muted); font-size: 12px;">No response received from the server. Check the browser DevTools Network panel for the underlying error.</p>`;
+    return `
+      <div class="inspector">
+        <div class="inspector-status">
+          <span class="method-pill">${esc(req.method)}</span>
+          <span class="badge err">NETWORK ERROR</span>
+          <span style="color: var(--err); font-family: var(--mono); font-size: 12px;">${esc(msg)}</span>
+          <span class="inspector-url">${esc(req.url)}</span>
+          <div class="inspector-actions">
+            <button class="copy-url" type="button">Copy URL</button>
+            <button class="copy-curl" type="button">Copy as curl</button>
+          </div>
+        </div>
+
+        <details open><summary>What this means + how to fix</summary>
+          <div>${diag}</div>
+        </details>
+
+        <details><summary>Request headers ${req.hasAuth ? '<span style="color: var(--warn);"> · Authorization set</span>' : ''}</summary>
+          <pre>${reqHeadersRendered || '<em style="color: var(--muted)">(none)</em>'}</pre>
+        </details>
+      </div>
+    `;
+  }
+
+  function renderHeadersBlock(headers) {
+    return Object.entries(headers).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join('\n');
+  }
+
+  function renderFetchFailDiagnostic(req) {
+    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)/.test(req.url);
+    const items = [];
+    if (isLocal) {
+      items.push(`<li><strong>Server not running.</strong> Verify with <code>curl ${esc(req.baseUrl)}/health</code> in a terminal. <span class="diag-fix">Fix: <code>./scripts/dev.sh up</code> from the repo root.</span></li>`);
+      items.push(`<li><strong>CORS — origin blocked.</strong> If this page is loaded over <code>file://</code> the BFF won't allow it. <span class="diag-fix">Fix: open via <code>http://localhost:8000/api-tester.html</code> instead (the dev script does this for you).</span></li>`);
+    } else {
+      items.push(`<li><strong>Cross-origin request blocked.</strong> NSW Open Data and most external APIs don't send CORS headers; browsers can't talk to them directly. <span class="diag-fix">Fix: point Base URL at <code>http://localhost:8080</code> (the BFF) and let the BFF talk to upstream server-side.</span></li>`);
+      items.push(`<li><strong>Mixed content.</strong> If this page is on <code>https://</code>, browsers block <code>http://</code> calls. <span class="diag-fix">Fix: use the same scheme on both sides.</span></li>`);
+    }
+    items.push(`<li><strong>DevTools tells the truth.</strong> Open <code>F12 → Network</code>, run the request again, click the failing row. The <em>Status</em> column or the red CORS message there is the real error; "Failed to fetch" is the JS-level placeholder.</li>`);
+    items.push(`<li><strong>Try with curl</strong> using the "Copy as curl" button above — if curl works and the browser doesn't, it's CORS. If neither works, the server is unreachable.</li>`);
+    return `<ul class="diag-list">${items.join('')}</ul>`;
+  }
+
+  function bindCopyButtons(scope, result, req) {
+    const buttons = scope.querySelectorAll('.copy-url, .copy-curl, .copy-body');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        let text = '';
+        if (btn.classList.contains('copy-url')) text = req.url;
+        else if (btn.classList.contains('copy-curl')) text = toCurl(req);
+        else if (btn.classList.contains('copy-body') && result) text = result.body;
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(
+          () => { const orig = btn.textContent; btn.textContent = 'copied!'; setTimeout(() => btn.textContent = orig, 1200); },
+          () => { btn.textContent = 'clipboard denied'; },
+        );
+      });
+    });
+  }
+
+  function toCurl(req) {
+    const parts = [`curl -i -X ${req.method} '${req.url.replace(/'/g, `'\\''`)}'`];
+    Object.entries(req.headers).forEach(([k, v]) => {
+      // Substitute the actual values from current input fields, not the masked '<set>' placeholder.
+      let actual = v;
+      if (k === 'Authorization' && v === '<set>') actual = authEl.value.trim();
+      parts.push(`  -H '${k}: ${actual.replace(/'/g, `'\\''`)}'`);
+    });
+    return parts.join(' \\\n');
   }
 
   function renderSizeMetrics(r) {

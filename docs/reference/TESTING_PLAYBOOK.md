@@ -43,28 +43,27 @@ If a test fails, the `pr.yml` workflow blocks merge, so you'll see it on every P
 
 ---
 
-## Step 2 — Start the server locally (10 sec)
+## Step 2 — Start the server + tester (one command)
 
 ```bash
-./gradlew :server:run
+./scripts/dev.sh up
 ```
 
-Expect:
-```
-✅ NSW API Key loaded successfully from: local.properties file
-✅ NSW daily call budget: 10000
-Origin token gate disabled (CF_ORIGIN_TOKEN unset)
-Version gate disabled (MIN_APP_VERSION = 0.0.0)
-Application started in 0.3 seconds.
-Responding at http://0.0.0.0:8080
-```
+This starts the BFF on `:8080`, serves the api-tester on `:8000` (so CORS works — `file://` origins get rejected by the BFF allowlist), polls `/health` until ready, and prints the URL to open. First run takes ~30–60 s for gradle to compile; later runs are fast.
 
-Sanity check:
+To stop everything: `./scripts/dev.sh down`. To see what's running: `./scripts/dev.sh status`. To tail the BFF log: `./scripts/dev.sh logs`.
+
+If the script complains about missing `nsw.apiKey`, do Step 0.
+
+### What if I want to run it manually?
+
 ```bash
-curl -fsS http://localhost:8080/health
+./gradlew :server:run                       # terminal 1
+python3 -m http.server -d docs/tools 8000   # terminal 2
+curl -fsS http://localhost:8080/health      # terminal 3 — sanity
 ```
 
-If this hangs or 500s, check the gradle output for an exception (most commonly: missing API key).
+Make sure `local.properties` includes `bff.cors.origins=http://localhost:8000` or the browser tester will fail with "Failed to fetch" on every request.
 
 ---
 
@@ -74,17 +73,18 @@ Two equivalent options.
 
 ### 3a. Browser tester (recommended for the first run)
 
-```bash
-open docs/tools/api-tester.html
-```
+After `./scripts/dev.sh up`, open the URL it printed: **`http://localhost:8000/api-tester.html`** (not the `file://` path — that fails CORS).
 
 What you get:
 - Every endpoint listed; default inputs are real Sydney stop IDs.
-- Per-request: status, elapsed ms, body bytes, wire bytes (with gzip savings %).
-- "× N times" button next to each Send: runs the same request 10 times, reports latency p50/p95/min/max + size stats. Use to validate p95 isn't pathological.
-- Scenarios bar at top: one-click presets ("Wynyard → Town Hall", "Departures: Town Hall", etc.) — fills inputs and scrolls to the endpoint.
-- "Run all GETs" smoke runner at the bottom: pass/fail summary across every endpoint in one click. CSV export of results.
-- Config bar at the very top: Base URL, optional Authorization header, optional X-Krail-Version. **Stored in sessionStorage, wiped on tab close.**
+- **Inspector panel** per request: big colour-coded status badge, full URL, elapsed ms, body size + wire size + gzip savings %. Three open-by-default `<details>` sections: Request headers, Response headers, Response body. Three buttons per response: "Copy URL", "Copy as curl", "Copy body".
+- **Network-error diagnostics**: when a request fails with "Failed to fetch", the inspector shows what that probably means (server down / CORS / mixed content / external origin) with a concrete fix per case. Plus the actual JS error message and a reminder that DevTools → Network has the real underlying error.
+- **"× N times" button** next to each Send: runs the same request 10 times, reports latency p50/p95/min/max + size stats. Use to validate p95 isn't pathological.
+- **Scenarios bar** at top: one-click presets ("Wynyard → Town Hall", "Departures: Town Hall", etc.) — fills inputs and scrolls to the endpoint.
+- **"Run all GETs"** smoke runner at the bottom: pass/fail summary across every endpoint in one click. CSV export of results.
+- **Config bar** at the very top: Base URL, optional Authorization header, optional X-Krail-Version. **Stored in sessionStorage, wiped on tab close.**
+
+Leave Authorization blank when Base URL is `http://localhost:8080` — the BFF holds the NSW key server-side. Only fill it if you're pointing Base URL at NSW directly (and even then the browser will block the request because NSW doesn't send CORS headers; use Bruno or curl for that case).
 
 ### 3b. Bruno (if you prefer Postman-style)
 
@@ -171,6 +171,15 @@ The full rollout playbook with rollback procedure: [BFF_ADOPTION_GUIDE.md](BFF_A
 
 ---
 
+## Why the script does what it does
+
+You may wonder why `./scripts/dev.sh up` runs *two* servers. Short answer:
+
+- **BFF on `:8080`** — the actual application.
+- **Static server on `:8000`** — serves `api-tester.html` over `http://localhost:8000`. Browsers send `Origin: null` for `file://` pages; the BFF's CORS allowlist (deliberately strict for production safety) rejects `null`. Loading the tester from a real HTTP origin (`localhost:8000`) gives the browser an `Origin` header the BFF can authorise.
+
+If you saw "Failed to fetch" on every endpoint before this script existed, that was almost certainly the CORS-vs-`file://` issue. The script makes it impossible to forget.
+
 ## Common failure modes and what they mean
 
 | Symptom | Likely cause | Fix |
@@ -181,7 +190,8 @@ The full rollout playbook with rollback procedure: [BFF_ADOPTION_GUIDE.md](BFF_A
 | "× 10 times" shows wildly varying latency | Cold JVM (first call ~200 ms, subsequent ~30 ms) | Run a warm-up Send before the multi-run |
 | 429 on second smoke run | Per-IP burst exhausted from prior tests | Wait 2 sec or restart server |
 | 503 `service_temporarily_limited` | Daily budget hit (default 10k/day) | Restart server (resets in-process counter) or raise `NSW_DAILY_BUDGET` |
-| Browser CORS error from `file://` api-tester | Some endpoints reject `Origin: null` | Serve the tester via `python3 -m http.server -d docs/tools 8000` and use `http://localhost:8000/api-tester.html` |
+| Browser shows "Failed to fetch" on every request | Loading api-tester via `file://` (Origin: null is not in the BFF allowlist) | Use `./scripts/dev.sh up` instead — it serves the tester on `http://localhost:8000` and adds that to the BFF allowlist automatically |
+| BFF won't start: port 8080 already in use | Another process holds the port (often a previous dev session) | `./scripts/dev.sh down` (kills strays); or `lsof -tiTCP:8080 -sTCP:LISTEN \| xargs kill -9` |
 | Android emulator can't reach `localhost:8080` | Emulator's loopback ≠ host's loopback | Use `http://10.0.2.2:8080` (host's loopback from inside the emulator) |
 
 ---
