@@ -39,3 +39,11 @@ nsw.apiKey=your-api-key-here
 # Production: GitHub Releases asset URL. Empty/unset returns 404.
 # data.stops.manifestUrl=https://github.com/ksharma-xyz/KRAIL-BFF/releases/latest/download/manifest.json
 
+# Optional, DEV ONLY: enable /internal/passthrough for the API tester's
+# "Compare with NSW" button. The BFF proxies arbitrary NSW URLs with the
+# server-side API key for browser-based comparison (NSW doesn't send CORS
+# headers, so direct browser calls fail).
+# NEVER set this on a production deploy — it intentionally exposes the NSW
+# key path to anyone who can reach the BFF.
+# bff.devPassthrough=true
+

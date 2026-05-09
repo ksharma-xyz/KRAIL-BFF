@@ -233,6 +233,60 @@
   }
   .custom-tabs button.active { color: var(--fg); border-bottom-color: var(--accent); }
 
+  /* ------------------ TRACE TIMELINE ------------------ */
+  .trace-table { margin-top: 8px; }
+  .trace-row {
+    display: grid; grid-template-columns: 280px 1fr; gap: 12px; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .trace-row:last-child { border-bottom: 0; }
+  .trace-meta { display: flex; flex-direction: column; gap: 2px; }
+  .trace-meta .status-pill {
+    display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 10px;
+    font-weight: 600; font-family: var(--mono); width: fit-content;
+  }
+  .trace-meta .status-pill.ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); }
+  .trace-meta .status-pill.warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
+  .trace-meta .status-pill.err { background: rgba(248, 81, 73, 0.15); color: var(--err); }
+  .trace-meta .trace-label { font-size: 12px; color: var(--fg); margin-top: 2px; }
+  .trace-meta .trace-detail { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+  .trace-timeline {
+    position: relative; height: 22px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 3px;
+  }
+  .trace-bar {
+    position: absolute; top: 0; bottom: 0;
+    background: var(--accent); border-radius: 2px;
+    display: flex; align-items: center; justify-content: flex-start;
+    padding: 0 6px; min-width: 6px;
+  }
+  .trace-bar.ok { background: var(--ok); }
+  .trace-bar.warn { background: var(--warn); }
+  .trace-bar.err { background: var(--err); }
+  .trace-bar-label {
+    color: white; font-size: 10px; font-family: var(--mono); font-weight: 600;
+    white-space: nowrap; text-shadow: 0 0 2px rgba(0,0,0,0.5);
+  }
+
+  /* ------------------ COMPARISON ------------------ */
+  .cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .cmp-cell {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; font-family: var(--mono); font-size: 12px;
+  }
+  .cmp-cell.err { border-color: var(--err); }
+  .cmp-head { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .cmp-status { font-weight: 600; padding: 3px 8px; border-radius: 2px; display: inline-block; margin-bottom: 8px; }
+  .cmp-status.ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); }
+  .cmp-status.err { background: rgba(248, 81, 73, 0.15); color: var(--err); }
+  .cmp-metric { display: flex; gap: 12px; color: var(--muted); margin-bottom: 6px; }
+  .cmp-metric span strong { color: var(--fg); }
+  .cmp-cell pre { background: var(--panel-elev); border: 1px solid var(--border); border-radius: 3px; padding: 6px; max-height: 200px; overflow: auto; margin: 0; font-size: 11px; }
+
+  @media (max-width: 1300px) {
+    .cmp-grid { grid-template-columns: 1fr; }
+  }
+
   /* ------------------ RESPONSIVE ------------------ */
   @media (max-width: 1100px) {
     .history { display: none; }
@@ -292,7 +346,9 @@
         { name: 'date',   placeholder: 'YYYYMMDD (optional)' },
         { name: 'time',   placeholder: 'HHmm (optional)' },
         { name: 'excludedModes', placeholder: 'comma-separated' },
-      ] },
+      ],
+      nswCompare: ({ q }) => `https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=${q.origin}&name_destination=${q.destination}&depArrMacro=${q.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON`,
+    },
     { id: 'tripPlanProto',       method: 'GET', path: '/api/v1/trip/plan-proto',
       name: 'Trip planner — protobuf',
       binary: true,
@@ -306,36 +362,50 @@
       params: [
         { name: 'origin', default: '200060' },
         { name: 'destination', default: '10101100' },
-      ] },
+      ],
+      nswCompare: ({ q }) => `https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=${q.origin}&name_destination=${q.destination}&depArrMacro=dep&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&outputFormat=rapidJSON`,
+    },
     { id: 'departures',          method: 'GET', path: '/v1/stops/{stopId}/departures',
       name: 'Departures for a stop',
       pathParams: [{ name: 'stopId', default: '200060' }],
       params: [
         { name: 'date', placeholder: 'YYYYMMDD' },
         { name: 'time', placeholder: 'HHmm' },
-      ] },
+      ],
+      nswCompare: ({ p, q }) => `https://api.transport.nsw.gov.au/v1/tp/departure_mon?name_dm=${p.stopId}&type_dm=any&mode=direct&excludedMeans=checkbox&limit=20${q.date ? `&itdDate=${q.date}` : ''}${q.time ? `&itdTime=${q.time}` : ''}&outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&TfNSWDM=true&version=10.2.1.42`,
+    },
     { id: 'parkingList',         method: 'GET', path: '/v1/parking/facilities',
       name: 'Park & Ride — facility list',
-      params: [] },
+      params: [],
+      nswCompare: () => `https://api.transport.nsw.gov.au/v1/carpark`,
+    },
     { id: 'parkingAvail',        method: 'GET', path: '/v1/parking/facilities/{facilityId}/availability',
       name: 'Park & Ride — availability',
       pathParams: [{ name: 'facilityId', default: '1' }],
-      params: [] },
+      params: [],
+      nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v1/carpark?facility=${p.facilityId}`,
+    },
     { id: 'gtfsRtV1',            method: 'GET', path: '/v1/gtfs/realtime/{feed}',
       name: 'GTFS-RT trip updates v1',
       binary: true,
       pathParams: [{ name: 'feed', default: 'buses' }],
-      params: [] },
+      params: [],
+      nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v1/gtfs/realtime/${p.feed}`,
+    },
     { id: 'gtfsRtV2',            method: 'GET', path: '/v2/gtfs/realtime/{feed}',
       name: 'GTFS-RT trip updates v2',
       binary: true,
       pathParams: [{ name: 'feed', default: 'sydneytrains' }],
-      params: [] },
+      params: [],
+      nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v2/gtfs/realtime/${p.feed}`,
+    },
     { id: 'gtfsVehiclepos',      method: 'GET', path: '/v2/gtfs/vehiclepos/{feed}',
       name: 'GTFS-RT vehicle positions',
       binary: true,
       pathParams: [{ name: 'feed', default: 'sydneytrains' }],
-      params: [] },
+      params: [],
+      nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v2/gtfs/vehiclepos/${p.feed}`,
+    },
     { id: 'stopsManifest',       method: 'GET', path: '/v1/data/stops/manifest',
       name: 'Stops dataset manifest (302)',
       params: [], followRedirect: true },
@@ -344,6 +414,60 @@
       params: [], followRedirect: true },
   ];
   const endpointById = Object.fromEntries(endpoints.map(e => [e.id, e]));
+
+  // ============================================================
+  // User journeys ("traces") — what the mobile app actually calls.
+  // Each step references an endpoint id; params override defaults.
+  // ============================================================
+  const journeys = [
+    {
+      id: 'trip-search',
+      name: 'Search trip Wynyard → Town Hall',
+      desc: 'What KRAIL fires when the user submits a trip search.',
+      steps: [
+        { endpoint: 'tripPlanJson', params: { origin: '200070', destination: '200060' }, label: 'Trip plan' },
+      ],
+    },
+    {
+      id: 'home-departures',
+      name: 'Open app, expand a saved trip card',
+      desc: 'Stops manifest check + departure-board polling for one stop.',
+      steps: [
+        { endpoint: 'stopsManifest', params: {}, label: 'Stops manifest (304/redirect)' },
+        { endpoint: 'departures', params: { stopId: '200060' }, label: 'Departures · Town Hall' },
+      ],
+    },
+    {
+      id: 'park-ride',
+      name: 'Park & Ride view',
+      desc: 'List facilities, then drill into one for availability.',
+      steps: [
+        { endpoint: 'parkingList', params: {}, label: 'Facility list' },
+        { endpoint: 'parkingAvail', params: { facilityId: '1' }, label: 'Facility 1 availability' },
+      ],
+    },
+    {
+      id: 'track-trip',
+      name: 'Tap Track on a journey',
+      desc: 'Static trip plan + GTFS-RT trip updates + vehicle positions, mirroring the live tracking screen.',
+      steps: [
+        { endpoint: 'tripPlanJson', params: { origin: '200070', destination: '200060' }, label: 'Static plan' },
+        { endpoint: 'gtfsRtV2', params: { feed: 'sydneytrains' }, label: 'Trip updates v2' },
+        { endpoint: 'gtfsVehiclepos', params: { feed: 'sydneytrains' }, label: 'Vehicle positions' },
+      ],
+    },
+    {
+      id: 'cold-start',
+      name: 'Cold start — manifests + first trip',
+      desc: 'What happens on the very first launch: dataset manifest checks before any feature loads.',
+      steps: [
+        { endpoint: 'stopsManifest', params: {}, label: 'Stops manifest' },
+        { endpoint: 'routesManifest', params: {}, label: 'Routes manifest' },
+        { endpoint: 'health', params: {}, label: 'Health probe' },
+      ],
+    },
+  ];
+  const journeyById = Object.fromEntries(journeys.map(j => [j.id, j]));
 
   // ============================================================
   // sessionStorage (cleared on tab close)
@@ -405,9 +529,29 @@
     root.innerHTML = `
       <div class="section-title">Debug</div>
       <button class="add-custom${customActive ? ' active' : ''}" type="button" id="navCustom">+ Debug any URL / curl</button>
+
+      <div class="section-title">Traces — what mobile calls</div>
+      <div id="navJourneys"></div>
+
       <div class="section-title">Endpoints</div>
+      <div id="navEndpoints"></div>
     `;
     document.getElementById('navCustom').addEventListener('click', () => activate('custom-debug'));
+
+    const jRoot = document.getElementById('navJourneys');
+    for (const j of journeys) {
+      const id = `trace:${j.id}`;
+      const item = document.createElement('div');
+      item.className = 'item' + (state.activeId === id ? ' active' : '');
+      item.innerHTML = `
+        <div class="row1"><span class="method" style="background: rgba(63, 185, 80, 0.15); color: var(--ok);">TRACE</span><span class="path">${j.name}</span></div>
+        <div class="name">${j.steps.length} step${j.steps.length === 1 ? '' : 's'}</div>
+      `;
+      item.addEventListener('click', () => activate(id));
+      jRoot.appendChild(item);
+    }
+
+    const eRoot = document.getElementById('navEndpoints');
     for (const e of endpoints) {
       const item = document.createElement('div');
       item.className = 'item' + (state.activeId === e.id ? ' active' : '');
@@ -420,7 +564,7 @@
       const points = state.latencies[e.id] || [];
       svg.innerHTML = sparklineSVG(points, 60, 12);
       item.addEventListener('click', () => activate(e.id));
-      root.appendChild(item);
+      eRoot.appendChild(item);
     }
   }
 
@@ -445,6 +589,10 @@
   function renderDetail() {
     const root = document.getElementById('detail');
     if (state.activeId === 'custom-debug') return renderCustomDebug(root);
+    if (state.activeId && state.activeId.startsWith('trace:')) {
+      const journeyId = state.activeId.slice('trace:'.length);
+      return renderTrace(root, journeyById[journeyId]);
+    }
     const e = endpointById[state.activeId];
     if (!e) {
       root.innerHTML = `<div class="empty-state">Pick an endpoint from the left, or use <strong>+ Debug any URL</strong>.</div>`;
@@ -462,6 +610,7 @@
         <span class="label">or run</span>
         <input type="number" class="runs" min="2" max="100" value="10">
         <button class="run-multi secondary" type="button">× times</button>
+        ${e.nswCompare ? '<button class="compare secondary" type="button" title="Fire BFF and NSW direct in parallel, show side-by-side metrics">Compare with NSW</button>' : ''}
         <span class="label" style="margin-left: auto;">${e.binary ? 'binary response' : ''}</span>
       </div>
       <div class="response" id="response"></div>
@@ -489,6 +638,177 @@
       const n = Math.max(2, Math.min(100, parseInt(root.querySelector('.runs').value) || 10));
       sendActive(e, n);
     });
+    const cmpBtn = root.querySelector('.compare');
+    if (cmpBtn) cmpBtn.addEventListener('click', () => runCompare(e));
+  }
+
+  // ============================================================
+  // Trace / journey view
+  // ============================================================
+  function renderTrace(root, j) {
+    if (!j) { root.innerHTML = `<div class="empty-state">Trace not found.</div>`; return; }
+    root.innerHTML = `
+      <div class="endpoint-head-pane">
+        <h1>${esc(j.name)}</h1>
+        <div class="meta">${esc(j.desc)} · ${j.steps.length} step${j.steps.length === 1 ? '' : 's'}</div>
+      </div>
+      <div class="actions">
+        <button class="run-trace" type="button">Run trace</button>
+        <span class="label">fires the steps in order, ~150 ms apart, then renders a timeline</span>
+      </div>
+      <div class="response" id="traceOutput"></div>
+    `;
+    root.querySelector('.run-trace').addEventListener('click', () => runJourney(j));
+  }
+
+  async function runJourney(j) {
+    const out = document.getElementById('traceOutput');
+    const btn = document.querySelector('.run-trace');
+    btn.disabled = true; btn.textContent = 'Running…';
+    const results = [];
+    const traceStart = performance.now();
+    try {
+      for (const step of j.steps) {
+        const e = endpointById[step.endpoint];
+        if (!e) { results.push({ step, error: 'unknown endpoint' }); continue; }
+        const vals = { path: { ...(step.params || {}) }, query: { ...(step.params || {}) } };
+        // Strip path params from query, and vice-versa, to avoid duplicate appearance.
+        for (const pp of (e.pathParams || [])) delete vals.query[pp.name];
+        for (const qp of (e.params || [])) delete vals.path[qp.name];
+        // Fill in defaults for missing fields (so a step with sparse params still works).
+        for (const pp of (e.pathParams || [])) if (vals.path[pp.name] === undefined && pp.default) vals.path[pp.name] = pp.default;
+        const startedAt = performance.now() - traceStart;
+        try {
+          const r = await sendRequest(e, vals);
+          results.push({ step, e, startedAt, r });
+          recordHistory(e.id, buildRequestSnapshot(e, vals), r);
+          recordLatency(e.id, r.elapsed);
+        } catch (err) {
+          results.push({ step, e, startedAt, error: err.message || String(err) });
+        }
+        await new Promise(r => setTimeout(r, 150));
+      }
+      out.innerHTML = renderTraceResults(j, results);
+      renderHistory(); renderNav();
+    } finally {
+      btn.disabled = false; btn.textContent = 'Run trace';
+    }
+  }
+
+  function renderTraceResults(j, results) {
+    const totalMs = Math.max(...results.map(r => (r.startedAt || 0) + (r.r ? r.r.elapsed : 0)), 1);
+    const totalBytes = results.reduce((s, r) => s + (r.r?.decodedBytes || 0), 0);
+    const totalWire = results.reduce((s, r) => s + (r.r?.encodedBodySize || r.r?.decodedBytes || 0), 0);
+    const okCount = results.filter(r => r.r && r.r.status >= 200 && r.r.status < 400).length;
+
+    const rows = results.map((row, idx) => {
+      const status = row.error ? 'ERROR' : `${row.r.status}`;
+      const cls = row.error || row.r.status >= 400 ? 'err' : (row.r.status >= 300 ? 'warn' : 'ok');
+      const elapsed = row.r ? row.r.elapsed : 0;
+      const startPct = (row.startedAt / totalMs) * 100;
+      const widthPct = Math.max((elapsed / totalMs) * 100, 1);
+      const sizeStr = row.r ? fmtBytes(row.r.decodedBytes) : '—';
+      return `
+        <div class="trace-row">
+          <div class="trace-meta">
+            <span class="status-pill ${cls}">${status}</span>
+            <span class="trace-label">${esc(row.step.label || row.e?.name || row.step.endpoint)}</span>
+            <span class="trace-detail">${esc(row.e?.path || '')}</span>
+          </div>
+          <div class="trace-timeline">
+            <div class="trace-bar ${cls}" style="left: ${startPct.toFixed(1)}%; width: ${widthPct.toFixed(1)}%;" title="${elapsed} ms">
+              <span class="trace-bar-label">${elapsed} ms · ${sizeStr}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="stats">
+        <div class="row"><span class="label">Total</span><span class="value"><strong>${Math.round(totalMs)}</strong> ms · <strong>${fmtBytes(totalBytes)}</strong> body${totalWire !== totalBytes ? ` · <strong>${fmtBytes(totalWire)}</strong> wire` : ''}</span></div>
+        <div class="row"><span class="label">Steps</span><span class="value"><strong>${okCount}/${results.length}</strong> succeeded</span></div>
+      </div>
+      <div class="trace-table">${rows}</div>
+      <details><summary>Per-step responses</summary>
+        <pre>${results.map((row, i) => {
+          if (row.error) return `#${i + 1} ${row.step.endpoint}: ERROR ${row.error}`;
+          return `#${i + 1} ${row.step.endpoint}: ${row.r.status} · ${row.r.elapsed} ms · ${fmtBytes(row.r.decodedBytes)}\n${truncate(row.r.body, 800)}`;
+        }).join('\n\n')}</pre>
+      </details>
+    `;
+  }
+
+  // ============================================================
+  // BFF vs NSW direct comparison
+  // ============================================================
+  async function runCompare(e) {
+    const respEl = document.getElementById('response');
+    const btn = document.querySelector('.compare');
+    btn.disabled = true; btn.textContent = 'Comparing…';
+    const vals = endpointParamValues(e);
+    const bffReq = buildRequestSnapshot(e, vals);
+    const nswUrl = e.nswCompare({ p: vals.path, q: vals.query });
+    const passthroughUrl = `${(baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '')}/internal/passthrough?url=${encodeURIComponent(nswUrl)}`;
+
+    try {
+      const [bff, nsw] = await Promise.allSettled([
+        sendRequest(e, vals),
+        rawFetch(passthroughUrl, 'GET', { 'X-Krail-Version': versionEl.value.trim() || undefined }, { binary: e.binary }),
+      ]);
+      respEl.innerHTML = renderCompare(e, bffReq, nswUrl, bff, nsw);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Compare with NSW';
+    }
+  }
+
+  function renderCompare(e, bffReq, nswUrl, bffRes, nswRes) {
+    const cell = (res, label) => {
+      if (res.status === 'rejected') return `<div class="cmp-cell err"><div class="cmp-head">${label}</div><div class="cmp-status err">NETWORK ERROR</div><pre>${esc(res.reason?.message || String(res.reason))}</pre></div>`;
+      const r = res.value;
+      const cls = r.status >= 200 && r.status < 300 ? 'ok' : 'err';
+      const wireDelta = r.encodedBodySize != null && r.encodedBodySize > 0 ? ` (wire ${fmtBytes(r.encodedBodySize)})` : '';
+      return `
+        <div class="cmp-cell">
+          <div class="cmp-head">${label}</div>
+          <div class="cmp-status ${cls}">${r.status} ${esc(r.statusText)}</div>
+          <div class="cmp-metric"><span>${r.elapsed} ms</span><span>${fmtBytes(r.decodedBytes)}${wireDelta}</span></div>
+          <details><summary>Body (${fmtBytes(r.decodedBytes)})</summary><pre>${esc(truncate(r.body, 4000))}</pre></details>
+        </div>
+      `;
+    };
+    const summary = (() => {
+      if (bffRes.status !== 'fulfilled' || nswRes.status !== 'fulfilled') return '';
+      const b = bffRes.value, n = nswRes.value;
+      if (b.status >= 400 || n.status >= 400) return '';
+      const sizeWin = n.decodedBytes ? Math.round((1 - b.decodedBytes / n.decodedBytes) * 100) : 0;
+      const speedDelta = b.elapsed - n.elapsed;
+      return `
+        <div class="stats">
+          <div class="row"><span class="label">Body size</span><span class="value">BFF <strong>${fmtBytes(b.decodedBytes)}</strong> vs NSW <strong>${fmtBytes(n.decodedBytes)}</strong> → <strong style="color: ${sizeWin > 0 ? 'var(--ok)' : 'var(--warn)'};">BFF ${sizeWin > 0 ? '−' : '+'}${Math.abs(sizeWin)}%</strong></span></div>
+          <div class="row"><span class="label">Latency</span><span class="value">BFF <strong>${b.elapsed}</strong> ms vs NSW <strong>${n.elapsed}</strong> ms → <strong style="color: ${speedDelta < 0 ? 'var(--ok)' : 'var(--warn)'};">BFF ${speedDelta >= 0 ? '+' : ''}${speedDelta} ms</strong></span></div>
+          <div class="row"><span class="label">Note</span><span class="value" style="color: var(--muted);">BFF latency includes the BFF's call out to NSW + a tiny processing overhead. The size win is what matters most for mobile data plans.</span></div>
+        </div>
+      `;
+    })();
+
+    return `
+      <div class="inspector-status">
+        <span class="badge ok">COMPARE</span>
+        <span style="font-family: var(--mono); font-size: 12px;">${esc(e.name)}</span>
+        <span class="inspector-url">BFF ${esc(bffReq.url)}</span>
+        <span class="inspector-url">NSW ${esc(nswUrl)}</span>
+      </div>
+      ${summary}
+      <div class="cmp-grid">
+        ${cell(bffRes, 'BFF')}
+        ${cell(nswRes, 'NSW direct (via /internal/passthrough)')}
+      </div>
+      <p style="color: var(--muted); font-size: 11px; margin-top: 8px;">
+        ⓘ NSW comparison uses the BFF's <code>/internal/passthrough</code> endpoint (dev-only; disabled in production).
+        If you see "passthrough_failed", verify <code>BFF_DEV_PASSTHROUGH=true</code> is set in <code>local.properties</code> and restart the server.
+      </p>
+    `;
   }
 
   // ============================================================
