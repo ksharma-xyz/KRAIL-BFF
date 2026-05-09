@@ -687,9 +687,9 @@ repo (`/Users/ksharma/code/apps/KRAIL-BFF`):
 | Parking routes | `server/src/main/kotlin/app/krail/bff/routes/ParkingRoutes.kt` |
 | GTFS-RT routes | `server/src/main/kotlin/app/krail/bff/routes/GtfsRoutes.kt` |
 | Manifest routes | `server/src/main/kotlin/app/krail/bff/routes/DataRoutes.kt` |
-| Trip plan-proto schema | `server/src/main/proto/trip.proto` |
-| Stops dataset schema | `server/src/main/proto/stops_dataset.proto` |
-| Routes dataset schema | `server/src/main/proto/routes_dataset.proto` |
+| Trip plan-proto schema | `krail-api-proto/proto/api/trip.proto` (submodule) |
+| Stops dataset schema | `krail-api-proto/proto/data/stops_dataset.proto` (submodule) |
+| Routes dataset schema | `krail-api-proto/proto/data/routes_dataset.proto` (submodule) |
 | Version gate (X-Krail-Version) | `server/src/main/kotlin/app/krail/bff/plugins/VersionGate.kt` |
 | Per-IP rate limit | `server/src/main/kotlin/app/krail/bff/plugins/PerIpRateLimit.kt` |
 | Origin token gate (prod only) | `server/src/main/kotlin/app/krail/bff/plugins/OriginTokenGate.kt` |

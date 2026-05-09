@@ -27,9 +27,7 @@ Each follows the same playbook. Read this once, then apply per-endpoint.
 
 Before you start an endpoint migration in KRAIL, verify:
 
-- [ ] **`krail-api-proto` repo exists and is pinned**
-  Both KRAIL-BFF and KRAIL reference the same tagged version (e.g. `v0.3.0`). Wire-generated Kotlin classes compile in
-  both repos.
+- [x] **`krail-api-proto` repo exists and is pinned** — done 2026-05-09. Public at <https://github.com/ksharma-xyz/KRAIL-API-PROTO>, Apache 2.0, `v0.1.0` cut. KRAIL-BFF consumes via submodule at `krail-api-proto/`. KRAIL app picks the same submodule per `KRAIL_INTEGRATION_MASTER_PLAN.md` §6.
 - [ ] **The endpoint exists in KRAIL-BFF**, deployed, reachable from a development device or emulator. Hit the health
   endpoint first; do not assume.
 - [ ] **Cloudflare + DO origin lockdown is live**

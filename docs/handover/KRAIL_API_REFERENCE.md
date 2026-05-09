@@ -521,7 +521,7 @@ adopts the BFF-shaped contract.
 | `/api/v1/trip/plan-proto` | `application/protobuf` | `JourneyList` proto-encoded | ~83% smaller |
 
 The proto schema lives in the BFF repo at
-`server/src/main/proto/trip.proto`. Top-level message:
+`krail-api-proto/proto/api/trip.proto` (in the submodule). Top-level message:
 
 ```
 message JourneyList {
@@ -594,8 +594,8 @@ After following the redirect, the manifest body looks like:
 ```
 
 The `.pb` payload is a `StopsDataset` (or `RoutesDataset`) protobuf —
-schemas in `server/src/main/proto/stops_dataset.proto` and
-`routes_dataset.proto`.
+schemas in `krail-api-proto/proto/data/stops_dataset.proto` and
+`routes_dataset.proto` (in the submodule).
 
 ### Response — 404
 

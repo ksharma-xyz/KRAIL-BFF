@@ -85,19 +85,18 @@ so the bare DO URL is unreachable from the public internet.
 
 Smoke test: `curl https://bff.krail.app/health` → 200.
 
-### 2. Create `krail-api-proto` repo
+### 2. Create `krail-api-proto` repo ✅ DONE 2026-05-09
 
-The `.proto` files currently live inside this repo
-(`server/src/main/proto/`). For the KRAIL app to share generated Kotlin
-classes you need to extract them to a standalone repo:
+Public repo at <https://github.com/ksharma-xyz/KRAIL-API-PROTO>, Apache 2.0.
+Tag `v0.1.0` cut. The BFF now consumes the protos via git submodule at
+`krail-api-proto/` (this repo's root), Wire's `sourcePath` points at it.
+KRAIL app does the same submodule on its side per
+[`docs/handover/KRAIL_INTEGRATION_MASTER_PLAN.md`](docs/handover/KRAIL_INTEGRATION_MASTER_PLAN.md) §6 (Phase C).
 
-- New repo `ksharma-xyz/krail-api-proto` (public, MIT or whatever).
-- Move `trip.proto`, `stops_dataset.proto`, `routes_dataset.proto` into it.
-- Tag `v0.1.0`.
-- BFF: replace local protos with a git submodule pointing at that tag.
-- KRAIL app: same submodule, with Wire codegen in `commonMain`.
-
-This is a one-time chore. Do it after deploy, before app integration.
+CI: `proto-bump.yml` workflow runs daily and opens a PR when the proto
+repo cuts a new tag. See
+[`docs/handover/PROTO_REPO_MIGRATION.md`](docs/handover/PROTO_REPO_MIGRATION.md)
+for the full migration writeup.
 
 ### 3. KRAIL app side — base URL + headers
 
