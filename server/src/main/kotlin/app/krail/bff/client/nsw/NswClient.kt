@@ -81,6 +81,18 @@ class NswClientImpl(
     private val dailyBudget: NswDailyBudget,
 ) : NswClient {
 
+    companion object {
+        // Reused for every NSW response decode. Configuring a Json{} instance
+        // is non-trivial (it builds a SerializersModule); hoisting it out of
+        // the request path saves an allocation per call and lets the JIT inline
+        // the configuration.
+        private val NSW_JSON = Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+            isLenient = true
+        }
+    }
+
     private val logger = LoggerFactory.getLogger(NswClientImpl::class.java)
 
     private val failures = AtomicInteger(0)
@@ -262,13 +274,8 @@ class NswClientImpl(
                 )
             }
 
-            // Parse using kotlinx.serialization
-            val json = Json {
-                ignoreUnknownKeys = true
-                explicitNulls = false
-                isLenient = true
-            }
-            val tripResponse: TripResponse = json.decodeFromString(responseText)
+            // Parse using the companion-shared Json instance (see top of file).
+            val tripResponse: TripResponse = NSW_JSON.decodeFromString(responseText)
 
             tripSuccess.inc()
 

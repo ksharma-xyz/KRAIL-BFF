@@ -8,6 +8,13 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.*
 import org.koin.ktor.ext.inject
 
+// Compile-once: validates path-segment facility IDs.
+private val FACILITY_ID_REGEX = Regex("^[A-Za-z0-9_-]{1,40}$")
+
+private const val INVALID_FACILITY_ID_BODY =
+    "{\"error\":{\"code\":\"invalid_facility_id\"," +
+    "\"message\":\"facilityId must be alphanumeric, 1-40 chars\"}}"
+
 /**
  * Park & Ride endpoints. Pass-through of NSW `/v1/carpark` for v1.
  *
@@ -26,9 +33,9 @@ fun Application.configureParkingRoutes() {
 
             get("/{facilityId}/availability") {
                 val facilityId = call.parameters["facilityId"]
-                if (facilityId.isNullOrBlank() || !facilityId.matches(Regex("^[A-Za-z0-9_-]{1,40}$"))) {
+                if (facilityId.isNullOrBlank() || !facilityId.matches(FACILITY_ID_REGEX)) {
                     call.respondText(
-                        text = "{\"error\":{\"code\":\"invalid_facility_id\",\"message\":\"facilityId must be alphanumeric, 1-40 chars\"}}",
+                        text = INVALID_FACILITY_ID_BODY,
                         contentType = ContentType.Application.Json,
                         status = HttpStatusCode.BadRequest,
                     )

@@ -27,6 +27,14 @@ object JourneyListMapper {
     private val timeFormatter = DateTimeFormatter.ofPattern("h:mma")
         .withZone(ZoneId.of("Australia/Sydney"))
 
+    // Compile-once regex patterns. The mapper runs on every trip-planner
+    // request and these previously allocated 2× per JourneyCardInfo.
+    // Patterns are immutable + thread-safe, so file-level vals are safe.
+    private val PLATFORM_TEXT_REGEX =
+        Regex("(Platform|Stand|Wharf|Side)\\s*(\\d+|[A-Z])", RegexOption.IGNORE_CASE)
+    private val PLATFORM_NUMBER_REGEX =
+        Regex("(Platform|Stand|Wharf)\\s*(\\d+|[A-Z])", RegexOption.IGNORE_CASE)
+
     /**
      * Main conversion function: TripResponse -> JourneyList
      */
@@ -223,15 +231,13 @@ object JourneyListMapper {
 
     private fun TripResponse.Leg?.getPlatformText(): String? {
         val disassembledName = this?.origin?.disassembledName ?: return null
-        val regex = Regex("(Platform|Stand|Wharf|Side)\\s*(\\d+|[A-Z])", RegexOption.IGNORE_CASE)
-        val matches = regex.findAll(disassembledName).toList()
+        val matches = PLATFORM_TEXT_REGEX.findAll(disassembledName).toList()
         return if (matches.isNotEmpty()) matches.joinToString(", ") { it.value } else null
     }
 
     private fun TripResponse.Leg?.getPlatformNumber(): String? {
         val disassembledName = this?.origin?.disassembledName ?: return null
-        val regex = Regex("(Platform|Stand|Wharf)\\s*(\\d+|[A-Z])", RegexOption.IGNORE_CASE)
-        val match = regex.find(disassembledName)
+        val match = PLATFORM_NUMBER_REGEX.find(disassembledName)
         return match?.groupValues?.getOrNull(2)
     }
 
