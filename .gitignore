@@ -49,6 +49,12 @@ local.properties
 *.keystore
 *.jks
 
+### Postman exports — usually contain real API keys in Authorization headers ###
+# If you want to commit a sanitised version, replace real values with {{apiKey}}
+# placeholders first and explicitly `git add -f path/to/file`.
+*.postman_collection.json
+*.postman_environment.json
+
 ### macOS ###
 .DS_Store
 
