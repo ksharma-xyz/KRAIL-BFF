@@ -1,0 +1,17 @@
+meta {
+  name: Readiness probe (NSW upstream check)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/ready
+  body: none
+  auth: none
+}
+
+tests {
+  test("status is 200 or 503", function() {
+    expect([200, 503]).to.include(res.getStatus());
+  });
+}
