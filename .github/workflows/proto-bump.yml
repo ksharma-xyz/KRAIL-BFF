@@ -1,0 +1,108 @@
+name: proto-bump
+
+# Daily check + manual dispatch. Opens a PR if KRAIL-API-PROTO has a newer
+# tag than the currently-pinned submodule SHA. Never auto-merges — schema
+# changes need a human in the loop, since adding a new contract: required
+# field requires a matching response-builder change in the BFF.
+#
+# When a new tag includes contract: required field additions, the existing
+# contract-enforcement unit tests will fail on this auto-bump PR until the
+# BFF response builders are updated to populate the new fields.
+
+on:
+  schedule:
+    # 14:00 UTC daily ≈ 01:00 AEDT / 00:00 AEST. Catches releases cut overnight.
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: proto-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Find latest KRAIL-API-PROTO tag
+        id: latest
+        working-directory: krail-api-proto
+        run: |
+          git fetch --tags --quiet origin
+          latest=$(git tag --list 'v*.*.*' --sort=-version:refname | head -n1)
+          # Currently pinned commit's tag (or short SHA if not on a tag).
+          current_tag=$(git describe --tags --exact-match 2>/dev/null || true)
+          current_sha=$(git rev-parse --short HEAD)
+          echo "latest=$latest"            >> "$GITHUB_OUTPUT"
+          echo "current_tag=$current_tag"  >> "$GITHUB_OUTPUT"
+          echo "current_sha=$current_sha"  >> "$GITHUB_OUTPUT"
+          if [ -z "$latest" ]; then
+            echo "::warning::No tags found in KRAIL-API-PROTO yet."
+          fi
+
+      - name: Skip if already at latest
+        id: gate
+        run: |
+          if [ -z "${{ steps.latest.outputs.latest }}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Reason: no upstream tags exist."
+          elif [ "${{ steps.latest.outputs.latest }}" = "${{ steps.latest.outputs.current_tag }}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Reason: already pinned at ${{ steps.latest.outputs.latest }}."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Will bump from ${{ steps.latest.outputs.current_tag }}${{ steps.latest.outputs.current_sha }} to ${{ steps.latest.outputs.latest }}."
+          fi
+
+      - name: Bump submodule + open PR
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST: ${{ steps.latest.outputs.latest }}
+          PREV: ${{ steps.latest.outputs.current_tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          branch="proto-bump/${LATEST}"
+
+          # Skip if a PR for this version already exists.
+          if [ -n "$(gh pr list --state open --search "head:$branch" --json number --jq 'map(.number) | join(\" \")' )" ]; then
+            echo "PR for $branch already open — nothing to do."
+            exit 0
+          fi
+
+          git switch -c "$branch"
+          (cd krail-api-proto && git checkout "${LATEST}")
+          git add krail-api-proto
+          git commit -m "chore(proto): bump KRAIL-API-PROTO to ${LATEST}"
+          git push --set-upstream origin "$branch"
+
+          # Build PR body in a file to dodge YAML pipe-block indentation traps.
+          cat > /tmp/pr-body.md <<EOF
+          Automated submodule bump from the daily \`proto-bump\` workflow.
+
+          **Diff:** https://github.com/ksharma-xyz/KRAIL-API-PROTO/compare/${PREV:-${LATEST}~1}...${LATEST}
+
+          **Release notes:** https://github.com/ksharma-xyz/KRAIL-API-PROTO/releases/tag/${LATEST}
+
+          The existing CI runs on this PR. If a contract-enforcement test fails,
+          the new release introduced a \`contract: required\` field that the BFF
+          response builders aren't populating yet — fix the builders in this same
+          PR before merging.
+          EOF
+
+          gh pr create \
+            --title "chore(proto): bump KRAIL-API-PROTO to ${LATEST}" \
+            --body-file /tmp/pr-body.md \
+            --label "dependencies"
