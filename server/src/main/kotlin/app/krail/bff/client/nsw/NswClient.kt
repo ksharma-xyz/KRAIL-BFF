@@ -55,6 +55,28 @@ interface NswClient {
         excludedModes: Set<Int> = emptySet()
     ): JourneyList
 
+    /**
+     * Trip plan, **raw NSW JSON body** — verbatim pass-through.
+     *
+     * Use this for the `/v1/tp/trip` legacy endpoint. Unlike [getTrip],
+     * this does NOT deserialize through [TripResponse], so every field NSW
+     * returns survives — `coords`, `coupledTripsInfo`, `fare`, `interchanges`,
+     * stop-level `coord`, `parent`, the lot. The typed model is necessarily
+     * incomplete for a 200+ field schema; pass-through avoids silent loss.
+     *
+     * The proto endpoint ([getTripProto]) still uses the typed path because
+     * its mapper requires structure. The future `/api/v1/trip/plan`
+     * screen-shaped JSON endpoint will define its own shape from scratch.
+     */
+    suspend fun getTripRaw(
+        originStopId: String,
+        destinationStopId: String,
+        depArr: String = "dep",
+        date: String? = null,
+        time: String? = null,
+        excludedModes: Set<Int> = emptySet(),
+    ): String
+
     /** Departure board for a stop. Returns raw NSW JSON body. */
     suspend fun getDeparturesRaw(stopId: String, date: String? = null, time: String? = null): String
 
@@ -298,6 +320,85 @@ class NswClientImpl(
         } catch (e: Throwable) {
             tripError.inc()
             logger.error("❌ Failed to fetch trip from NSW API - origin: {}, destination: {}",
+                originStopId, destinationStopId, e)
+            throw e
+        } finally {
+            ctx.stop()
+        }
+    }
+
+    override suspend fun getTripRaw(
+        originStopId: String,
+        destinationStopId: String,
+        depArr: String,
+        date: String?,
+        time: String?,
+        excludedModes: Set<Int>,
+    ): String {
+        // Self-imposed daily budget check — same accounting as getTrip().
+        if (!dailyBudget.tryAcquire()) {
+            tripError.inc()
+            throw NswBudgetExceededException()
+        }
+
+        val ctx = tripTimer.time()
+        return try {
+            val baseUrl = "${config.baseUrl.trimEnd('/')}/v1/tp/trip"
+            val response = http.get(baseUrl) {
+                headers.append("Authorization", "apikey ${config.apiKey}")
+                url {
+                    parameters.append("name_origin", originStopId)
+                    parameters.append("name_destination", destinationStopId)
+                    parameters.append("depArrMacro", depArr)
+                    date?.let { parameters.append("itdDate", it) }
+                    time?.let { parameters.append("itdTime", it) }
+
+                    parameters.append("type_destination", "any")
+                    parameters.append("calcNumberOfTrips", "6")
+                    parameters.append("type_origin", "any")
+                    parameters.append("TfNSWTR", "true")
+                    parameters.append("version", "10.2.1.42")
+                    parameters.append("coordOutputFormat", "EPSG:4326")
+                    parameters.append("itOptionsActive", "1")
+                    parameters.append("computeMonomodalTripBicycle", "false")
+                    parameters.append("cycleSpeed", "16")
+                    parameters.append("useElevationData", "1")
+                    parameters.append("outputFormat", "rapidJSON")
+
+                    if (excludedModes.isNotEmpty()) {
+                        parameters.append("excludedMeans", "checkbox")
+                        if (1 in excludedModes) parameters.append("exclMOT_1", "1")
+                        if (2 in excludedModes) parameters.append("exclMOT_2", "2")
+                        if (4 in excludedModes) parameters.append("exclMOT_4", "4")
+                        if (5 in excludedModes || 11 in excludedModes) {
+                            parameters.append("exclMOT_5", "5")
+                            parameters.append("exclMOT_11", "11")
+                        }
+                        if (7 in excludedModes) parameters.append("exclMOT_7", "7")
+                        if (9 in excludedModes) parameters.append("exclMOT_9", "9")
+                    }
+                }
+            }
+            val body = response.bodyAsText()
+            if (!response.status.isSuccess()) {
+                tripError.inc()
+                logger.error("NSW trip API returned error status: {} - {}",
+                    response.status.value, response.status.description)
+                throw NswUpstreamException(
+                    statusCode = response.status.value,
+                    message = "NSW API returned ${response.status.value} ${response.status.description}",
+                    responseBody = body,
+                )
+            }
+            tripSuccess.inc()
+            logger.debug("NSW trip raw OK — origin={}, destination={}, body={} bytes",
+                originStopId, destinationStopId, body.length)
+            body
+        } catch (e: NswException) {
+            throw e
+        } catch (e: Throwable) {
+            tripError.inc()
+            logger.error("Failed to fetch trip raw from NSW — origin={}, destination={}",
                 originStopId, destinationStopId, e)
             throw e
         } finally {

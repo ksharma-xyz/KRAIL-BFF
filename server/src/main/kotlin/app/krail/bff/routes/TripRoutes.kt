@@ -4,6 +4,7 @@ import app.krail.bff.client.nsw.NswClient
 import app.krail.bff.model.TripRequestError
 import app.krail.bff.model.parseTripRequest
 import app.krail.bff.model.validate
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.response.*
@@ -105,7 +106,21 @@ fun Application.configureTripRoutes() {
 
 /**
  * Handle trip request and return JSON response.
- * Shared logic for JSON endpoints.
+ *
+ * **True pass-through.** Returns NSW's JSON body byte-for-byte, including
+ * fields the BFF's typed `TripResponse` model doesn't declare (`coords`,
+ * `coupledTripsInfo`, `fare`, `interchanges`, `parent`, stop-level `coord`,
+ * etc.) — ~70% of NSW's response payload was being silently stripped when
+ * we previously routed through `nswClient.getTrip(...)` and re-serialized
+ * the typed object.
+ *
+ * Why pass-through, not "fix the model": a complete TripResponse model
+ * would need to track 200+ NSW fields; any future NSW addition would
+ * silently drop again. Pass-through is robust by construction — anything
+ * NSW returns flows through.
+ *
+ * The proto endpoint ([handleTripProtoRequest]) keeps the typed parse
+ * because its mapper requires structure.
  */
 private suspend fun ApplicationCall.handleTripJsonRequest(nswClient: NswClient) {
     val tripRequest = parseTripRequest()
@@ -115,7 +130,7 @@ private suspend fun ApplicationCall.handleTripJsonRequest(nswClient: NswClient) 
         return respond(HttpStatusCode.fromValue(err.statusCode), err.toErrorResponse())
     }
 
-    val response = nswClient.getTrip(
+    val rawJson = nswClient.getTripRaw(
         originStopId = tripRequest.origin,
         destinationStopId = tripRequest.destination,
         depArr = tripRequest.depArr,
@@ -123,7 +138,7 @@ private suspend fun ApplicationCall.handleTripJsonRequest(nswClient: NswClient) 
         time = tripRequest.time,
         excludedModes = tripRequest.excludedModes,
     )
-    respond(HttpStatusCode.OK, response)
+    respondText(text = rawJson, contentType = ContentType.Application.Json, status = HttpStatusCode.OK)
 }
 
 /**

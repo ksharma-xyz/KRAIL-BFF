@@ -403,6 +403,10 @@ class ParkingBatchTest {
             originStopId: String, destinationStopId: String, depArr: String,
             date: String?, time: String?, excludedModes: Set<Int>,
         ) = throw UnsupportedOperationException("not used in batch test")
+        override suspend fun getTripRaw(
+            originStopId: String, destinationStopId: String, depArr: String,
+            date: String?, time: String?, excludedModes: Set<Int>,
+        ): String = throw UnsupportedOperationException("not used in batch test")
         override suspend fun getTripProto(
             originStopId: String, destinationStopId: String, depArr: String,
             date: String?, time: String?, excludedModes: Set<Int>,
