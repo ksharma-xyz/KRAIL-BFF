@@ -34,9 +34,8 @@ Read your phase's section, ignore the rest until you get there.
 
 ## 2 · Phase A — local-debug override (DONE for primary path)
 
-KRAIL has Phase A wired and validated. Captured by KRAIL in
-`archive/PHASE_A_INTEGRATION_REPORT_FROM_KRAIL.md`. This section is
-useful only if:
+KRAIL has Phase A wired and validated (24 BFF requests / 0 failures
+on AVD, 2026-05-10). This section is useful only if:
 - Adding a new endpoint to the override path.
 - A new developer sets up Phase A on a fresh machine.
 - Reverting a Phase B regression (flip the flag, fall back to NSW direct).

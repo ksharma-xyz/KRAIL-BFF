@@ -35,10 +35,8 @@ to a real host — Phase B (production rollout) is blocked on that step.
 | "What endpoints exist? What's the request / response shape? What does the wire look like?" | [`API_REFERENCE.md`](API_REFERENCE.md) |
 | "How do I test endpoint X — JSON or proto?" | [`TESTING_GUIDE.md`](TESTING_GUIDE.md) |
 | "I'm doing the Phase A migration in KRAIL" / "What's Phase B / C / D / E?" | [`MIGRATION_GUIDE.md`](MIGRATION_GUIDE.md) |
-| "Why does the project work this way? Historical narrative." | [`archive/`](archive/) (mostly never; see `archive/README.md`) |
-
-If you read just two of the four, **API_REFERENCE.md + the section of
-MIGRATION_GUIDE.md for your current phase** covers most needs.
+If you read just two of the three, **API_REFERENCE.md + the section
+of MIGRATION_GUIDE.md for your current phase** covers most needs.
 
 ## Smoke check the BFF in 30 seconds
 

@@ -94,9 +94,7 @@ KRAIL app does the same submodule on its side per
 [`docs/handover/MIGRATION_GUIDE.md`](docs/handover/MIGRATION_GUIDE.md) section 4 (Phase C).
 
 CI: `proto-bump.yml` workflow runs daily and opens a PR when the proto
-repo cuts a new tag. See
-[`docs/handover/archive/PROTO_REPO_MIGRATION.md`](docs/handover/archive/PROTO_REPO_MIGRATION.md)
-for the full migration writeup.
+repo cuts a new tag.
 
 ### 3. KRAIL app side — base URL + headers
 
