@@ -1,6 +1,6 @@
 # KRAIL-BFF · API reference for the KRAIL app
 
-> Companion to `KRAIL_APP_INTEGRATION_HANDOVER.md`. Self-contained
+> Companion to `MIGRATION_GUIDE.md`. Self-contained
 > request/response specs for every BFF endpoint the KRAIL app
 > consumes. The migration playbook tells you *what* to change; this
 > tells you *what to send and what to expect back*.
@@ -640,8 +640,7 @@ Don't call this from the app either — it pollutes the daily NSW budget.
 ## 11 · Wire-size benchmarks (live, 2026-05-10)
 
 Captured against the local BFF on `:8080`, real Sydney query
-parameters. Reproducible — see PROTO_TESTING_GUIDE_FOR_KRAIL.md
-section 8 for the script.
+parameters. Reproducible — see `TESTING_GUIDE.md` section 3 for the script.
 
 ### Trip results — Town Hall → Bondi Junction (6 journeys)
 

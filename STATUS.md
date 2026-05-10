@@ -91,11 +91,11 @@ Public repo at <https://github.com/ksharma-xyz/KRAIL-API-PROTO>, Apache 2.0.
 Tag `v0.1.0` cut. The BFF now consumes the protos via git submodule at
 `krail-api-proto/` (this repo's root), Wire's `sourcePath` points at it.
 KRAIL app does the same submodule on its side per
-[`docs/handover/KRAIL_INTEGRATION_MASTER_PLAN.md`](docs/handover/KRAIL_INTEGRATION_MASTER_PLAN.md) 6 (Phase C).
+[`docs/handover/MIGRATION_GUIDE.md`](docs/handover/MIGRATION_GUIDE.md) section 4 (Phase C).
 
 CI: `proto-bump.yml` workflow runs daily and opens a PR when the proto
 repo cuts a new tag. See
-[`docs/handover/PROTO_REPO_MIGRATION.md`](docs/handover/PROTO_REPO_MIGRATION.md)
+[`docs/handover/archive/PROTO_REPO_MIGRATION.md`](docs/handover/archive/PROTO_REPO_MIGRATION.md)
 for the full migration writeup.
 
 ### 3. KRAIL app side — base URL + headers
