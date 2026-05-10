@@ -1,6 +1,7 @@
 package app.krail.bff.mapper
 
 import app.krail.bff.model.TripResponse
+import app.krail.bff.proto.Coord
 import app.krail.bff.proto.JourneyList
 import app.krail.bff.proto.JourneyCardInfo
 import app.krail.bff.proto.TransportModeLine
@@ -134,7 +135,8 @@ object JourneyListMapper {
                 val duration = leg.duration ?: return null
                 Leg(
                     walking_leg = WalkingLeg(
-                        duration = formatDuration(duration)
+                        duration = formatDuration(duration),
+                        coords = leg.coords.toCoordList(),
                     )
                 )
             }
@@ -155,7 +157,12 @@ object JourneyListMapper {
                 footPath.duration?.let { dur ->
                     WalkInterchange(
                         duration = formatDuration(dur),
-                        position = mapWalkPosition(footPath.position)
+                        position = mapWalkPosition(footPath.position),
+                        // NSW provides interchange polyline points on the
+                        // sibling `interchange` field, not on `footPathInfo`.
+                        // Hoist them here so the WalkInterchange proto
+                        // surfaces a complete walking-segment polyline.
+                        coords = leg.interchange?.coords.toCoordList(),
                     )
                 }
             }
@@ -184,7 +191,8 @@ object JourneyListMapper {
                     stops = stops,
                     walk_interchange = walkInterchange,
                     service_alert_list = serviceAlerts,
-                    trip_id = tripId.ifEmpty { null }
+                    trip_id = tripId.ifEmpty { null },
+                    coords = leg.coords.toCoordList(),
                 )
             )
         }
@@ -201,8 +209,50 @@ object JourneyListMapper {
         return Stop(
             name = name,
             time = formatTime(time),
-            is_wheelchair_accessible = stopSeq.properties?.wheelchairAccess?.lowercase() == "true"
+            is_wheelchair_accessible = stopSeq.properties?.wheelchairAccess?.lowercase() == "true",
+            // NSW returns a [lat, lon] tuple per stop; flatten to the
+            // proto Coord shape. Null when NSW didn't publish coordinates
+            // for this stop (e.g. some planning-only entries).
+            coord = stopSeq.coord.toSingleCoordOrNull(),
         )
+    }
+
+    /**
+     * NSW returns polyline points as `[[lat, lon], ...]` (list of pairs).
+     * Translate to a proto `Coord` list, dropping malformed entries
+     * (anything not a 2-element list, NaN, or out-of-range value).
+     *
+     * - Returns empty list when input is null or empty.
+     * - Per-element: requires exactly 2 finite Doubles, else dropped.
+     */
+    private fun List<List<Double>>?.toCoordList(): List<Coord> {
+        val src = this ?: return emptyList()
+        if (src.isEmpty()) return emptyList()
+        return src.mapNotNull { pair ->
+            if (pair.size != 2) return@mapNotNull null
+            val lat = pair[0]
+            val lon = pair[1]
+            if (lat.isNaN() || lon.isNaN()) return@mapNotNull null
+            // Sanity bounds — Sydney is well inside [-90, 90] / [-180, 180].
+            if (lat < -90.0 || lat > 90.0) return@mapNotNull null
+            if (lon < -180.0 || lon > 180.0) return@mapNotNull null
+            Coord(lat = lat, lon = lon)
+        }
+    }
+
+    /**
+     * Single-coord variant for `StopSequence.coord` (one `[lat, lon]`,
+     * not an array of pairs). Same validation as [toCoordList].
+     */
+    private fun List<Double>?.toSingleCoordOrNull(): Coord? {
+        val src = this ?: return null
+        if (src.size != 2) return null
+        val lat = src[0]
+        val lon = src[1]
+        if (lat.isNaN() || lon.isNaN()) return null
+        if (lat < -90.0 || lat > 90.0) return null
+        if (lon < -180.0 || lon > 180.0) return null
+        return Coord(lat = lat, lon = lon)
     }
 
     private fun mapWalkPosition(position: String?): WalkPosition {

@@ -3,6 +3,7 @@ package app.krail.bff.proto
 import app.krail.bff.mapper.JourneyListMapper
 import app.krail.bff.model.TripResponse
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -38,6 +39,47 @@ class JourneyListContractTest {
         for (j in response.journeys) {
             assertJourneyCardInfo(j)
         }
+    }
+
+    @Test
+    fun `coords from upstream Leg are mapped to TransportLeg coords`() {
+        val response = JourneyListMapper.toProto(tripResponseWithCoords())
+
+        // The fixture has one transit leg with 4 polyline points.
+        val transitLeg = response.journeys
+            .flatMap { it.legs }
+            .firstNotNullOf { it.transport_leg }
+
+        assertEquals(4, transitLeg.coords.size, "polyline should round-trip 4 points")
+
+        // First point matches the fixture exactly. Sanity-check Sydney bbox.
+        val first = transitLeg.coords.first()
+        assertEquals(-33.8829, first.lat, 1e-9)
+        assertEquals(151.2061, first.lon, 1e-9)
+
+        // Per-stop coord on the first stop should also be populated.
+        val stop0 = transitLeg.stops.first()
+        assertNotNull(stop0.coord, "Stop.coord should be populated when upstream has it")
+        assertEquals(-33.8829, stop0.coord!!.lat, 1e-9)
+    }
+
+    @Test
+    fun `malformed coord entries are dropped, others survive`() {
+        // Inject a mix of valid + malformed pairs (out-of-range, wrong arity, NaN).
+        val rawCoords = listOf(
+            listOf(-33.8829, 151.2061),     // valid
+            listOf(91.0, 100.0),             // lat out of range — drop
+            listOf(0.0, 200.0),              // lon out of range — drop
+            listOf(-33.88),                  // wrong arity — drop
+            listOf(Double.NaN, 151.0),       // NaN — drop
+            listOf(-33.89, 151.21),          // valid
+        )
+        val response = JourneyListMapper.toProto(tripResponseWithCoords(rawCoords = rawCoords))
+        val coords = response.journeys
+            .flatMap { it.legs }
+            .firstNotNullOf { it.transport_leg }
+            .coords
+        assertEquals(2, coords.size, "only the 2 valid pairs should survive")
     }
 
     @Test
@@ -109,6 +151,67 @@ class JourneyListContractTest {
     // ------------------------------------------------------------
     // Fixtures
     // ------------------------------------------------------------
+
+    /**
+     * Fixture variant with NSW-shaped polyline coords on the leg + per-stop
+     * coordinates. Used by the coords-mapping tests.
+     */
+    private fun tripResponseWithCoords(
+        rawCoords: List<List<Double>> = listOf(
+            listOf(-33.8829, 151.2061),  // Central Station
+            listOf(-33.8830, 151.2055),
+            listOf(-33.8835, 151.2060),
+            listOf(-33.8840, 151.2050),
+        ),
+    ): TripResponse {
+        val depTime = "2026-05-09T14:30:00Z"
+        val arrTime = "2026-05-09T14:42:00Z"
+
+        val originStop = TripResponse.StopSequence(
+            id = "10101101",
+            name = "Town Hall Station, Platform 3",
+            disassembledName = "Town Hall Station, Platform 3",
+            departureTimePlanned = depTime,
+            departureTimeEstimated = depTime,
+            coord = listOf(-33.8829, 151.2061),
+        )
+        val destStop = TripResponse.StopSequence(
+            id = "200060",
+            name = "Central Station, Platform 16",
+            disassembledName = "Central Station, Platform 16",
+            arrivalTimePlanned = arrTime,
+            arrivalTimeEstimated = arrTime,
+            coord = listOf(-33.8840, 151.2050),
+        )
+        val transportation = TripResponse.Transportation(
+            id = "nsw:T1:R:sj2",
+            name = "T1 North Shore Line",
+            disassembledName = "T1",
+            description = "Towards Central",
+            product = TripResponse.Product(
+                productClass = 1L,
+                name = "Sydney Trains Network",
+                iconID = 1L,
+            ),
+            destination = TripResponse.OperatorClass(id = "200060", name = "Central Station"),
+        )
+        val transportLeg = TripResponse.Leg(
+            distance = 1843,
+            duration = 12 * 60,
+            isRealtimeControlled = true,
+            origin = originStop,
+            destination = destStop,
+            stopSequence = listOf(originStop, destStop),
+            transportation = transportation,
+            footPathInfo = emptyList(),
+            infos = emptyList(),
+            coords = rawCoords,
+        )
+        return TripResponse(
+            journeys = listOf(TripResponse.Journey(legs = listOf(transportLeg))),
+            version = "10.6.21.17",
+        )
+    }
 
     /** A minimal-but-realistic NSW TripResponse with one transport leg. */
     private fun minimalTripResponse(): TripResponse {
