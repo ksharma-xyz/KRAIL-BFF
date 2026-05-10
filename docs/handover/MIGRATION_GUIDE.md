@@ -20,7 +20,7 @@
 Phase A on the KRAIL side is **already done** (validated 2026-05-10
 against the local BFF, 24 requests / 0 failures). Phase C foundation
 landed in the KRAIL repo too — `:io:bff-api` module compiles with
-`KRAIL-API-PROTO v0.2.0`, behind a flag.
+`KRAIL-API-PROTO v0.3.0`, behind a flag.
 
 What's outstanding:
 - Phase B is blocked on BFF deployment (DigitalOcean App Platform —
@@ -202,72 +202,61 @@ remains your reality.
 
 ---
 
-## 4 · Phase C — adopt the proto trip endpoint
+## 4 · Phase C — adopt the proto endpoints (DONE on KRAIL side, 2026-05-11)
 
-`/api/v1/trip/plan-proto` returns binary protobuf, ~44% smaller on
-the wire than JSON pass-through (gzipped). The wire-format contract
-is `KRAIL-API-PROTO v0.2.0`, which already includes polyline data.
+KRAIL's Phase C report is at
+[`PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md`](PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md) — read
+that for the full forensic detail. Quick recap below.
 
-Foundation (already in KRAIL):
-- `krail-api-proto` submodule pinned at `v0.2.0`.
-- `:io:bff-api` KMP module with Wire 6.2.0 codegen, compiles on
-  Android + iOS.
-- `RealTripPlanningService.trip()` has a flagged-off proto branch
-  with a `JourneyListMapper` stub.
+Three proto endpoints in `KRAIL-API-PROTO v0.3.0`, all consumed
+end-to-end behind a single `IS_BFF_PROTO_ENABLED` flag (hard-coded
+`true` today; Phase B wires it to Firebase RC `enable_proto_bff`):
 
-To turn it on:
+| Endpoint | Consumer (KRAIL side) | Wire saving |
+|---|---|---|
+| `/api/v1/trip/plan-proto` | `RealTripPlanningService.trip()` via `JourneyListMapper` | −44% gzipped |
+| `/api/v1/stops/{id}/departures-proto` | `RealDeparturesService.departures()` via `DepartureBoardMapper` | −93% gzipped |
+| `/api/v1/parking/availability-proto?stopIds=` | `RealParkRideService.fetchAvailabilityForStops()` via `ParkingAvailabilityMapper` | −79% gzipped |
 
-1. **Implement the mapper.** `JourneyList → TripResultsDomain`. Per
-   the contract convention (see `API_REFERENCE.md` section 11), each
-   `// contract: required` proto field maps to a non-null domain
-   field; missing → typed parse error → kill-switch fallback. Each
-   `// contract: optional` field maps to a nullable domain field.
+The mapping strategy: each proto type maps to KRAIL's existing
+NSW-shaped domain model so downstream UI / map code keeps working
+without changes. JSON pass-through paths stay in code as a fallback;
+they get removed in Phase E after the proto rollout finishes 100% + a
+2-week grace period.
 
-2. **Wire the proto path:**
-   ```kotlin
-   suspend fun trip(...): TripResultsDomain {
-       val useProto = useBff && flags.bffUseProtoForTripResults
-       return if (useProto) {
-           val bytes: ByteArray = httpClient.get("$BFF/api/v1/trip/plan-proto") { /* params */ }.body()
-           JourneyList.ADAPTER.decode(bytes).toDomain()
-       } else if (useBff) {
-           // JSON path from Phase B
-           val nsw: TripResponse = httpClient.get("$BFF/v1/tp/trip") { /* params */ }.body()
-           nsw.toDomain()
-       } else {
-           // NSW direct, unchanged
-           ...
-       }
-   }
-   ```
+### Known schema gaps (deferred — see KRAIL Phase C report §4)
 
-3. **Cohort the proto migration separately** with
-   `bff_use_proto_for_trip_results`. Same 10 / 50 / 100 ladder. Watch
-   for parsing errors in the new mapper.
+None are blocking; all marked "fine for current screens" by KRAIL.
+Listed here so future schema work can pick them up:
 
-4. **Test approach:** `TESTING_GUIDE.md` sections 2.4 + 2.5 cover the
-   patterns. Snapshot a real proto response, decode in CI, assert
-   coords + journey count.
+- **Departures:** `is_realtime` boolean could be a richer
+  `realtime_status` enum (CANCELLED / MONITORED / etc.) if a future
+  UI distinguishes them.
+- **Departures:** `DepartureRow.trip_id` is in the proto but KRAIL's
+  JSON-shape domain model has no sink for it yet; wires up when
+  "track this departure" actions land.
+- **Trip:** per-intermediate-leg UTCs not in proto; journey-level
+  UTCs used as fallback. No screen renders intermediates today.
+- **Trip:** `Leg.duration_seconds` (numeric) not in proto; display
+  strings only. Sorting/filtering by shortest-leg would need this.
+- **Parking:** `zones[]` per-zone breakdown, NSW-internal IDs, and
+  detailed `occupancy` sub-fields aren't in proto. Aggregate
+  `occupancy.total` covers current screens.
 
-### What's in `KRAIL-API-PROTO v0.2.0`
+Each gap is "add to schema in a future minor bump if a screen needs
+it." None require BFF action today.
 
-- `JourneyList` with `journeys[]` of `JourneyCardInfo`.
-- `TransportLeg.coords[]` for transit-leg polylines.
-- `WalkingLeg.coords[]` and `WalkInterchange.coords[]` for walk
-  polylines.
-- `Stop.coord` for per-stop point-on-map.
-- `Coord { lat, lon }` message.
+### What's in `KRAIL-API-PROTO v0.3.0`
 
-What's NOT in v0.2.0 (deferred to a future minor bump):
-- `Fare` message and `journeys[].fare`. NSW returns `fare.tickets`
-  but no current screen needs it.
-- `interchanges` count summary on `JourneyCardInfo`. Derivable from
-  `legs.size`.
-- `Stop.parent_station`. The "group platforms under stations" use
-  case is real but not yet active in the app.
+- v0.1.0: trip + stops + routes dataset schemas (initial extraction).
+- v0.2.0: `Coord` + polyline fields on `TransportLeg` / `WalkingLeg` /
+  `WalkInterchange` + `Stop.coord`.
+- **v0.3.0:** `DepartureBoardResponse` + `ParkingAvailabilityResponse`
+  screen-shaped messages.
 
-If you hit a missing field on the proto path that JSON has, raise it
-with the BFF team — schema bump + mapper update + minor version cut.
+If you hit a missing field on the proto path that JSON has and isn't
+already in the deferred list above, raise it with the BFF team —
+schema bump + mapper update + minor version cut.
 
 ---
 

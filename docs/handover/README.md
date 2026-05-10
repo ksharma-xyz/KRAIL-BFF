@@ -20,12 +20,14 @@ to a real host — Phase B (production rollout) is blocked on that step.
 - ✅ All 12 endpoints implemented, smoke-tested, contract-tested.
 - ✅ Phase A on the KRAIL side (debug-only override) integrated and
   validated end-to-end on AVD.
-- ✅ `KRAIL-API-PROTO` repo at `v0.3.0` — includes polyline fields
-  (v0.2.0) plus `DepartureBoardResponse` + `ParkingAvailabilityResponse`
-  (v0.3.0).
+- ✅ `KRAIL-API-PROTO` repo at `v0.3.0` — polyline fields (v0.2.0) +
+  `DepartureBoardResponse` + `ParkingAvailabilityResponse` (v0.3.0).
 - ✅ BFF mapper populates polyline data in proto responses.
 - ✅ Park & Ride batch endpoint with stop-ID resolution (JSON + proto).
 - ✅ Departures proto endpoint with screen-shaped response.
+- ✅ **Phase C on the KRAIL side** — all three proto endpoints
+  consumed via Wire 6.2.0 codegen on Android + iOS, 23 mapper tests
+  green ([report](PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md), 2026-05-11).
 - ⏳ Phase B (production rollout, Firebase RC cohort) — blocked on BFF deploy.
 - ⏳ Phase C (KRAIL adopts proto endpoint) — foundation laid in KRAIL repo.
 - ⏳ Phase D (local stop search via dataset) — schema ready, not wired.
@@ -38,6 +40,7 @@ to a real host — Phase B (production rollout) is blocked on that step.
 | "What endpoints exist? What's the request / response shape? What does the wire look like?" | [`API_REFERENCE.md`](API_REFERENCE.md) |
 | "How do I test endpoint X — JSON or proto?" | [`TESTING_GUIDE.md`](TESTING_GUIDE.md) |
 | "I'm doing the Phase A migration in KRAIL" / "What's Phase B / C / D / E?" | [`MIGRATION_GUIDE.md`](MIGRATION_GUIDE.md) |
+| "What did KRAIL find / decide during Phase C integration?" | [`PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md`](PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md) |
 If you read just two of the three, **API_REFERENCE.md + the section
 of MIGRATION_GUIDE.md for your current phase** covers most needs.
 
