@@ -13,7 +13,7 @@
 
 ---
 
-## §1 · Common conventions
+## 1 · Common conventions
 
 ### Base URL
 
@@ -43,7 +43,7 @@ listed here.
 ### Response envelope conventions
 
 For successful responses (`200 OK`) the BFF returns the upstream NSW
-JSON or GTFS-RT protobuf bytes verbatim — schemas in §3 onwards.
+JSON or GTFS-RT protobuf bytes verbatim — schemas in 3 onwards.
 
 For error responses (any 4xx / 5xx) **originating in the BFF**, the
 shape is:
@@ -65,7 +65,7 @@ shape is:
 For errors **propagated from NSW** (e.g. NSW returned 502, BFF
 forwards it), some endpoints return NSW's body verbatim while others
 wrap it in the envelope above. Per-endpoint behavior is called out in
-§3 onwards. Treat any non-2xx response as a failure regardless of
+3 onwards. Treat any non-2xx response as a failure regardless of
 shape, and surface `correlationId` if present.
 
 ### Status codes you may see
@@ -84,29 +84,29 @@ shape, and surface `correlationId` if present.
 
 ---
 
-## §2 · Quick endpoint index
+## 2 · Quick endpoint index
 
 | Endpoint | Method | Used by KRAIL screen | Migration in handover? |
 |---|---|---|---|
-| `/v1/tp/trip` | GET | Trip results (TimeTableScreen) | ✅ §6.3 |
+| `/v1/tp/trip` | GET | Trip results (TimeTableScreen) | ✅ 6.3 |
 | `/api/v1/trip/plan` | GET | (BFF-shaped JSON; not used) | ❌ |
 | `/api/v1/trip/plan-proto` | GET | (BFF protobuf; not used) | ❌ |
-| `/v1/stops/{stopId}/departures` | GET | Departures (Saved Trips) | ✅ §6.4 |
-| `/v1/parking/facilities` | GET | Park & Ride list | ✅ §6.5 |
-| `/v1/parking/facilities/{id}/availability` | GET | Park & Ride detail | ✅ §6.5 |
-| `/v1/gtfs/realtime/{feed}` | GET (binary) | Live tracking | ✅ §6.6 |
-| `/v2/gtfs/realtime/{feed}` | GET (binary) | Live tracking (v2 feeds) | ✅ §6.6 |
-| `/v2/gtfs/vehiclepos/{feed}` | GET (binary) | Map markers | ✅ §6.6 |
+| `/v1/stops/{stopId}/departures` | GET | Departures (Saved Trips) | ✅ 6.4 |
+| `/v1/parking/facilities` | GET | Park & Ride list | ✅ 6.5 |
+| `/v1/parking/facilities/{id}/availability` | GET | Park & Ride detail | ✅ 6.5 |
+| `/v1/gtfs/realtime/{feed}` | GET (binary) | Live tracking | ✅ 6.6 |
+| `/v2/gtfs/realtime/{feed}` | GET (binary) | Live tracking (v2 feeds) | ✅ 6.6 |
+| `/v2/gtfs/vehiclepos/{feed}` | GET (binary) | Map markers | ✅ 6.6 |
 | `/v1/data/stops/manifest` | GET (302) | Stops dataset (future) | ❌ |
 | `/v1/data/routes/manifest` | GET (302) | Routes dataset (future) | ❌ |
 | `/health` | GET | None (smoke test) | n/a |
 | `/ready` | GET | None (smoke test) | n/a |
 
-Sections §3–§9 cover each endpoint in turn.
+Sections 3–9 cover each endpoint in turn.
 
 ---
 
-## §3 · `GET /v1/tp/trip` — trip planner (JSON)
+## 3 · `GET /v1/tp/trip` — trip planner (JSON)
 
 **KRAIL caller:** `RealTripPlanningService.trip(...)` →
 `feature/trip-planner/network/.../api/service/RealTripPlanningService.kt`
@@ -231,7 +231,7 @@ inside a 200 body — NSW sometimes returns 200 with `"error": {...}` for
 
 ---
 
-## §4 · `GET /v1/stops/{stopId}/departures` — departure board
+## 4 · `GET /v1/stops/{stopId}/departures` — departure board
 
 **KRAIL caller:** `RealDeparturesService.departures(stopId, date, time)` →
 `feature/departures/network/.../api/service/RealDeparturesService.kt`
@@ -274,7 +274,7 @@ response shape. Top-level keys:
       "departureTimePlanned":       "2026-05-09T14:30:00Z",
       "departureTimeBaseTimetable": "2026-05-09T14:30:00Z",
       "departureTimeEstimated":     "2026-05-09T14:32:15Z",
-      "transportation": { /* see §3 — same shape */ },
+      "transportation": { /* see 3 — same shape */ },
       "properties":     { /* NSW metadata */ }
     }
   ]
@@ -292,7 +292,7 @@ KRAIL's existing parser: `feature/departures/network/.../model/DepartureMonitorR
 
 ---
 
-## §5 · `GET /v1/parking/facilities` — Park & Ride list
+## 5 · `GET /v1/parking/facilities` — Park & Ride list
 
 **KRAIL caller:** `RealParkRideService.fetchCarParkFacilities()` (no-arg overload) →
 `feature/park-ride/network/.../service/RealParkRideService.kt`
@@ -340,10 +340,10 @@ class needed.
 
 ---
 
-## §6 · `GET /v1/parking/facilities/{facilityId}/availability` — single facility
+## 6 · `GET /v1/parking/facilities/{facilityId}/availability` — single facility
 
 **KRAIL caller:** `RealParkRideService.fetchCarParkFacilities(facilityId)` →
-same file as §5.
+same file as 5.
 
 **Behavior:** pass-through of NSW `/v1/carpark?facility={id}`.
 
@@ -424,7 +424,7 @@ responses.
 
 ---
 
-## §7 · GTFS-Realtime endpoints (binary protobuf)
+## 7 · GTFS-Realtime endpoints (binary protobuf)
 
 **KRAIL caller:** `RealGtfsRealtimeService.fetchFeed(feedName, feedType, sinceLastModified)` →
 `feature/track/network/.../RealGtfsRealtimeService.kt`
@@ -507,7 +507,7 @@ HEAD-optimisation flow.
 
 ---
 
-## §8 · `/api/v1/trip/plan` and `/api/v1/trip/plan-proto` — future-shaped trip planner
+## 8 · `/api/v1/trip/plan` and `/api/v1/trip/plan-proto` — future-shaped trip planner
 
 **Migration in this handover?** No. Listed for completeness.
 
@@ -559,7 +559,7 @@ one.
 
 ---
 
-## §9 · `/v1/data/stops/manifest` and `/v1/data/routes/manifest` — dataset distribution
+## 9 · `/v1/data/stops/manifest` and `/v1/data/routes/manifest` — dataset distribution
 
 **Migration in this handover?** No. Listed for completeness.
 
@@ -607,7 +607,7 @@ in your env.
 
 ---
 
-## §10 · `/health` and `/ready` — operational probes
+## 10 · `/health` and `/ready` — operational probes
 
 ### `GET /health`
 
@@ -637,7 +637,66 @@ Don't call this from the app either — it pollutes the daily NSW budget.
 
 ---
 
-## §11 · How KRAIL's existing parsers map to BFF responses
+## 11 · Wire-size benchmarks (live, 2026-05-10)
+
+Captured against the local BFF on `:8080`, real Sydney query
+parameters. Reproducible — see PROTO_TESTING_GUIDE_FOR_KRAIL.md
+section 8 for the script.
+
+### Trip results — Town Hall → Bondi Junction (6 journeys)
+
+| Format | Raw bytes | gzipped (over the wire) |
+|---|---|---|
+| JSON (`/v1/tp/trip`) | 367 216 B (~358 KB) | 53 798 B (~52 KB) |
+| Proto v0.2.0 (`/api/v1/trip/plan-proto`) | 103 632 B (~101 KB) | 30 600 B (~30 KB) |
+| **Proto savings** | **−72 %** | **−44 %** |
+
+The wire (gzipped) number is the one that matters for cellular cost.
+**Proto saves ~23 KB per trip request** vs gzipped JSON. Raw savings
+are wider because gzip is very effective at compressing repeated JSON
+keys (`"departureTimeEstimated"` appears 50+ times in one response);
+proto's binary tags don't have that redundancy to compress.
+
+### Other endpoints (JSON pass-through; no proto variant exists yet)
+
+| Endpoint | Raw bytes | gzipped wire |
+|---|---|---|
+| `/v1/stops/215020/departures` (Bondi Jct) | 71 281 B (~70 KB) | 6 199 B (~6 KB) |
+| `/v1/parking/availability?stopIds=2155384` (Tallawong, 3 facilities) | 1 926 B | 540 B |
+| `/v2/gtfs/vehiclepos/sydneytrains` (already binary protobuf) | 37 885 B (~37 KB) | 12 359 B (~12 KB) |
+
+### Why proto on trip is worth adopting (cohort-rollout justification)
+
+- 44 % gzipped-wire reduction = ~23 KB per trip request. On a
+  4G-cellular link in low-signal transit corridors, that's ~70 ms of
+  transfer time saved.
+- Decode is ~3–5× faster — Wire's binary decode beats
+  `kotlinx.serialization` JSON decode for nested structures of this
+  size and shape.
+- Smaller heap allocations (no tokenizer state, fewer intermediate
+  strings) — matters on lower-end devices.
+- Stable schema. Wire identifies fields by number, not string. An
+  upstream NSW field rename can't silently break a proto consumer
+  that's already been generated against a fixed schema.
+
+### Caveats
+
+- gzip compresses repeated JSON keys very efficiently; for tiny
+  responses (the parking batch above is 540 B gzipped) the proto win
+  would be negligible. Not worth proto-ifying every endpoint —
+  reserve it for the big-payload screens.
+- The proto v0.2.0 shape isn't 1:1 with NSW JSON; some NSW fields
+  (e.g. `daysOfService`, `coupledTripsInfo`, `fare.tickets`) aren't
+  in the proto schema yet. JSON pass-through has them; proto path
+  doesn't until those messages are added in a future schema bump.
+  See PROTO_TRIP_POLYLINE_HANDOVER.md for what's in v0.2.0 and what
+  isn't.
+- Numbers will drift as NSW data changes. Re-measure when making
+  cohort-rollout decisions.
+
+---
+
+## 12 · How KRAIL's existing parsers map to BFF responses
 
 For every endpoint migrated in this handover, the response shape is
 **identical** to what NSW returns. KRAIL's existing parsers work
@@ -660,7 +719,7 @@ patch the parser.
 
 ---
 
-## §12 · Verifying contracts manually
+## 13 · Verifying contracts manually
 
 If you ever need to confirm "does the BFF actually return X for input Y",
 the dashboard at <http://localhost:8000/api-tester.html> is the fastest
@@ -674,4 +733,4 @@ path:
 5. Click **Compare with NSW** to fire the same query at NSW direct
    in parallel and see the diff (size, latency, body).
 
-Or curl directly — the URLs in §3–§7 are all you need.
+Or curl directly — the URLs in 3–7 are all you need.

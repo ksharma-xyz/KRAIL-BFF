@@ -6,7 +6,7 @@
 
 ---
 
-## §1 · TL;DR
+## 1 · TL;DR
 
 The BFF serves four protobuf endpoints. All return raw binary bytes, no
 JSON wrapper, content-type `application/protobuf` (or
@@ -21,15 +21,15 @@ JSON wrapper, content-type `application/protobuf` (or
 
 Five ways to test, in increasing rigour:
 
-1. **`curl` + size check** — prove the endpoint returns bytes, not 4xx/5xx (§3).
-2. **Dashboard** — point-and-click against any saved-trip-style request (§4).
-3. **`buf curl` or `protoc --decode`** — decode bytes to JSON for manual inspection (§5).
-4. **KMP test against the live local BFF** — actual app codepath (§6).
-5. **Snapshot fixture in CI** — record once, decode in test (§7).
+1. **`curl` + size check** — prove the endpoint returns bytes, not 4xx/5xx (3).
+2. **Dashboard** — point-and-click against any saved-trip-style request (4).
+3. **`buf curl` or `protoc --decode`** — decode bytes to JSON for manual inspection (5).
+4. **KMP test against the live local BFF** — actual app codepath (6).
+5. **Snapshot fixture in CI** — record once, decode in test (7).
 
 ---
 
-## §2 · Prereqs
+## 2 · Prereqs
 
 ### Required
 
@@ -65,7 +65,7 @@ report).
 
 ---
 
-## §3 · curl + size check (smoke)
+## 3 · curl + size check (smoke)
 
 Easiest sanity test. Confirms the endpoint is reachable, returning
 binary, with a size in the expected range.
@@ -92,7 +92,7 @@ curl -s -o /tmp/sydneytrains-vehicles.pb -w 'http=%{http_code} bytes=%{size_down
 
 Pass criteria: HTTP 200, content-type `application/protobuf` or
 `application/x-protobuf`, bytes > 0. Anything else is a config or
-upstream issue (see §9).
+upstream issue (see 9).
 
 For GTFS-RT, confirm it's protobuf and not error-JSON:
 
@@ -104,7 +104,7 @@ xxd /tmp/sydneytrains-vehicles.pb | head -3
 
 ---
 
-## §4 · Dashboard (point-and-click)
+## 4 · Dashboard (point-and-click)
 
 The local API tester at <http://localhost:8000/api-tester.html> lists
 every BFF endpoint in the left sidebar grouped by KRAIL screen.
@@ -122,14 +122,14 @@ Procedure:
 
 The dashboard doesn't decode the full proto into a friendly tree (yet),
 but the size + journey-count signals are usually enough to confirm
-"the endpoint works." For full inspection, drop to §5.
+"the endpoint works." For full inspection, drop to 5.
 
 For GTFS-RT endpoints, the dashboard groups them under
 **Track trip + map (GTFS-RT)**.
 
 ---
 
-## §5 · Decode bytes to JSON (`buf` or `protoc`)
+## 5 · Decode bytes to JSON (`buf` or `protoc`)
 
 ### With `buf` (one line, recommended)
 
@@ -203,7 +203,7 @@ For GTFS-RT:
 
 ---
 
-## §6 · KMP test against the live local BFF
+## 6 · KMP test against the live local BFF
 
 The closest analog to a real production code path — exercises Wire's
 KMP-iOS codegen, the actual HTTP client, and the actual decode.
@@ -293,7 +293,7 @@ Pitfalls:
 
 ---
 
-## §7 · Snapshot fixture pattern (CI-friendly)
+## 7 · Snapshot fixture pattern (CI-friendly)
 
 Capture a real BFF response once, commit the bytes, decode them in a
 test that has no network dependency.
@@ -361,7 +361,7 @@ silently).
 
 ---
 
-## §8 · Wire-size comparison (proto vs JSON)
+## 8 · Wire-size comparison (proto vs JSON)
 
 Useful for the cohort-rollout decision: how much data are we actually
 saving?
@@ -385,26 +385,58 @@ Saving       | $((100 - PROTO * 100 / JSON))%
 EOF
 ```
 
-Typical results (2026-05-10):
+### Live measurements (2026-05-10, Town Hall → Bondi Junction, 6 journeys)
 
-| Format | Raw | gzipped |
+Captured from the local BFF on `:8080` with the same query string.
+Reproducible by running the script above against your own BFF.
+
+| Format | Raw bytes | Over-the-wire (gzipped) |
 |---|---|---|
-| JSON | 366 KB | ~70 KB |
-| Proto v0.2.0 | 106 KB | ~80 KB |
-| Saving (raw) | ~71% | gzip closes the gap |
+| **JSON** (`/v1/tp/trip`) | 367 216 B (~358 KB) | 53 798 B (~52 KB) |
+| **Proto v0.2.0** (`/api/v1/trip/plan-proto`) | 103 632 B (~101 KB) | 30 600 B (~30 KB) |
+| **Proto win** | **−72%** | **−44%** |
 
-Note: gzip compresses repeated JSON keys efficiently, so the savings
-ratio is wider on raw than on the wire. On mobile, gzip is the
-realistic comparison — the win is real but smaller than the raw number
-suggests. Still worth doing because:
-- Decode is faster (Wire decode is faster than `kotlinx.serialization`
-  JSON decode for nested structures).
-- Smaller heap allocation — important for low-end devices.
-- Stable schema → no parser brittleness on NSW field-rename surprises.
+Note: gzip compresses repeated JSON keys (`"departureTimeEstimated"`
+appearing 50× in one response) efficiently, so the raw delta is wider
+than the wire delta. On mobile, **the wire number is what counts** —
+that's actual cellular bytes transferred. **44% smaller on the wire,
+72% smaller in memory after decompression.**
+
+Comparison points for the other endpoints (all JSON pass-through; no
+proto variants exist yet):
+
+| Endpoint | Raw bytes | Gzipped wire |
+|---|---|---|
+| `/v1/stops/215020/departures` (Bondi Jct) | 71 281 B | 6 199 B |
+| `/v1/parking/availability?stopIds=2155384` (Tallawong, 3 facilities) | 1 926 B | 540 B |
+| `/v2/gtfs/vehiclepos/sydneytrains` (already proto) | 37 885 B | 12 359 B |
+
+Why the proto path is still worth adopting even though gzip closes
+some of the gap:
+
+- **Wire size matters on cellular regardless of compression.** 44% =
+  ~23 KB saved per trip request. With the home-screen rendering 6
+  journey options (1× trip request) + departures + GTFS-RT, total
+  per-cold-render savings are ~50–80 KB on a typical Sydney commute
+  query.
+- **Decode is faster.** Wire's binary decode is roughly 3-5× faster
+  than `kotlinx.serialization` JSON decode for the equivalent nested
+  structure. Real impact on lower-end devices.
+- **Smaller heap allocation post-decode.** No tokenizer state, fewer
+  intermediate strings.
+- **Stable schema, no NSW-rename surprises.** Wire-format fields are
+  identified by number; renaming is a major-bump consumer-side. JSON
+  is identified by string key, so an upstream NSW rename would
+  silently break the parser.
+
+The 23 KB wire saving alone is worth ~70 ms of cellular transfer at
+2 Mbps (typical 4G in low-signal Sydney transit corridors). For a
+trip-card mount that already takes ~600–950 ms warm, that's a
+measurable user-visible improvement.
 
 ---
 
-## §9 · Common pitfalls when testing proto
+## 9 · Common pitfalls when testing proto
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -417,11 +449,11 @@ suggests. Still worth doing because:
 | `coords` is empty everywhere | (a) Submodule pinned below v0.2.0; (b) BFF mapper bug. | (a) `cat krail-api-proto/version.txt` should be 0.2.0+. (b) Hit `/v1/tp/trip` for the same params; if JSON has `legs[].coords` and proto doesn't, the BFF mapper's broken — file an issue. |
 | `coord` always `null` on stops | Same as above — submodule too old, or NSW didn't publish geometry for those stops. | Try a different route. |
 | iOS test crashes on decode | Wire/iOS codegen quirk. | Confirm Wire 6.2.0+ + KMP iOS targets configured per `:io:gtfs` precedent. |
-| Tests in CI flake | Live BFF tests aren't deterministic — NSW data drifts. | Use snapshot fixtures (§7), not live calls, in CI. |
+| Tests in CI flake | Live BFF tests aren't deterministic — NSW data drifts. | Use snapshot fixtures (7), not live calls, in CI. |
 
 ---
 
-## §10 · Reference table — what's expected to be populated
+## 10 · Reference table — what's expected to be populated
 
 For a real Town Hall → Bondi Junction trip (multi-train, 6 journey
 options):
@@ -445,7 +477,7 @@ params.
 
 ---
 
-## §11 · Closing checklist for the KRAIL agent
+## 11 · Closing checklist for the KRAIL agent
 
 When wiring this up on the KRAIL side:
 
@@ -454,12 +486,12 @@ When wiring this up on the KRAIL side:
 - [ ] `:io:bff-api:compileKotlinMetadata` regenerates Wire classes.
 - [ ] Generated `JourneyList`, `TransportLeg`, `Stop`, `Coord` types
       are visible from `commonMain`.
-- [ ] `curl` smoke (§3) returns 200 and `~100 KB`.
-- [ ] `buf curl` decode (§5) shows `coords` populated on transit legs.
-- [ ] KMP smoke test (§6) passes when the BFF is up.
-- [ ] Snapshot fixture committed (§7) and CI test passes without
+- [ ] `curl` smoke (3) returns 200 and `~100 KB`.
+- [ ] `buf curl` decode (5) shows `coords` populated on transit legs.
+- [ ] KMP smoke test (6) passes when the BFF is up.
+- [ ] Snapshot fixture committed (7) and CI test passes without
       network.
-- [ ] Wire-size comparison (§8) recorded in the proto-flag rollout
+- [ ] Wire-size comparison (8) recorded in the proto-flag rollout
       doc — gives concrete numbers for the cohort decision.
 - [ ] JourneyMapScreen reads polylines from the proto path when the
       flag is on; same render as the JSON path.

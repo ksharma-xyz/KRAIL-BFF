@@ -6,7 +6,7 @@
 
 ---
 
-## §1 · TL;DR
+## 1 · TL;DR
 
 Two questions came in alongside the polyline bug report:
 1. *"Hope nothing else is missing?"*
@@ -20,15 +20,15 @@ Short answers:
    serialization. Now everything NSW returns flows through unchanged.
 2. **No — most BFF endpoints return JSON, not proto.** Only GTFS-RT live
    tracking is binary protobuf today. Proto trip endpoint exists but is
-   gated off in your app (Phase C). Full breakdown in §3.
+   gated off in your app (Phase C). Full breakdown in 3.
 
 Plus a separate concern surfaced: the proto trip schema
 (`KRAIL-API-PROTO/proto/api/trip.proto`) is missing polyline fields. Not
-urgent (you're not on proto yet), but should land in `v0.2.0`. See §4.
+urgent (you're not on proto yet), but should land in `v0.2.0`. See 4.
 
 ---
 
-## §2 · The polyline fix — what changed
+## 2 · The polyline fix — what changed
 
 ### Root cause
 
@@ -60,7 +60,7 @@ model is no longer in the request path for these endpoints.
 
 `/api/v1/trip/plan-proto` (the proto endpoint, gated off in your app)
 still uses the typed parse — its mapper requires structure. **This is
-why the proto schema needs polyline fields added separately, see §4.**
+why the proto schema needs polyline fields added separately, see 4.**
 
 ### Verification
 
@@ -94,13 +94,13 @@ the typed parse stays.
 
 ---
 
-## §3 · BFF response formats — the full picture
+## 3 · BFF response formats — the full picture
 
 | BFF endpoint | Response format | Used by KRAIL? | Notes |
 |---|---|---|---|
 | `/v1/tp/trip` | **JSON** | ✅ today (Phase A) | Full NSW shape, byte-for-byte. `coords[]` now flows. |
 | `/api/v1/trip/plan` | **JSON** | not yet | Same shape as `/v1/tp/trip` — pass-through. Reserved for future screen-shaped JSON. |
-| `/api/v1/trip/plan-proto` | **binary protobuf** | not yet (Phase C foundation) | `JourneyList` schema. Smaller wire (~83% smaller than NSW JSON). Polyline fields missing — see §4. |
+| `/api/v1/trip/plan-proto` | **binary protobuf** | not yet (Phase C foundation) | `JourneyList` schema. Smaller wire (~83% smaller than NSW JSON). Polyline fields missing — see 4. |
 | `/v1/stops/{id}/departures` | **JSON** | ✅ today | NSW `departure_mon` shape, pass-through. |
 | `/v1/parking/facilities` | **JSON** | ✅ today | `Map<facilityId, name>`, NSW shape. |
 | `/v1/parking/facilities/{id}/availability` | **JSON** | ✅ today | NSW `carpark` body. |
@@ -121,7 +121,7 @@ the rest stays JSON until screen-shaped endpoints land.
 
 ---
 
-## §4 · KRAIL-API-PROTO updates needed (deferred)
+## 4 · KRAIL-API-PROTO updates needed (deferred)
 
 ### What's missing in `trip.proto`
 
@@ -178,7 +178,7 @@ None of these block Phase C.
 
 ---
 
-## §5 · So is anything else missing?
+## 5 · So is anything else missing?
 
 After the polyline fix, the answer is "you tell me." The BFF's
 `/v1/tp/trip` is now byte-for-byte identical to NSW for JSON. If
@@ -192,7 +192,7 @@ used to work against NSW direct, no surprises.
 The only places where data could still go missing:
 
 - `/api/v1/trip/plan-proto` — typed mapper to `JourneyList` proto.
-  Drops anything not in the proto schema. Mitigated by §4 above. Not
+  Drops anything not in the proto schema. Mitigated by 4 above. Not
   in your hot path until Phase C.
 - The dataset endpoints (`stops_dataset.proto`, `routes_dataset.proto`).
   These are designed schemas, not pass-throughs. The dataset builder
@@ -204,9 +204,9 @@ pass-through, already byte-for-byte. No changes needed.
 
 ---
 
-## §6 · Is the data all proto, or mostly JSON?
+## 6 · Is the data all proto, or mostly JSON?
 
-Mostly JSON today. Reproducing §3 in narrative form:
+Mostly JSON today. Reproducing 3 in narrative form:
 
 - **Trip planner (used today):** JSON pass-through. NSW shape verbatim,
   including coords[].
@@ -228,12 +228,12 @@ ready but you haven't flipped it on.
 
 ---
 
-## §7 · For the API reference doc
+## 7 · For the API reference doc
 
-`KRAIL_API_REFERENCE.md` §3 (trip-planner sample) currently shows a
+`KRAIL_API_REFERENCE.md` 3 (trip-planner sample) currently shows a
 small slice of the response shape and doesn't include `coords[]`.
 That's an oversight that probably contributed to the silent regression.
-Fix as a follow-up: extend §3 to show the full leg shape including
+Fix as a follow-up: extend 3 to show the full leg shape including
 `coords`, `coupledTripsInfo`, `fare`, `interchanges`, etc. — pulled
 from a real BFF response after this fix.
 
@@ -243,7 +243,7 @@ is wire-compatible, so the doc gap is descriptive rather than blocking.
 
 ---
 
-## §8 · Action items for the KRAIL agent
+## 8 · Action items for the KRAIL agent
 
 Nothing required for this fix to take effect on your side — the BFF
 now returns the data your existing parsers expect.

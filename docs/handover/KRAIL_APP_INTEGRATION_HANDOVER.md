@@ -4,7 +4,7 @@
 > KMP/Compose Multiplatform Android+iOS app), being asked to migrate
 > the app off direct NSW API calls and onto the **KRAIL-BFF** for a
 > local-only debug build. This document is the BFF team's handover —
-> read it once, then start step §6.
+> read it once, then start step 6.
 >
 > The BFF lives at `/Users/ksharma/code/apps/KRAIL-BFF`. You may be
 > given that path; you may not. Either way, **everything you need to
@@ -13,7 +13,7 @@
 
 ---
 
-## §1 · TL;DR for the KRAIL agent
+## 1 · TL;DR for the KRAIL agent
 
 You are going to:
 
@@ -52,7 +52,7 @@ works in debug, this task is done.
 
 ---
 
-## §2 · What the BFF is
+## 2 · What the BFF is
 
 The KRAIL-BFF is a Kotlin/Ktor backend-for-frontend that sits between
 the KRAIL app and NSW Open Data Transport APIs. Its responsibilities:
@@ -68,7 +68,7 @@ contracts**. The rest is the BFF's problem.
 
 ---
 
-## §3 · Endpoint catalogue (BFF v1)
+## 3 · Endpoint catalogue (BFF v1)
 
 > **Field-by-field request/response specs live in [`KRAIL_API_REFERENCE.md`](KRAIL_API_REFERENCE.md).**
 > That companion doc has real captured response bodies, full param
@@ -147,12 +147,12 @@ it never serves a stop_finder response.
 
 | BFF endpoint | Notes |
 |---|---|
-| `GET /health` | Returns `{"status":"UP"}`. Use for the smoke test in §6. |
+| `GET /health` | Returns `{"status":"UP"}`. Use for the smoke test in 6. |
 | `GET /ready` | Returns `{"status":"READY","upstream":"ok|error"}`. Includes an NSW upstream probe. |
 
 ---
 
-## §4 · BFF base URL — what to use locally
+## 4 · BFF base URL — what to use locally
 
 The local BFF binds to `0.0.0.0:8080`. Pick the URL that matches where
 your app is running:
@@ -167,11 +167,11 @@ your app is running:
 To find `<HOST_LAN_IP>` (developer's Mac): `ipconfig getifaddr en0`.
 
 Cleartext HTTP is required because the local BFF doesn't have TLS.
-**This must NOT be enabled for release builds** — see §6.7.
+**This must NOT be enabled for release builds** — see 6.7.
 
 ---
 
-## §5 · Files in the KRAIL app you will touch
+## 5 · Files in the KRAIL app you will touch
 
 Verified paths as of 2026-05-09. If a path has moved, find the
 equivalent file by name; the responsibility is unchanged.
@@ -200,9 +200,9 @@ next.
 
 ---
 
-## §6 · Step-by-step: do the integration
+## 6 · Step-by-step: do the integration
 
-### §6.0 · Confirm the BFF is running
+### 6.0 · Confirm the BFF is running
 
 The BFF developer should have started it before handing this work off.
 You can check yourself:
@@ -217,7 +217,7 @@ user** — don't try to start it yourself unless you have access to the
 BFF repo. The developer starts it with `./scripts/dev.sh up` from the
 BFF repo root.
 
-### §6.1 · Add the BFF base URL via BuildKonfig
+### 6.1 · Add the BFF base URL via BuildKonfig
 
 KRAIL already uses BuildKonfig (see `core/network/build/buildkonfig/...`).
 Wire one new field.
@@ -252,7 +252,7 @@ krail.bffBaseUrl=http://10.0.2.2:8080
 Empty / missing → BFF disabled (app uses NSW direct, existing behavior).
 This is a deliberate kill-switch.
 
-### §6.2 · Expose the BFF URL in commonMain
+### 6.2 · Expose the BFF URL in commonMain
 
 Edit `core/network/src/commonMain/kotlin/xyz/ksharma/krail/core/network/BaseUrl.kt`:
 
@@ -277,7 +277,7 @@ val KRAIL_BFF_BASE_URL: String = NetworkBuildKonfig.KRAIL_BFF_BASE_URL
 val IS_BFF_LOCAL_OVERRIDE_SET: Boolean = KRAIL_BFF_BASE_URL.isNotBlank()
 ```
 
-### §6.3 · Wire endpoint #1 — trip planner (one-line swap)
+### 6.3 · Wire endpoint #1 — trip planner (one-line swap)
 
 In `feature/trip-planner/network/src/commonMain/kotlin/xyz/ksharma/krail/trip/planner/network/api/service/RealTripPlanningService.kt`, the existing call is:
 
@@ -304,7 +304,7 @@ endpoint, so this is genuinely a one-line URL swap. Don't touch the
 `stopFinder` function in the same file — it stays on NSW (BFF has no
 stop_finder).
 
-### §6.4 · Wire endpoint #2 — departures (path reshape)
+### 6.4 · Wire endpoint #2 — departures (path reshape)
 
 This one's trickier — different URL shape between NSW and BFF.
 
@@ -344,7 +344,7 @@ val response = if (IS_BFF_LOCAL_OVERRIDE_SET) {
 The response body is the same NSW JSON shape in both branches, so the
 existing parser works unchanged.
 
-### §6.5 · Wire endpoint #3 — park & ride
+### 6.5 · Wire endpoint #3 — park & ride
 
 In `feature/park-ride/network/src/commonMain/kotlin/xyz/ksharma/krail/park/ride/network/service/RealParkRideService.kt`:
 
@@ -396,7 +396,7 @@ Park & Ride is gated behind the existing `NSW_PARK_RIDE_BETA` Firebase
 RC flag in the app — make sure that's flipped on for your debug
 device, otherwise the screen is hidden and you can't smoke-test it.
 
-### §6.6 · Wire endpoint #4 — GTFS-Realtime (live tracking)
+### 6.6 · Wire endpoint #4 — GTFS-Realtime (live tracking)
 
 In `feature/track/network/src/commonMain/kotlin/xyz/ksharma/krail/feature/track/network/RealGtfsRealtimeService.kt`:
 
@@ -450,7 +450,7 @@ Notes:
   not flag-gated and just hidden by navigation, ask the user how to
   reach those screens.
 
-### §6.7 · Cleartext HTTP — debug only
+### 6.7 · Cleartext HTTP — debug only
 
 #### Android
 
@@ -517,7 +517,7 @@ This file is not flavor-aware out of the box. If KRAIL has a separate
 debug Info.plist or scheme-driven config, prefer putting the exception
 there. Otherwise leave it — `localhost` is harmless to expose.
 
-### §6.8 · Build and run
+### 6.8 · Build and run
 
 **Do not run Gradle / Xcode build commands yourself.** Per KRAIL repo
 convention, builds and CLI iOS work are done by the user, not the
@@ -543,13 +543,13 @@ Common breakages to call out if the build fails:
   add them explicitly.
 - Manifest merge conflict on `android:networkSecurityConfig` — the main
   manifest already declares it. Use `tools:replace="android:networkSecurityConfig"`
-  in the `src/debug/AndroidManifest.xml` (already in §6.7).
+  in the `src/debug/AndroidManifest.xml` (already in 6.7).
 - BuildKonfig task not part of the KRAIL build graph for `:core:network`
   — check `core/network/build.gradle.kts` for the existing
   BuildKonfig configuration and add the new field next to whatever
   fields are already there. Don't add a fresh BuildKonfig block.
 
-### §6.9 · Smoke-test the integration
+### 6.9 · Smoke-test the integration
 
 With the app running, exercise each migrated surface:
 
@@ -592,7 +592,7 @@ override didn't activate for that service — re-check the
 If a screen doesn't render at all but used to, you broke the existing
 NSW path — revert and check the `else` branch.
 
-### §6.10 · Verify nothing else regressed
+### 6.10 · Verify nothing else regressed
 
 - **Stop search** still works → confirms the NSW direct path is still
   alive for `RealTripPlanningService.stopFinder()` (which the
@@ -607,7 +607,7 @@ NSW path — revert and check the `else` branch.
 If anything that wasn't supposed to change broke, revert that file
 before commit.
 
-### §6.11 · Commit shape
+### 6.11 · Commit shape
 
 A clean commit message for this change:
 
@@ -636,7 +636,7 @@ untracked / modified-but-ignored before you push.
 
 ---
 
-## §7 · BFF error responses (reference)
+## 7 · BFF error responses (reference)
 
 If the BFF is misbehaving, you'll see one of these in the response.
 KRAIL's existing services expect NSW's error shapes, not the BFF's
@@ -672,7 +672,7 @@ through BFF logs and makes debugging tractable.
 
 ---
 
-## §8 · BFF source code references
+## 8 · BFF source code references
 
 You don't need these to integrate — but if you hit a surprising
 response, here's where the contract lives. Paths are inside the BFF
@@ -701,7 +701,7 @@ repo (`/Users/ksharma/code/apps/KRAIL-BFF`):
 
 ---
 
-## §9 · After this handover succeeds
+## 9 · After this handover succeeds
 
 This handover ends at "trip + departures + park & ride + GTFS-RT all
 work locally on debug, release behavior unchanged." The next pieces
@@ -728,11 +728,11 @@ are done in subsequent handovers, not this one:
 
 ---
 
-## §10 · Checklist for the KRAIL agent
+## 10 · Checklist for the KRAIL agent
 
 Hand this back filled in:
 
-- [ ] BFF `/health` returned 200 (you confirmed by running the curl in §6.0).
+- [ ] BFF `/health` returned 200 (you confirmed by running the curl in 6.0).
 - [ ] BuildKonfig field `KRAIL_BFF_BASE_URL` added in `core/network/build.gradle.kts`.
 - [ ] `local.properties` updated with `krail.bffBaseUrl=<host:port>`.
 - [ ] `BaseUrl.kt` exposes `KRAIL_BFF_BASE_URL` and `IS_BFF_LOCAL_OVERRIDE_SET`.

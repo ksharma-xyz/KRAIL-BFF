@@ -3,11 +3,11 @@
 > Audience: KRAIL agent / app maintainer.
 > Status as of 2026-05-10: gap identified. Fix in progress on
 > `proto-submodule` (BFF) + `KRAIL-API-PROTO` (v0.2.0). This doc
-> updates as those land — see §6 progress log at the bottom.
+> updates as those land — see 6 progress log at the bottom.
 
 ---
 
-## §1 · TL;DR
+## 1 · TL;DR
 
 The JSON trip endpoint (`/v1/tp/trip`) is now a true pass-through and
 includes `legs[].coords[]` for JourneyMap polylines (separate handover:
@@ -28,7 +28,7 @@ This doc:
 
 ---
 
-## §2 · The gaps in `JourneyList` proto v0.1.0
+## 2 · The gaps in `JourneyList` proto v0.1.0
 
 NSW returns this geometry data (verified live, real Town Hall → Bondi
 Junction trip, 6 journeys, 3111 polyline points total):
@@ -73,7 +73,7 @@ polyline / point-on-map signal it currently has from the JSON shape.
 
 ---
 
-## §3 · Schema changes — KRAIL-API-PROTO v0.2.0
+## 3 · Schema changes — KRAIL-API-PROTO v0.2.0
 
 ### New `Coord` message (in `proto/api/trip.proto`)
 
@@ -154,7 +154,7 @@ label needed.
 
 ---
 
-## §4 · BFF-side changes (this branch)
+## 4 · BFF-side changes (this branch)
 
 The BFF's `JourneyListMapper` translates `TripResponse` (NSW JSON parse)
 into `JourneyList` (proto). For v0.2.0 to actually deliver coords, the
@@ -197,12 +197,12 @@ on top should drop another 30–40%.
 
 ---
 
-## §5 · How KRAIL tests the proto endpoint
+## 5 · How KRAIL tests the proto endpoint
 
 This is the section to keep open while you wire it up. Three layers:
 curl-level smoke, instrumented-test, and dashboard-level.
 
-### §5.1 · curl-level smoke
+### 5.1 · curl-level smoke
 
 The proto endpoint returns binary bytes. To inspect:
 
@@ -240,7 +240,7 @@ curl -s 'http://localhost:8080/v1/tp/trip?...same params...' \
   | wc -c     # JSON for the same trip
 ```
 
-### §5.2 · KRAIL-side instrumented test
+### 5.2 · KRAIL-side instrumented test
 
 Once `:io:bff-api` is wired and KRAIL pulls the v0.2.0 submodule, write
 a single round-trip test that decodes a real BFF response and asserts
@@ -294,7 +294,7 @@ iOS sim). For CI you'd want either:
 For initial wiring, manual run is fine. Set up the snapshot fixture
 once the proto path goes live in production.
 
-### §5.3 · Snapshot fixture pattern
+### 5.3 · Snapshot fixture pattern
 
 When you want CI without a live BFF:
 
@@ -331,7 +331,7 @@ This catches both BFF-side mapper regressions ("we stopped populating
 coords") and proto-schema regressions ("a future bump dropped the
 field").
 
-### §5.4 · Dashboard testing (lightweight check)
+### 5.4 · Dashboard testing (lightweight check)
 
 The local API tester at <http://localhost:8000/api-tester.html> already
 has a Trip planner — proto endpoint button. After v0.2.0 lands you'll
@@ -344,7 +344,7 @@ If you want a coords-aware view in the dashboard, add a JourneyList
 proto decoder to the inspector — that's a 50-line dashboard change,
 not blocking.
 
-### §5.5 · Wire-size comparison
+### 5.5 · Wire-size comparison
 
 After v0.2.0 lands, run this to confirm the proto path is still smaller
 than JSON despite carrying coords:
@@ -365,7 +365,7 @@ Typical results we'd expect:
 With gzip Compression on (default for both endpoints), both shrink
 proportionally and the proto stays smaller.
 
-### §5.6 · Common pitfalls when testing proto
+### 5.6 · Common pitfalls when testing proto
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -378,7 +378,7 @@ proportionally and the proto stays smaller.
 
 ---
 
-## §6 · Progress log
+## 6 · Progress log
 
 Ticked as each step lands. This section is the authoritative status.
 
@@ -395,14 +395,14 @@ Ticked as each step lands. This section is the authoritative status.
 - [ ] **End-to-end verified** — `curl /api/v1/trip/plan-proto` →
       `protoc --decode` → `journeys[*].legs[*].coords[]` non-empty
       for at least one transit leg.
-- [ ] **`KRAIL_API_REFERENCE.md §8`** updated to describe the new proto
+- [ ] **`KRAIL_API_REFERENCE.md 8`** updated to describe the new proto
       shape (the JSON section already had a TODO to add coords).
 - [ ] **This doc updated** — flip "in progress" to "done" once the
       checklist is green.
 
 ---
 
-## §7 · Action items for the KRAIL agent
+## 7 · Action items for the KRAIL agent
 
 When v0.2.0 ships and the BFF is bumped:
 
@@ -429,7 +429,7 @@ sequence: KRAIL-API-PROTO v0.2.0 → BFF bump → KRAIL bump → flip flag.
 
 ---
 
-## §8 · Why this isn't done yet — sequencing
+## 8 · Why this isn't done yet — sequencing
 
 The chain has three repos:
 
@@ -442,9 +442,9 @@ KRAIL-API-PROTO          KRAIL-BFF             KRAIL (app)
                          tests pass
 ```
 
-§3 is the v0.2.0 schema work that lands first.
-§4 is the BFF-side work that follows once v0.2.0 is tagged.
-§7 is the KRAIL-side work that follows once the BFF bump is published.
+3 is the v0.2.0 schema work that lands first.
+4 is the BFF-side work that follows once v0.2.0 is tagged.
+7 is the KRAIL-side work that follows once the BFF bump is published.
 
 This doc lives in the BFF repo because the BFF's `JourneyListMapper` is
 the place where coords go from "in NSW JSON" to "in proto bytes." The

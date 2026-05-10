@@ -7,7 +7,7 @@
 
 ---
 
-## §1 · TL;DR
+## 1 · TL;DR
 
 We've added two new behaviors to `GET /v1/parking/availability` so the
 home-screen parking cards can stop firing N sequential HTTP calls when
@@ -33,7 +33,7 @@ the server-side lookup table here goes away.
 
 ---
 
-## §2 · What landed in the BFF (this work)
+## 2 · What landed in the BFF (this work)
 
 ### Endpoint contract
 
@@ -153,7 +153,7 @@ Update flow when NSW opens / closes a park-and-ride:
 
 ---
 
-## §3 · Migration choices for KRAIL
+## 3 · Migration choices for KRAIL
 
 You have three places to land. Pick based on how much surface area you
 want to delete.
@@ -272,7 +272,7 @@ Probably worth doing once you have a free evening.
 
 ---
 
-## §4 · Testing the new endpoint locally
+## 4 · Testing the new endpoint locally
 
 Same dev workflow you've been using. The BFF on `:8080` already serves
 the new endpoint as of `proto-submodule` `c029e29`.
@@ -299,7 +299,7 @@ URL** form at the top of the sidebar in the meantime.
 
 ---
 
-## §5 · Phase B — what's deferred (future, after KRAIL-API-PROTO v0.2.0)
+## 5 · Phase B — what's deferred (future, after KRAIL-API-PROTO v0.2.0)
 
 **Goal:** retire the server-side `ParkRideStopFacilityMap.kt` lookup
 and move the stop→facility mapping into the weekly stops dataset (.pb).
@@ -382,7 +382,7 @@ Until then: leave Phase A in place.
 
 ---
 
-## §6 · Open questions for KRAIL side
+## 6 · Open questions for KRAIL side
 
 1. **Which option (3.1 vs 3.2)?** I recommend 3.2 — clean abstraction
    and you delete code. But 3.1 is one PR away if you'd rather take
@@ -410,18 +410,18 @@ Until then: leave Phase A in place.
 
 ---
 
-## §7 · References
+## 7 · References
 
 - Endpoint code: `server/src/main/kotlin/app/krail/bff/routes/ParkingRoutes.kt`
 - Lookup table: `server/src/main/kotlin/app/krail/bff/data/ParkRideStopFacilityMap.kt`
 - Tests: `server/src/test/kotlin/routes/ParkingBatchTest.kt` (17 tests)
-- Master plan (parent doc): `KRAIL_INTEGRATION_MASTER_PLAN.md` §6 / §13
+- Master plan (parent doc): `KRAIL_INTEGRATION_MASTER_PLAN.md` 6 / 13
 - KRAIL-API-PROTO docs (for the Phase B proto schema bump):
   <https://ksharma-xyz.github.io/KRAIL-API-PROTO/>
 
 ---
 
-## §8 · Checklist for the KRAIL agent
+## 8 · Checklist for the KRAIL agent
 
 When you're ready to wire this up:
 

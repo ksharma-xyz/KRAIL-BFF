@@ -7,7 +7,7 @@
 
 ---
 
-## §1 · Status
+## 1 · Status
 
 | Area | Status |
 |---|---|
@@ -19,12 +19,12 @@
 | Pages site | ✅ <https://ksharma-xyz.github.io/KRAIL-API-PROTO/> (Jekyll cayman theme) |
 | `v0.1.0` cut | ✅ <https://github.com/ksharma-xyz/KRAIL-API-PROTO/releases/tag/v0.1.0> + tarball asset |
 | Branch protection | ✅ Required status checks, no force-push, linear history |
-| **BFF submodule swap** | ❌ **Not done — see §3** |
+| **BFF submodule swap** | ❌ **Not done — see 3** |
 | KRAIL-BFF docs path updates | ❌ Not done — `STATUS.md`, `BFF_ADOPTION_GUIDE.md` still reference `server/src/main/proto/` |
 
 ---
 
-## §2 · What was done in the new repo
+## 2 · What was done in the new repo
 
 ### Layout
 
@@ -99,14 +99,14 @@ land a wire-breaking change you must label the PR `major-bump`.
 
 ---
 
-## §3 · What KRAIL-BFF needs to do (the swap)
+## 3 · What KRAIL-BFF needs to do (the swap)
 
 This is the work captured by **task #15** in the session task list. Do
 it on a **new branch stacked on `dashboard`** (the user prefers stacking
 to opening branches off main while the existing PR stack is still
 unmerged — they'll rebase-and-merge the latest tip into main when ready).
 
-### §3.1 · Add the submodule
+### 3.1 · Add the submodule
 
 ```bash
 cd /Users/ksharma/code/apps/KRAIL-BFF
@@ -120,7 +120,7 @@ git commit -m "chore: add KRAIL-API-PROTO submodule pinned to v0.1.0"
 After this, `git status` should be clean and `cat krail-api-proto/version.txt`
 prints `0.1.0`.
 
-### §3.2 · Point Wire at the submodule
+### 3.2 · Point Wire at the submodule
 
 Edit `server/build.gradle.kts`. The current Wire block is at line ~115:
 
@@ -149,7 +149,7 @@ wire {
 }
 ```
 
-### §3.3 · Delete the in-tree protos
+### 3.3 · Delete the in-tree protos
 
 ```bash
 git rm -r server/src/main/proto/
@@ -158,7 +158,7 @@ git rm -r server/src/main/proto/
 The Wire codegen output under `server/build/generated/source/wire/` regenerates
 on the next `:server:compileKotlin`, so don't worry about that path.
 
-### §3.4 · Verify the build
+### 3.4 · Verify the build
 
 ```bash
 ./gradlew :server:clean :server:test
@@ -176,7 +176,7 @@ If compilation fails because Wire reports "import not found", check
 that `krail-api-proto/` exists at repo root and `git submodule update --init`
 has run.
 
-### §3.5 · Add the contract-enforcement unit tests
+### 3.5 · Add the contract-enforcement unit tests
 
 Per <https://ksharma-xyz.github.io/KRAIL-API-PROTO/testing#2-krail-bff-server-side-contract-enforcement>,
 the BFF owes consumers a non-null value for every `contract: required`
@@ -226,7 +226,7 @@ For v0.1.0 these tests can be skeletons that just instantiate the response
 builder against a stubbed NSW client and assert non-null on the required
 fields — full upstream-failure injection can land in a follow-up.
 
-### §3.6 · Add the auto-bump workflow
+### 3.6 · Add the auto-bump workflow
 
 Create `.github/workflows/proto-bump.yml` in KRAIL-BFF:
 
@@ -297,7 +297,7 @@ jobs:
           fi
 ```
 
-### §3.7 · Update existing CI workflows
+### 3.7 · Update existing CI workflows
 
 In `.github/workflows/pr.yml` (or whichever file runs the test suite),
 fetch submodules in the checkout step:
@@ -311,22 +311,22 @@ fetch submodules in the checkout step:
 Otherwise CI checkout won't have `krail-api-proto/` and Wire codegen
 will fail with "no protos found."
 
-### §3.8 · Update doc path references
+### 3.8 · Update doc path references
 
 The following BFF docs reference `server/src/main/proto/` — update each
 to point at `krail-api-proto/proto/` (or just remove the path mention
 where it's incidental):
 
-- `STATUS.md` §2 (Create krail-api-proto repo) → mark this done, link to the new repo + v0.1.0.
+- `STATUS.md` 2 (Create krail-api-proto repo) → mark this done, link to the new repo + v0.1.0.
 - `docs/reference/BFF_ADOPTION_GUIDE.md` — Prerequisites checklist first item should now read "✅ KRAIL-API-PROTO repo exists; pinned at v0.1.0."
-- `docs/handover/KRAIL_API_REFERENCE.md` §8 (`/api/v1/trip/plan-proto`) — change path reference from `server/src/main/proto/trip.proto` to `krail-api-proto/proto/api/trip.proto`.
+- `docs/handover/KRAIL_API_REFERENCE.md` 8 (`/api/v1/trip/plan-proto`) — change path reference from `server/src/main/proto/trip.proto` to `krail-api-proto/proto/api/trip.proto`.
 
 ```bash
 # Quick audit:
 grep -rn "server/src/main/proto" docs/ STATUS.md README.md 2>/dev/null
 ```
 
-### §3.9 · Run the full test suite + push
+### 3.9 · Run the full test suite + push
 
 ```bash
 ./gradlew :server:test
@@ -341,14 +341,14 @@ to land.
 
 ---
 
-## §4 · After §3 is done
+## 4 · After 3 is done
 
 The submodule is in place; KRAIL-BFF reads its proto contract from a
 versioned external source. From here:
 
 1. **Daily auto-bump runs at 14:00 UTC.** When KRAIL-API-PROTO cuts
    `v0.2.0` — say, when screen-shaped messages from
-   `API_SCHEMA_DESIGN.md §2` land — a PR opens automatically. Review,
+   `API_SCHEMA_DESIGN.md 2` land — a PR opens automatically. Review,
    make any builder changes the new contract requires (driven by the
    contract-enforcement test failures), merge.
 2. **KRAIL app's mirror task:** the KRAIL repo runs the same
@@ -362,14 +362,14 @@ versioned external source. From here:
 
 ---
 
-## §5 · Things deliberately NOT done in v0.1.0
+## 5 · Things deliberately NOT done in v0.1.0
 
-For the record (per request §7):
+For the record (per request 7):
 
 - Renaming or restructuring proto messages — `JourneyCardInfo` is still
   named `JourneyCardInfo`, fields keep their numbers, etc.
 - Screen-shaped messages (`TripResultsResponse`, `DepartureBoardResponse`)
-  — these exist in `API_SCHEMA_DESIGN.md §2` as designed-not-built; they
+  — these exist in `API_SCHEMA_DESIGN.md 2` as designed-not-built; they
   land in `v0.2.0+` whenever the BFF builds them.
 - Maven publishing — submodule pattern only.
 - Making every field carry the `optional` keyword — proto3 already
@@ -381,7 +381,7 @@ For the record (per request §7):
 
 ---
 
-## §6 · Quick links
+## 6 · Quick links
 
 - Repo: <https://github.com/ksharma-xyz/KRAIL-API-PROTO>
 - Docs site: <https://ksharma-xyz.github.io/KRAIL-API-PROTO/>

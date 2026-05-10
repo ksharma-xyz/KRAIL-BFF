@@ -10,11 +10,11 @@
 >
 > **This doc is the canonical entry point.** It sequences the work into
 > five phases (A → E) and points you at the deeper docs for each. Read
-> §0 then §1, then walk the phases in order.
+> 0 then 1, then walk the phases in order.
 
 ---
 
-## §0 · Documents in this set
+## 0 · Documents in this set
 
 You'll see references to four other docs. Use them when this one points
 you at a specific spec:
@@ -34,7 +34,7 @@ External:
 
 ---
 
-## §1 · State of play — what's built, what's not
+## 1 · State of play — what's built, what's not
 
 ### What's built (BFF side)
 
@@ -90,7 +90,7 @@ Server-side guarantees:
 
 ---
 
-## §2 · Architecture in one paragraph
+## 2 · Architecture in one paragraph
 
 KRAIL app → HTTPS → Cloudflare (production) → DigitalOcean App Platform (BFF host) → KRAIL-BFF (Kotlin/Ktor server, holds NSW API key) → HTTPS → NSW Open Data Transport API. The BFF transforms responses where it can (trip planner emits a smaller `JourneyList` proto + screen-shaped JSON), and pass-through proxies what it can't reshape yet (departures, park & ride, GTFS-RT). All client→BFF traffic is keyless from the app's perspective; the BFF rate-limits per IP and budgets daily NSW calls.
 
@@ -101,7 +101,7 @@ and runs Wire codegen locally (BFF on JVM, KRAIL on KMP-common).
 
 ---
 
-## §3 · The five phases
+## 3 · The five phases
 
 You don't have to do them all in one go. Each phase is a coherent
 chunk of work that ships independently. Order matters — later phases
@@ -125,10 +125,10 @@ Realistic timeline (one person, evenings):
 
 ---
 
-## §4 · Phase A — Local debug proof-of-life
+## 4 · Phase A — Local debug proof-of-life
 
 **Detailed playbook:** see `KRAIL_APP_INTEGRATION_HANDOVER.md`. This is
-the executable doc — its §6 walks step-by-step through the four URL
+the executable doc — its 6 walks step-by-step through the four URL
 swaps.
 
 ### One-paragraph summary
@@ -169,7 +169,7 @@ confirm the BFF log shows the matching `GET` lines, done.
 
 ---
 
-## §5 · Phase B — Production rollout
+## 5 · Phase B — Production rollout
 
 **Detailed playbook:** `docs/reference/BFF_ADOPTION_GUIDE.md` covers the
 flag-gating + cohort math. Read the "Migration playbook (per endpoint)"
@@ -271,7 +271,7 @@ remains your reality.**
 
 ---
 
-## §6 · Phase C — Adopt the proto contract
+## 6 · Phase C — Adopt the proto contract
 
 **Detailed playbook:** `PROTO_REPO_MIGRATION.md` (BFF side, already
 in flight). The KRAIL side mirrors most of it.
@@ -381,7 +381,7 @@ post-fetch reshape code too.
 
 ---
 
-## §7 · Phase D — Local stop search
+## 7 · Phase D — Local stop search
 
 **Why:** the BFF doesn't have a `stop_finder` endpoint, by design. Stop
 search is high-frequency (every keystroke) and NSW's `stop_finder` is
@@ -445,7 +445,7 @@ file. **No round-trip to a server for stop search.**
 
 ---
 
-## §8 · Phase E — Delete the NSW API key from the app
+## 8 · Phase E — Delete the NSW API key from the app
 
 **Trivial step, large symbolic value.** Once Phases A–D are complete and
 have run at 100% for ≥ 2 weeks with no regressions, **revoke the
@@ -474,7 +474,7 @@ After this, NSW credentials live in exactly one place: the BFF's
 
 ---
 
-## §9 · Endpoint reference (quick form)
+## 9 · Endpoint reference (quick form)
 
 For full request/response specs use **`KRAIL_API_REFERENCE.md`** —
 that doc has 700+ lines of field-by-field detail with real captured
@@ -527,7 +527,7 @@ Phase C.
 
 ---
 
-## §10 · Headers and conventions
+## 10 · Headers and conventions
 
 ### Required headers (eventually)
 
@@ -597,7 +597,7 @@ JSON shape; the existing `TripResponse.error` parser handles it.
 
 ---
 
-## §11 · Local development workflow
+## 11 · Local development workflow
 
 ### Start the BFF locally
 
@@ -643,7 +643,7 @@ the dashboard is the fastest answer. Faster than reading source.
 
 ---
 
-## §12 · Testing strategies
+## 12 · Testing strategies
 
 ### Compare-mode tests (recommended for Phase B+)
 
@@ -700,7 +700,7 @@ before the bump can merge.
 
 ---
 
-## §13 · Common pitfalls
+## 13 · Common pitfalls
 
 These are real things that have bitten me or are well-known traps:
 
@@ -747,7 +747,7 @@ These are real things that have bitten me or are well-known traps:
 
 ---
 
-## §14 · Production prep (BFF side, for context)
+## 14 · Production prep (BFF side, for context)
 
 This is **not your job** but you should know where the boundaries are
 when reasoning about latency, cost, or downtime.
@@ -789,7 +789,7 @@ midnight regardless.
 
 ---
 
-## §15 · Reference — file index
+## 15 · Reference — file index
 
 ### KRAIL-BFF (server) repo
 
@@ -879,7 +879,7 @@ KRAIL/
 
 ---
 
-## §16 · Closing checklist for "Phase A done, ready for Phase B"
+## 16 · Closing checklist for "Phase A done, ready for Phase B"
 
 - [ ] BFF `/health` returned 200 from your dev machine.
 - [ ] BuildKonfig field `KRAIL_BFF_BASE_URL` exists in `core/network/build.gradle.kts`.
@@ -907,13 +907,13 @@ Cloudflare, which is the BFF maintainer's responsibility, not yours.
 
 ---
 
-## §17 · When to come back to this doc
+## 17 · When to come back to this doc
 
 - Before starting any phase: re-read its section and the linked deeper
   doc.
-- When proto-bump PRs land in the KRAIL repo: re-read §6 / §13 /
+- When proto-bump PRs land in the KRAIL repo: re-read 6 / 13 /
   the testing section in `KRAIL-API-PROTO/docs/testing.md` to remind
   yourself what enforcement looks like.
-- When debugging a production issue: §10's status-code list and §11's
+- When debugging a production issue: 10's status-code list and 11's
   dashboard pointers are the fastest paths to a diagnosis.
-- When asked "what's left to do?": §3's phase table.
+- When asked "what's left to do?": 3's phase table.

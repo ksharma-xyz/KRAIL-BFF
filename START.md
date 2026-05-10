@@ -117,7 +117,7 @@ Open `/Users/ksharma/code/apps/KRAIL/feature/trip-planner/network/src/commonMain
 - [ ] Search a trip in the app (e.g. Town Hall → Central).
 - [ ] In the BFF terminal (`./scripts/dev.sh logs`) you should see a
       log line for `GET /v1/tp/trip`.
-      *No log line → app didn't reach the BFF. Walk back through §2.*
+      *No log line → app didn't reach the BFF. Walk back through 2.*
 - [ ] The trip results screen should render normally with real journeys.
       *Renders with errors → check BFF logs for the upstream error.*
 
@@ -158,7 +158,7 @@ have very high confidence the production deploy will work too.
 
 ## 6 · Decide: are you ready to merge the stack?
 
-If §1, §3, and §4 all ticked green, **yes**. Move on to the steps in
+If 1, 3, and 4 all ticked green, **yes**. Move on to the steps in
 [`STATUS.md`](STATUS.md):
 
 1. Merge PRs #46 → #61 in order.
@@ -167,7 +167,7 @@ If §1, §3, and §4 all ticked green, **yes**. Move on to the steps in
    migration with feature flags ([`BFF_ADOPTION_GUIDE.md`](docs/reference/BFF_ADOPTION_GUIDE.md)).
 
 If any step failed, **don't merge yet** — fix it locally first, push
-the fix to whichever PR in the stack is responsible, and re-run §1–§3.
+the fix to whichever PR in the stack is responsible, and re-run 1–3.
 
 ---
 
