@@ -17,12 +17,15 @@ to a real host — Phase B (production rollout) is blocked on that step.
 
 ## State of play
 
-- ✅ All 11 endpoints implemented, smoke-tested, contract-tested.
+- ✅ All 12 endpoints implemented, smoke-tested, contract-tested.
 - ✅ Phase A on the KRAIL side (debug-only override) integrated and
   validated end-to-end on AVD.
-- ✅ `KRAIL-API-PROTO` repo at `v0.2.0`, includes polyline fields.
+- ✅ `KRAIL-API-PROTO` repo at `v0.3.0` — includes polyline fields
+  (v0.2.0) plus `DepartureBoardResponse` + `ParkingAvailabilityResponse`
+  (v0.3.0).
 - ✅ BFF mapper populates polyline data in proto responses.
-- ✅ Park & Ride batch endpoint with stop-ID resolution.
+- ✅ Park & Ride batch endpoint with stop-ID resolution (JSON + proto).
+- ✅ Departures proto endpoint with screen-shaped response.
 - ⏳ Phase B (production rollout, Firebase RC cohort) — blocked on BFF deploy.
 - ⏳ Phase C (KRAIL adopts proto endpoint) — foundation laid in KRAIL repo.
 - ⏳ Phase D (local stop search via dataset) — schema ready, not wired.
@@ -55,15 +58,28 @@ point-and-click access to every endpoint, grouped by KRAIL screen.
 
 | Endpoint | Format | Used by KRAIL screen |
 |---|---|---|
-| `/v1/tp/trip` | JSON pass-through | Trip results (today) |
-| `/api/v1/trip/plan-proto` | binary protobuf | Trip results (Phase C) |
-| `/v1/stops/{id}/departures` | JSON pass-through | Departures / Saved Trips |
-| `/v1/parking/facilities/{id}/availability` | JSON pass-through | Park & Ride detail |
-| `/v1/parking/availability?ids=` or `?stopIds=` | JSON | Park & Ride home batch |
+| `/v1/tp/trip` | JSON pass-through | Trip results — JSON fallback |
+| `/api/v1/trip/plan-proto` | binary protobuf | Trip results — preferred |
+| `/v1/stops/{id}/departures` | JSON pass-through | Departures — JSON fallback |
+| `/api/v1/stops/{id}/departures-proto` | binary protobuf | Departures — preferred |
+| `/v1/parking/facilities` | JSON pass-through | Facility list (single) |
+| `/v1/parking/facilities/{id}/availability` | JSON pass-through | Park & Ride detail (single) |
+| `/v1/parking/availability?stopIds=` | JSON | Park & Ride home batch — JSON fallback |
+| `/api/v1/parking/availability-proto?stopIds=` | binary protobuf | Park & Ride home batch — preferred |
 | `/v[1\|2]/gtfs/realtime/{feed}` | binary protobuf | Live tracking |
 | `/v2/gtfs/vehiclepos/{feed}` | binary protobuf | Map markers |
 | `/v1/data/{stops\|routes}/manifest` | 302 → JSON manifest → `.pb` | Phase D dataset |
 | `/health`, `/ready` | JSON | Operational probes |
+
+**Two BFF design choices to know about:**
+- **Park & Ride is `?stopIds=` only.** The earlier `?ids=` mode was
+  removed; KRAIL exclusively uses stop-id resolution.
+- **GTFS-RT stays as byte-for-byte upstream pass-through.** No
+  BFF-shaped variant. KRAIL's existing `FeedMessage.ADAPTER.decode()`
+  consumes the standard GTFS-RT spec directly.
+- **Parking facility list stays in Firebase Remote Config**
+  (`NSW_PARK_RIDE_FACILITIES`). The earlier "embed in stops dataset"
+  plan is dropped; the BFF doesn't serve that mapping.
 
 Full specs (params, real captured response bodies, error codes, wire
 sizes) → `API_REFERENCE.md`.

@@ -86,23 +86,33 @@ shape, and surface `correlationId` if present.
 
 ## 2 · Quick endpoint index
 
-| Endpoint | Method | Used by KRAIL screen | Migration in handover? |
+| Endpoint | Method | Encoding | Used by |
 |---|---|---|---|
-| `/v1/tp/trip` | GET | Trip results (TimeTableScreen) | ✅ 6.3 |
-| `/api/v1/trip/plan` | GET | (BFF-shaped JSON; not used) | ❌ |
-| `/api/v1/trip/plan-proto` | GET | (BFF protobuf; not used) | ❌ |
-| `/v1/stops/{stopId}/departures` | GET | Departures (Saved Trips) | ✅ 6.4 |
-| `/v1/parking/facilities` | GET | Park & Ride list | ✅ 6.5 |
-| `/v1/parking/facilities/{id}/availability` | GET | Park & Ride detail | ✅ 6.5 |
-| `/v1/gtfs/realtime/{feed}` | GET (binary) | Live tracking | ✅ 6.6 |
-| `/v2/gtfs/realtime/{feed}` | GET (binary) | Live tracking (v2 feeds) | ✅ 6.6 |
-| `/v2/gtfs/vehiclepos/{feed}` | GET (binary) | Map markers | ✅ 6.6 |
-| `/v1/data/stops/manifest` | GET (302) | Stops dataset (future) | ❌ |
-| `/v1/data/routes/manifest` | GET (302) | Routes dataset (future) | ❌ |
-| `/health` | GET | None (smoke test) | n/a |
-| `/ready` | GET | None (smoke test) | n/a |
+| `/v1/tp/trip` | GET | JSON pass-through | Trip results — fallback |
+| `/api/v1/trip/plan-proto` | GET | binary protobuf | Trip results — preferred |
+| `/v1/stops/{stopId}/departures` | GET | JSON pass-through | Departures — fallback |
+| `/api/v1/stops/{stopId}/departures-proto` | GET | binary protobuf | Departures — preferred |
+| `/v1/parking/facilities` | GET | JSON pass-through | Facility list (rare) |
+| `/v1/parking/facilities/{id}/availability` | GET | JSON pass-through | Park & Ride single (rare) |
+| `/v1/parking/availability?stopIds=` | GET | JSON | Park & Ride home batch — fallback |
+| `/api/v1/parking/availability-proto?stopIds=` | GET | binary protobuf | Park & Ride home batch — preferred |
+| `/v1/gtfs/realtime/{feed}` | GET (binary) | upstream protobuf | Live tracking |
+| `/v2/gtfs/realtime/{feed}` | GET (binary) | upstream protobuf | Live tracking (v2 feeds) |
+| `/v2/gtfs/vehiclepos/{feed}` | GET (binary) | upstream protobuf | Map markers |
+| `/v1/data/stops/manifest` | GET (302) | JSON manifest → .pb asset | Stops dataset (future) |
+| `/v1/data/routes/manifest` | GET (302) | JSON manifest → .pb asset | Routes dataset (future) |
+| `/health` · `/ready` | GET | JSON | Operational probes |
 
-Sections 3–9 cover each endpoint in turn.
+Two BFF design choices to call out:
+
+- **Park & Ride is `?stopIds=` only.** The earlier `?ids=` mode was
+  removed. KRAIL exclusively uses stop-id resolution.
+- **GTFS-RT is byte-for-byte upstream pass-through.** No BFF-shaped
+  variant. KRAIL's existing `FeedMessage.ADAPTER.decode()` consumes
+  the standard GTFS-RT spec directly.
+- **Parking facility list stays in Firebase Remote Config**
+  (`NSW_PARK_RIDE_FACILITIES`). The earlier "embed in stops dataset"
+  plan was dropped — the BFF doesn't serve that mapping.
 
 ---
 
@@ -292,6 +302,82 @@ KRAIL's existing parser: `feature/departures/network/.../model/DepartureMonitorR
 
 ---
 
+## 4b · `GET /api/v1/stops/{stopId}/departures-proto` — departure board (proto)
+
+**KRAIL caller:** the proto-flagged path in `RealDeparturesService`
+when the BFF proto flag is on.
+
+**Behavior:** same input as `/v1/stops/{id}/departures`; same NSW
+upstream call. Response is a screen-shaped binary `DepartureBoardResponse`
+(KRAIL-API-PROTO `v0.3.0+`) instead of NSW's full JSON. Carries only the
+fields the screen renders — line + destination + planned/realtime times +
+platform + trip_id + is_realtime — so the wire payload is ~98% smaller
+raw, ~93% smaller gzipped vs the JSON pass-through.
+
+### Request
+
+Same as section 4 (`stopId` in path, optional `?date=&time=`).
+
+### Sample request
+
+```bash
+curl 'http://localhost:8080/api/v1/stops/200060/departures-proto' \
+  -H 'X-Krail-Version: 1.0.0' \
+  -o /tmp/dep.pb
+```
+
+A captured fixture for snapshot tests on the KRAIL side lives at
+`docs/handover/fixtures/departures-200060.pb` in this repo (1.9 KB,
+real captured response).
+
+### Response — 200 OK
+
+`Content-Type: application/protobuf`. Top-level message:
+
+```proto
+message DepartureBoardResponse {
+  StopRef stop = 1;             // required — id + name + optional coord
+  repeated DepartureRow departures = 2;  // required — empty list when no upcoming
+}
+
+message DepartureRow {
+  TransitLine line = 1;     // required — display_name + transport_mode_type + optional color_hex
+  string destination = 2;   // required — headsign
+  StopTime time = 3;        // required — planned_utc + optional estimated_utc
+  optional string platform_text = 4;
+  optional string date_label = 5;     // "today" / "tomorrow" / null
+  optional string trip_id = 6;        // GTFS-RT trackable when set
+  bool is_realtime = 7;
+}
+```
+
+Decoded sample (Bondi Junction stop, abridged):
+
+```
+stop {
+  id: "200060"
+  name: "Central Station"
+  coord { lat: -33.8829 lon: 151.2061 }
+}
+departures {
+  line { display_name: "T1" transport_mode_type: 1 }
+  destination: "Bondi Junction"
+  time { planned_utc: "2026-05-10T11:42:00Z" estimated_utc: "2026-05-10T11:43:15Z" }
+  platform_text: "Platform 16"
+  trip_id: "Sydney_Trains_T1A.1234.10.1"
+  is_realtime: true
+}
+departures { ... 5–10 more rows ... }
+```
+
+### Errors
+
+Same as section 4 — invalid stopId is 400 JSON envelope. NSW upstream
+errors propagate as 502/503 with a JSON envelope (not proto), matching
+the trip-proto endpoint's pattern.
+
+---
+
 ## 5 · `GET /v1/parking/facilities` — Park & Ride list
 
 **KRAIL caller:** `RealParkRideService.fetchCarParkFacilities()` (no-arg overload) →
@@ -424,6 +510,150 @@ responses.
 
 ---
 
+## 6b · `GET /v1/parking/availability?stopIds=...` — JSON batch
+
+**KRAIL caller:** `RealParkRideService.fetchAvailabilityForStops(...)`
+when the BFF flag is on (JSON branch).
+
+**Behavior:** server-side resolves stop IDs to facility IDs via
+`ParkRideStopFacilityMap`, fans out concurrent NSW carpark calls,
+returns a per-stop block of `facilities` + `errors` plus a top-level
+`unknownStops` list. **Stop-id mode only** — `?ids=` was deprecated.
+
+Caps: ≤ 20 stop IDs per request. Empty `stopIds` → 400 `missing_stop_ids`.
+Beyond cap → 400 `too_many_stop_ids`. NSW upstream failures appear as
+per-facility entries in the per-stop `errors` map.
+
+### Sample request
+
+```bash
+curl 'http://localhost:8080/v1/parking/availability?stopIds=275010,2155384'
+```
+
+### Response — 200 OK
+
+```json
+{
+  "stops": {
+    "275010": {
+      "facilities": {
+        "21": { /* full NSW carpark body for Penrith at-grade */ },
+        "22": { /* full NSW carpark body for Penrith multi-level */ }
+      },
+      "errors": {}
+    },
+    "2155384": {
+      "facilities": {
+        "26": { /* Tallawong P1 NSW body */ },
+        "27": { /* Tallawong P2 NSW body */ },
+        "28": { /* Tallawong P3 NSW body */ }
+      },
+      "errors": {}
+    }
+  },
+  "unknownStops": [],
+  "correlationId": "942cf2c5-ef3d-42e0-93c9-be120ecd1410"
+}
+```
+
+`NSW:` namespace prefix on stop IDs is stripped before lookup; the
+response key preserves whatever the client sent.
+
+---
+
+## 6c · `GET /api/v1/parking/availability-proto?stopIds=...` — proto batch
+
+**KRAIL caller:** the proto-flagged path in `RealParkRideService`
+when both the BFF flag and the proto flag are on.
+
+**Behavior:** identical input to section 6b; identical fan-out;
+returns screen-shaped `ParkingAvailabilityResponse` (KRAIL-API-PROTO
+`v0.3.0+`) instead of JSON. ~86% smaller raw / ~79% smaller gzipped
+vs the JSON variant.
+
+### Sample request
+
+```bash
+curl 'http://localhost:8080/api/v1/parking/availability-proto?stopIds=2155384' \
+  -o /tmp/parking.pb
+```
+
+Captured fixture for KRAIL snapshot tests:
+`docs/handover/fixtures/parking-tallawong.pb` (388 bytes, real
+captured response).
+
+### Response — 200 OK
+
+`Content-Type: application/protobuf`. Top-level:
+
+```proto
+message ParkingAvailabilityResponse {
+  // Top-level facilities/errors stay empty in stopIds-only mode
+  // (reserved for a future ?ids= mode if it ever returns).
+  map<string, FacilityAvailability> facilities = 1;
+  map<string, ApiError> errors = 2;
+
+  // Populated for stopIds mode.
+  map<string, StopParkingBlock> stops = 3;
+  repeated string unknown_stops = 4;
+  string correlation_id = 5;
+}
+
+message StopParkingBlock {
+  map<string, FacilityAvailability> facilities = 1;
+  map<string, ApiError> errors = 2;
+}
+
+message FacilityAvailability {
+  string facility_id = 1;
+  string facility_name = 2;
+  int32 total_spots = 3;
+  int32 occupied_spots = 4;
+  optional Coord location = 5;
+  optional string suburb = 6;
+  optional string address = 7;
+  optional string updated_at = 8;
+}
+```
+
+Decoded sample (Tallawong, abridged):
+
+```
+stops {
+  key: "2155384"
+  value {
+    facilities {
+      key: "26"
+      value {
+        facility_id: "26"
+        facility_name: "Park&Ride - Tallawong P1"
+        total_spots: 350
+        occupied_spots: 142
+        location { lat: -33.6926 lon: 150.9078 }
+        suburb: "Tallawong"
+        updated_at: "2026-05-10T11:35:00"
+      }
+    }
+    facilities { key: "27" value { ... } }
+    facilities { key: "28" value { ... } }
+  }
+}
+correlation_id: "942cf2c5-ef3d-42e0-93c9-be120ecd1410"
+```
+
+### Errors
+
+| Status | Body |
+|---|---|
+| 400 | JSON `{"error":{"code":"missing_stop_ids","message":"..."}}` (or `too_many_stop_ids`) |
+| Per-stop / per-facility | Inside the `errors` map of the relevant `StopParkingBlock`. Codes match the JSON variant: `upstream_404`, `upstream_error`, `daily_budget_exceeded`. |
+
+NSW per-facility upstream failures don't fail the whole response —
+the surviving facilities + the failed ones in `errors` come back in
+one 200 response.
+
+---
+
 ## 7 · GTFS-Realtime endpoints (binary protobuf)
 
 **KRAIL caller:** `RealGtfsRealtimeService.fetchFeed(feedName, feedType, sinceLastModified)` →
@@ -432,6 +662,14 @@ responses.
 **Behavior:** byte-for-byte pass-through. The BFF does not decode
 protobuf; it forwards the bytes from NSW. KRAIL's existing
 `FeedMessage.ADAPTER.decode(bytes)` (Wire) parses identically.
+
+**Why no BFF-shaped variant:** the GTFS-RT spec is the wire contract,
+maintained by gtfs.org. Reshaping to a BFF-defined `JourneyLiveResponse`
+would mean defining a custom proto, mapping NSW's vehicle position
+fields to it, doubling the schema surface, and locking the app into
+the BFF's interpretation of standard fields. The pass-through is the
+right design choice. Revisit only if a real screen need emerges that
+the standard `FeedMessage` can't serve.
 
 ### Three endpoint variants
 
@@ -656,13 +894,40 @@ are wider because gzip is very effective at compressing repeated JSON
 keys (`"departureTimeEstimated"` appears 50+ times in one response);
 proto's binary tags don't have that redundancy to compress.
 
-### Other endpoints (JSON pass-through; no proto variant exists yet)
+### Departures — stop 200060
+
+| Format | Raw bytes | gzipped wire |
+|---|---|---|
+| JSON (`/v1/stops/200060/departures`) | 99 637 B (~97 KB) | 8 869 B (~9 KB) |
+| Proto (`/api/v1/stops/200060/departures-proto`) | 1 884 B | 660 B |
+| **Proto savings** | **−98 %** | **−93 %** |
+
+Bigger relative win than trip planner. The screen-shaped
+`DepartureBoardResponse` proto only carries
+display-relevant fields (line + destination + time + platform +
+trip_id) — the NSW JSON pass-through carries 60+ fields per
+stopEvent, most of which the app ignores.
+
+### Parking batch — Tallawong + Penrith (5 facilities)
+
+| Format | Raw bytes | gzipped wire |
+|---|---|---|
+| JSON (`/v1/parking/availability?stopIds=...`) | 3 187 B | 727 B |
+| Proto (`/api/v1/parking/availability-proto?stopIds=...`) | 435 B | 150 B |
+| **Proto savings** | **−86 %** | **−79 %** |
+
+Per-facility content is screen-shaped — id + name + total/occupied
+spots + location/suburb/address + updated_at. JSON pass-through
+carries NSW's full carpark body (~30 fields with `zones`, `tsn`,
+`time`, `ParkID`, etc.).
+
+### Other endpoints
 
 | Endpoint | Raw bytes | gzipped wire |
 |---|---|---|
-| `/v1/stops/215020/departures` (Bondi Jct) | 71 281 B (~70 KB) | 6 199 B (~6 KB) |
-| `/v1/parking/availability?stopIds=2155384` (Tallawong, 3 facilities) | 1 926 B | 540 B |
-| `/v2/gtfs/vehiclepos/sydneytrains` (already binary protobuf) | 37 885 B (~37 KB) | 12 359 B (~12 KB) |
+| `/v2/gtfs/vehiclepos/sydneytrains` (binary protobuf) | 37 885 B (~37 KB) | 12 359 B (~12 KB) |
+| `/v1/parking/facilities/{id}/availability` (single, JSON) | ~1 800 B | ~470 B |
+| `/v1/parking/facilities` (list, JSON) | 1 950 B | 600 B |
 
 ### Why proto on trip is worth adopting (cohort-rollout justification)
 

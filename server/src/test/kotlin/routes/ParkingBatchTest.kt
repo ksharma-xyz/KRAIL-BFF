@@ -6,12 +6,13 @@ import app.krail.bff.client.nsw.NswUpstreamException
 import app.krail.bff.di.configureDI
 import app.krail.bff.plugins.configureCorrelation
 import app.krail.bff.plugins.configureSerialization
+import app.krail.bff.proto.ParkingAvailabilityResponse
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.readRawBytes
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.koin.core.context.GlobalContext
@@ -24,23 +25,26 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Tests for the GET /v1/parking/availability batch endpoint.
+ * Tests for the parking batch endpoints — JSON + proto.
  *
- * The batch endpoint fans out 1 request → N concurrent NSW calls and
- * returns a structured response with successful facilities and per-id
- * errors split. Validates:
+ * Both endpoints accept `?stopIds=...` only (the `?ids=` mode was
+ * removed; KRAIL exclusively uses the stop-id resolution path). The
+ * BFF resolves stop IDs to facility IDs server-side and fans out
+ * concurrent NSW calls.
  *
- *  - Happy path: 3 valid IDs, all return successfully → all in `facilities`.
- *  - Mixed valid + invalid format → invalid IDs go to `errors` with
- *    code=invalid_facility_id; valid IDs proceed.
- *  - NSW upstream 404 → goes to `errors` with code=upstream_404.
- *  - NSW upstream 5xx → goes to `errors` with code=upstream_error.
- *  - Daily budget exhausted → goes to `errors` with code=daily_budget_exceeded.
- *  - Missing/empty `ids` param → 400 missing_ids.
- *  - >20 IDs → 400 too_many_ids.
- *  - Duplicate IDs → silently deduped, NSW called once per unique id.
+ *  - GET /v1/parking/availability?stopIds=...               JSON
+ *  - GET /api/v1/parking/availability-proto?stopIds=...     binary proto
  *
- * Verified shape: { facilities: { id: NSW_body }, errors: { id: { code, message } }, correlationId }.
+ * Coverage:
+ *
+ *  - Happy path: known stops resolve, all facilities populated.
+ *  - Aliasing: two stops sharing a facility (Hornsby) → 1 NSW call.
+ *  - Unknown stops: go to `unknownStops`, known stops still resolve.
+ *  - NSW: prefix is stripped before lookup.
+ *  - Per-facility upstream failures land in per-stop `errors`.
+ *  - Bad input: missing / too-many stop IDs → 400.
+ *  - Correlation ID echoed when caller sends a valid X-Request-Id.
+ *  - Proto endpoint emits the same logical content as JSON.
  */
 class ParkingBatchTest {
 
@@ -48,156 +52,17 @@ class ParkingBatchTest {
 
     @AfterTest
     fun tearDown() {
-        // Each testApplication boots its own Koin; clean up to avoid leakage
-        // between tests in the same JVM run.
         runCatching { GlobalContext.stopKoin() }
     }
 
-    @Test
-    fun `happy path returns all three facilities under facilities key`() = testApplication {
-        val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
-
-        val response = client.get("/v1/parking/availability?ids=486,487,488")
-        assertEquals(HttpStatusCode.OK, response.status)
-
-        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
-        val facilities = body["facilities"]!!.jsonObject
-        val errors = body["errors"]!!.jsonObject
-
-        assertEquals(setOf("486", "487", "488"), facilities.keys)
-        assertTrue(errors.isEmpty(), "no errors expected, got $errors")
-
-        // Each facility body is the parsed NSW JSON — assert the facility_id
-        // field is preserved end-to-end.
-        for (id in listOf("486", "487", "488")) {
-            val facility = facilities[id]!!.jsonObject
-            assertEquals(id, facility["facility_id"]!!.jsonPrimitive.content)
-        }
-    }
-
-    @Test
-    fun `invalid id format goes to errors, valid ids still resolve`() = testApplication {
-        val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
-
-        val response = client.get("/v1/parking/availability?ids=486,@@bad@@,488")
-        assertEquals(HttpStatusCode.OK, response.status)
-
-        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
-        val facilities = body["facilities"]!!.jsonObject
-        val errors = body["errors"]!!.jsonObject
-
-        assertEquals(setOf("486", "488"), facilities.keys)
-        assertEquals(setOf("@@bad@@"), errors.keys)
-        assertEquals("invalid_facility_id", errors["@@bad@@"]!!.jsonObject["code"]!!.jsonPrimitive.content)
-    }
-
-    @Test
-    fun `nsw 404 surfaces as upstream_404 in errors`() = testApplication {
-        val nsw = StubNswClient(failingIds = mapOf("99999" to 404))
-        application {
-            installRouting(nsw)
-        }
-
-        val response = client.get("/v1/parking/availability?ids=486,99999")
-        assertEquals(HttpStatusCode.OK, response.status)
-
-        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
-        assertEquals(setOf("486"), body["facilities"]!!.jsonObject.keys)
-        val errors = body["errors"]!!.jsonObject
-        assertEquals("upstream_404", errors["99999"]!!.jsonObject["code"]!!.jsonPrimitive.content)
-    }
-
-    @Test
-    fun `nsw 5xx surfaces as upstream_error in errors`() = testApplication {
-        val nsw = StubNswClient(failingIds = mapOf("486" to 503))
-        application {
-            installRouting(nsw)
-        }
-
-        val response = client.get("/v1/parking/availability?ids=486,487")
-        assertEquals(HttpStatusCode.OK, response.status)
-
-        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
-        assertEquals(setOf("487"), body["facilities"]!!.jsonObject.keys)
-        val errors = body["errors"]!!.jsonObject
-        assertEquals("upstream_error", errors["486"]!!.jsonObject["code"]!!.jsonPrimitive.content)
-    }
-
-    @Test
-    fun `daily budget exceeded propagates per-id, not as a 500`() = testApplication {
-        val nsw = StubNswClient(budgetExhausted = true)
-        application {
-            installRouting(nsw)
-        }
-
-        val response = client.get("/v1/parking/availability?ids=486,487,488")
-        assertEquals(HttpStatusCode.OK, response.status, "batch returns 200 with errors-per-id")
-
-        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
-        val errors = body["errors"]!!.jsonObject
-        assertEquals(3, errors.size)
-        for (id in listOf("486", "487", "488")) {
-            assertEquals("daily_budget_exceeded", errors[id]!!.jsonObject["code"]!!.jsonPrimitive.content)
-        }
-    }
-
-    @Test
-    fun `missing ids param is a 400`() = testApplication {
-        val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
-
-        val response = client.get("/v1/parking/availability")
-        assertEquals(HttpStatusCode.BadRequest, response.status)
-        assertContains(response.bodyAsText(), "missing_ids")
-    }
-
-    @Test
-    fun `too many ids returns 400 too_many_ids`() = testApplication {
-        val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
-
-        val ids = (1..25).joinToString(",")
-        val response = client.get("/v1/parking/availability?ids=$ids")
-        assertEquals(HttpStatusCode.BadRequest, response.status)
-        assertContains(response.bodyAsText(), "too_many_ids")
-    }
-
-    @Test
-    fun `duplicate ids are deduped, nsw called once per unique id`() = testApplication {
-        val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
-
-        val response = client.get("/v1/parking/availability?ids=486,486,486,487")
-        assertEquals(HttpStatusCode.OK, response.status)
-
-        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
-        val facilities = body["facilities"]!!.jsonObject
-        assertEquals(setOf("486", "487"), facilities.keys)
-        assertEquals(2, nsw.callCount, "expected exactly 2 NSW calls, saw ${nsw.callCount}")
-    }
-
     // ============================================================
-    // ?stopIds= variant — server-side stop→facility resolution
+    // JSON endpoint — /v1/parking/availability?stopIds=
     // ============================================================
 
     @Test
-    fun `stopIds variant resolves Tallawong to its three facilities (P1, P2, P3)`() = testApplication {
+    fun `Tallawong stop resolves to its three facilities (P1, P2, P3)`() = testApplication {
         val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
+        application { installRouting(nsw) }
 
         val response = client.get("/v1/parking/availability?stopIds=2155384")
         assertEquals(HttpStatusCode.OK, response.status)
@@ -208,17 +73,14 @@ class ParkingBatchTest {
 
         val tallawong = stops["2155384"]!!.jsonObject
         val facilities = tallawong["facilities"]!!.jsonObject
-        // Tallawong has facility IDs 26, 27, 28 — all three should resolve.
         assertEquals(setOf("26", "27", "28"), facilities.keys)
         assertTrue(tallawong["errors"]!!.jsonObject.isEmpty())
     }
 
     @Test
-    fun `stopIds variant deduplicates aliased facility IDs (Hornsby has two stop IDs sharing facility 25)`() = testApplication {
+    fun `aliased facility IDs are deduped — Hornsby has two stop IDs sharing facility 25`() = testApplication {
         val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
+        application { installRouting(nsw) }
 
         // Stops 207720 and 207763 both alias facility 25 — NSW should be
         // called exactly ONCE for facility 25 across the whole batch.
@@ -238,16 +100,13 @@ class ParkingBatchTest {
     @Test
     fun `unknown stop IDs go to unknownStops, known stops still resolve`() = testApplication {
         val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
+        application { installRouting(nsw) }
 
         val response = client.get("/v1/parking/availability?stopIds=275010,9999999")
         assertEquals(HttpStatusCode.OK, response.status)
 
         val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
         assertEquals(setOf("275010"), body["stops"]!!.jsonObject.keys)
-        // unknownStops is a JsonArray; extract values for assertion.
         val unknown = body["unknownStops"]!!.let {
             (it as kotlinx.serialization.json.JsonArray).map { e -> e.jsonPrimitive.content }
         }
@@ -257,29 +116,25 @@ class ParkingBatchTest {
     @Test
     fun `NSW namespace prefix is stripped before lookup`() = testApplication {
         val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
+        application { installRouting(nsw) }
 
         val response = client.get("/v1/parking/availability?stopIds=NSW:213110")
         assertEquals(HttpStatusCode.OK, response.status)
 
         val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
-        // Response key preserves whatever the client sent (the namespaced form),
-        // but the lookup resolved against the canonical "213110" -> facility 486.
         val stops = body["stops"]!!.jsonObject
+        // Response key preserves whatever the client sent (the namespaced
+        // form), but the lookup resolved against the canonical "213110".
         assertEquals(setOf("NSW:213110"), stops.keys)
         val facilities = stops["NSW:213110"]!!.jsonObject["facilities"]!!.jsonObject
         assertEquals(setOf("486"), facilities.keys)
     }
 
     @Test
-    fun `partial NSW failure on one of three facilities surfaces in per-stop errors`() = testApplication {
+    fun `partial NSW failure surfaces in per-stop errors`() = testApplication {
         // Tallawong has facilities 26, 27, 28. Make NSW fail on 27 only.
         val nsw = StubNswClient(failingIds = mapOf("27" to 503))
-        application {
-            installRouting(nsw)
-        }
+        application { installRouting(nsw) }
 
         val response = client.get("/v1/parking/availability?stopIds=2155384")
         assertEquals(HttpStatusCode.OK, response.status)
@@ -293,26 +148,19 @@ class ParkingBatchTest {
     }
 
     @Test
-    fun `missing stopIds is a 400`() = testApplication {
+    fun `missing stopIds returns 400`() = testApplication {
         val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
+        application { installRouting(nsw) }
 
-        // ?stopIds= present but empty — handled by the empty-after-trim path.
-        val response = client.get("/v1/parking/availability?stopIds=")
-        // Empty stopIds means no `stopIds` param in the query, since
-        // request.queryParameters["stopIds"] returns null for empty.
-        // So it falls through to handleParkingBatch which 400s on missing ids.
+        val response = client.get("/v1/parking/availability")
         assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertContains(response.bodyAsText(), "missing_stop_ids")
     }
 
     @Test
     fun `too many stopIds returns 400 too_many_stop_ids`() = testApplication {
         val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
+        application { installRouting(nsw) }
 
         val many = (1..25).joinToString(",")
         val response = client.get("/v1/parking/availability?stopIds=$many")
@@ -321,57 +169,95 @@ class ParkingBatchTest {
     }
 
     @Test
-    fun `stopIds takes precedence over ids when both are present`() = testApplication {
+    fun `correlationId is echoed when caller sends a valid X-Request-Id`() = testApplication {
         val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
-
-        // ?ids= would resolve to facility 999 directly; ?stopIds= resolves
-        // 213110 → facility 486. The response shape proves which path won.
-        val response = client.get("/v1/parking/availability?stopIds=213110&ids=999")
-        assertEquals(HttpStatusCode.OK, response.status)
-
-        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
-        // Stop-id path produces a "stops" wrapper; facility-id path produces "facilities" at top level.
-        assertNotNull(body["stops"], "?stopIds= path should win when both are present")
-    }
-
-    // ============================================================
-    // existing ?ids= tests below (unchanged)
-    // ============================================================
-
-    @Test
-    fun `correlationId is included in successful and partial-failure responses`() = testApplication {
-        val nsw = StubNswClient()
-        application {
-            installRouting(nsw)
-        }
+        application { installRouting(nsw) }
 
         // Correlation plugin requires a valid UUID; non-UUID values are
-        // ignored and a fresh one is generated. Use a real UUID so we can
-        // verify echo behavior.
+        // ignored and a fresh one is generated. Use a real UUID to verify echo.
         val incomingId = "942cf2c5-ef3d-42e0-93c9-be120ecd1410"
-        val response = client.get("/v1/parking/availability?ids=486") {
+        val response = client.get("/v1/parking/availability?stopIds=2155384") {
             headers.append("X-Request-Id", incomingId)
         }
         assertEquals(HttpStatusCode.OK, response.status)
 
         val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
         val correlationId = body["correlationId"]?.jsonPrimitive?.content
-        assertNotNull(correlationId, "correlationId should be present in batch response")
-        // The Correlation plugin echoes the inbound id when it's a valid UUID.
+        assertNotNull(correlationId)
         assertEquals(incomingId, correlationId)
+    }
+
+    // ============================================================
+    // Proto endpoint — /api/v1/parking/availability-proto?stopIds=
+    // ============================================================
+
+    @Test
+    fun `proto endpoint returns ParkingAvailabilityResponse with stops populated`() = testApplication {
+        val nsw = StubNswClient()
+        application { installRouting(nsw) }
+
+        val response = client.get("/api/v1/parking/availability-proto?stopIds=2155384")
+        assertEquals(HttpStatusCode.OK, response.status)
+
+        val proto = ParkingAvailabilityResponse.ADAPTER.decode(response.readRawBytes())
+
+        assertTrue(proto.facilities.isEmpty(), "top-level facilities should be empty in stopIds mode")
+        assertTrue(proto.errors.isEmpty(), "top-level errors should be empty in stopIds mode")
+        assertTrue(proto.unknown_stops.isEmpty())
+        assertEquals(setOf("2155384"), proto.stops.keys)
+
+        val tallawong = proto.stops["2155384"]!!
+        assertEquals(setOf("26", "27", "28"), tallawong.facilities.keys)
+        assertTrue(tallawong.errors.isEmpty())
+
+        // Spot-check the screen-shape mapping landed.
+        val p1 = tallawong.facilities["26"]!!
+        assertEquals("26", p1.facility_id)
+        assertEquals("Test 26", p1.facility_name)
+        assertEquals(100, p1.total_spots)
+    }
+
+    @Test
+    fun `proto endpoint surfaces per-facility errors per-stop`() = testApplication {
+        val nsw = StubNswClient(failingIds = mapOf("27" to 503))
+        application { installRouting(nsw) }
+
+        val response = client.get("/api/v1/parking/availability-proto?stopIds=2155384")
+        assertEquals(HttpStatusCode.OK, response.status)
+
+        val proto = ParkingAvailabilityResponse.ADAPTER.decode(response.readRawBytes())
+        val tallawong = proto.stops["2155384"]!!
+
+        assertEquals(setOf("26", "28"), tallawong.facilities.keys)
+        assertEquals(setOf("27"), tallawong.errors.keys)
+        assertEquals("upstream_error", tallawong.errors["27"]!!.code)
+    }
+
+    @Test
+    fun `proto endpoint puts unknown stops in unknown_stops`() = testApplication {
+        val nsw = StubNswClient()
+        application { installRouting(nsw) }
+
+        val response = client.get("/api/v1/parking/availability-proto?stopIds=275010,9999999")
+        assertEquals(HttpStatusCode.OK, response.status)
+
+        val proto = ParkingAvailabilityResponse.ADAPTER.decode(response.readRawBytes())
+        assertEquals(setOf("275010"), proto.stops.keys)
+        assertEquals(listOf("9999999"), proto.unknown_stops)
+    }
+
+    @Test
+    fun `proto endpoint missing stopIds returns 400`() = testApplication {
+        val nsw = StubNswClient()
+        application { installRouting(nsw) }
+
+        val response = client.get("/api/v1/parking/availability-proto")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertContains(response.bodyAsText(), "missing_stop_ids")
     }
 
     // -------- Stub plumbing --------
 
-    /**
-     * Test stub for NswClient. Returns synthetic carpark JSON for any id
-     * unless the id is in [failingIds] (in which case it throws an
-     * NswUpstreamException with the configured status), or [budgetExhausted]
-     * is true (in which case every call throws NswBudgetExceededException).
-     */
     private class StubNswClient(
         private val failingIds: Map<String, Int> = emptyMap(),
         private val budgetExhausted: Boolean = false,
@@ -381,9 +267,7 @@ class ParkingBatchTest {
 
         override suspend fun getCarparkRaw(facilityId: String?): String {
             callCount++
-            if (budgetExhausted) {
-                throw NswBudgetExceededException()
-            }
+            if (budgetExhausted) throw NswBudgetExceededException()
             val status = failingIds[facilityId]
             if (status != null) {
                 throw NswUpstreamException(
@@ -392,9 +276,10 @@ class ParkingBatchTest {
                     responseBody = "",
                 )
             }
-            // Minimal synthetic body that mirrors NSW's shape.
+            // Minimal synthetic body that mirrors NSW's shape — enough fields
+            // for the JSON tests + the proto mapper to populate the proto.
             return """
-                {"facility_id":"$facilityId","facility_name":"Test $facilityId","spots":"100","zones":[]}
+                {"facility_id":"$facilityId","facility_name":"Test $facilityId","spots":"100","occupancy":{"total":"42"},"zones":[]}
             """.trimIndent()
         }
 
@@ -419,15 +304,8 @@ class ParkingBatchTest {
             throw UnsupportedOperationException("not used in batch test")
     }
 
-    /**
-     * Wires Koin with the stub NswClient and just enough plugins to test
-     * the batch endpoint end-to-end. Mirrors the production module order
-     * for the things that touch this endpoint (Correlation → Serialization
-     * → ParkingRoutes).
-     */
     private fun io.ktor.server.application.Application.installRouting(stub: NswClient) {
         configureDI()
-        // Override the NswClient binding with the test stub.
         org.koin.core.context.GlobalContext.get().loadModules(
             listOf(module { single<NswClient>(createdAtStart = false) { stub } }),
             allowOverride = true,
