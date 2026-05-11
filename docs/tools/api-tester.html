@@ -434,6 +434,18 @@
       ],
       nswCompare: ({ p, q }) => `https://api.transport.nsw.gov.au/v1/tp/departure_mon?name_dm=${p.stopId}&type_dm=any&mode=direct&excludedMeans=checkbox&limit=20${q.date ? `&itdDate=${q.date}` : ''}${q.time ? `&itdTime=${q.time}` : ''}&outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&TfNSWDM=true&version=10.2.1.42`,
     },
+    { id: 'departuresProto',     method: 'GET', path: '/api/v1/stops/{stopId}/departures-proto',
+      name: 'Departures — protobuf', group: 'home',
+      binary: true,
+      pathParams: [{ name: 'stopId', default: '200060' }],
+      params: [
+        { name: 'date', placeholder: 'YYYYMMDD' },
+        { name: 'time', placeholder: 'HHmm' },
+      ],
+      // Compare against NSW direct — gives the apples-to-apples
+      // "BFF proto vs NSW JSON" wire-size delta.
+      nswCompare: ({ p, q }) => `https://api.transport.nsw.gov.au/v1/tp/departure_mon?name_dm=${p.stopId}&type_dm=any&mode=direct&excludedMeans=checkbox&limit=20${q.date ? `&itdDate=${q.date}` : ''}${q.time ? `&itdTime=${q.time}` : ''}&outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&TfNSWDM=true&version=10.2.1.42`,
+    },
     { id: 'parkingList',         method: 'GET', path: '/v1/parking/facilities',
       name: 'Park & Ride — facility list', group: 'home',
       params: [],
@@ -444,6 +456,27 @@
       pathParams: [{ name: 'facilityId', default: '1' }],
       params: [],
       nswCompare: ({ p }) => `https://api.transport.nsw.gov.au/v1/carpark?facility=${p.facilityId}`,
+    },
+    { id: 'parkingAvailBatchJson', method: 'GET', path: '/v1/parking/availability',
+      name: 'Park & Ride — batch (JSON, stopIds)', group: 'home',
+      params: [
+        { name: 'stopIds', default: '2155384,275010' },
+      ],
+      // No single NSW URL maps — the BFF fan-out makes N upstream calls.
+      // Comparison value comes from clicking 'Compare with BFF JSON' on
+      // the proto variant below, which is the meaningful 'same data,
+      // different encoding' comparison.
+    },
+    { id: 'parkingAvailBatchProto', method: 'GET', path: '/api/v1/parking/availability-proto',
+      name: 'Park & Ride — batch (protobuf, stopIds)', group: 'home',
+      binary: true,
+      params: [
+        { name: 'stopIds', default: '2155384,275010' },
+      ],
+      // No single NSW URL — the BFF fan-out splits into N upstream calls.
+      // Compare-with-BFF-JSON shows the proto-vs-JSON wire-size delta
+      // for the same logical batch, which is the screen-relevant number.
+      compareWithBffJson: ({ q }) => `/v1/parking/availability?stopIds=${encodeURIComponent(q.stopIds)}`,
     },
     { id: 'gtfsRtV1',            method: 'GET', path: '/v1/gtfs/realtime/{feed}',
       name: 'GTFS-RT trip updates v1', group: 'track',
@@ -819,7 +852,11 @@
         <span class="label">or run</span>
         <input type="number" class="runs" min="2" max="100" value="10">
         <button class="run-multi secondary" type="button">× times</button>
-        ${e.nswCompare ? '<button class="compare secondary" type="button" title="Fire BFF and NSW direct in parallel, show side-by-side metrics">Compare with NSW</button>' : ''}
+        ${e.nswCompare
+          ? '<button class="compare secondary" type="button" title="Fire BFF and NSW direct in parallel, show side-by-side metrics">Compare with NSW</button>'
+          : e.compareWithBffJson
+            ? '<button class="compare secondary" type="button" title="Fire this endpoint and its BFF JSON variant in parallel, show side-by-side wire size">Compare with BFF JSON</button>'
+            : ''}
         <span class="label" style="margin-left: auto;">${e.binary ? 'binary response' : ''}</span>
       </div>
       <div class="response" id="response"></div>
@@ -1040,27 +1077,57 @@
   // ============================================================
   // BFF vs NSW direct comparison
   // ============================================================
+  /**
+   * Side-by-side comparison runner. Two modes:
+   *
+   *  - `nswCompare` defined          → fire BFF + NSW direct (via
+   *                                    /internal/passthrough) in parallel.
+   *                                    Right cell labelled "NSW direct".
+   *  - `compareWithBffJson` defined  → fire BFF (proto/this endpoint) +
+   *                                    BFF JSON variant in parallel.
+   *                                    Right cell labelled "BFF JSON variant".
+   *
+   * Use `nswCompare` when a single NSW URL maps cleanly. Use
+   * `compareWithBffJson` for batch endpoints where the BFF fan-out
+   * makes N NSW calls — comparing proto vs the JSON BFF variant is
+   * the screen-relevant "same data, different encoding" delta.
+   */
   async function runCompare(e) {
     const respEl = document.getElementById('response');
     const btn = document.querySelector('.compare');
+    const originalLabel = btn.textContent;
     btn.disabled = true; btn.textContent = 'Comparing…';
     const vals = endpointParamValues(e);
     const bffReq = buildRequestSnapshot(e, vals);
-    const nswUrl = e.nswCompare({ p: vals.path, q: vals.query });
-    const passthroughUrl = `${(baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '')}/internal/passthrough?url=${encodeURIComponent(nswUrl)}`;
+    const baseUrl = (baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '');
+
+    // Pick comparison mode + build the "other" URL we'll race the BFF against.
+    let otherUrl, otherLabel, fetchOtherUrl;
+    if (e.nswCompare) {
+      otherUrl = e.nswCompare({ p: vals.path, q: vals.query });
+      otherLabel = 'NSW direct (via /internal/passthrough)';
+      fetchOtherUrl = `${baseUrl}/internal/passthrough?url=${encodeURIComponent(otherUrl)}`;
+    } else if (e.compareWithBffJson) {
+      otherUrl = e.compareWithBffJson({ p: vals.path, q: vals.query });
+      otherLabel = 'BFF JSON variant';
+      // compareWithBffJson returns a BFF path relative to the base.
+      fetchOtherUrl = otherUrl.startsWith('http') ? otherUrl : `${baseUrl}${otherUrl}`;
+    } else {
+      btn.disabled = false; btn.textContent = originalLabel; return;
+    }
 
     try {
-      const [bff, nsw] = await Promise.allSettled([
+      const [bff, other] = await Promise.allSettled([
         sendRequest(e, vals),
-        rawFetch(passthroughUrl, 'GET', { 'X-Krail-Version': versionEl.value.trim() || undefined }, { binary: e.binary }),
+        rawFetch(fetchOtherUrl, 'GET', { 'X-Krail-Version': versionEl.value.trim() || undefined }, { binary: e.binary }),
       ]);
-      respEl.innerHTML = renderCompare(e, bffReq, nswUrl, bff, nsw);
+      respEl.innerHTML = renderCompare(e, bffReq, otherUrl, otherLabel, bff, other);
     } finally {
-      btn.disabled = false; btn.textContent = 'Compare with NSW';
+      btn.disabled = false; btn.textContent = originalLabel;
     }
   }
 
-  function renderCompare(e, bffReq, nswUrl, bffRes, nswRes) {
+  function renderCompare(e, bffReq, otherUrl, otherLabel, bffRes, otherRes) {
     const cell = (res, label) => {
       if (res.status === 'rejected') return `<div class="cmp-cell err"><div class="cmp-head">${label}</div><div class="cmp-status err">NETWORK ERROR</div><pre>${esc(res.reason?.message || String(res.reason))}</pre></div>`;
       const r = res.value;
@@ -1075,37 +1142,40 @@
         </div>
       `;
     };
+    // Short label for the "other" side in the summary row.
+    const otherShort = otherLabel.startsWith('NSW') ? 'NSW' : 'JSON';
     const summary = (() => {
-      if (bffRes.status !== 'fulfilled' || nswRes.status !== 'fulfilled') return '';
-      const b = bffRes.value, n = nswRes.value;
+      if (bffRes.status !== 'fulfilled' || otherRes.status !== 'fulfilled') return '';
+      const b = bffRes.value, n = otherRes.value;
       if (b.status >= 400 || n.status >= 400) return '';
       const sizeWin = n.decodedBytes ? Math.round((1 - b.decodedBytes / n.decodedBytes) * 100) : 0;
       const speedDelta = b.elapsed - n.elapsed;
       return `
         <div class="stats">
-          <div class="row"><span class="label">Body size</span><span class="value">BFF <strong>${fmtBytes(b.decodedBytes)}</strong> vs NSW <strong>${fmtBytes(n.decodedBytes)}</strong> → <strong style="color: ${sizeWin > 0 ? 'var(--ok)' : 'var(--warn)'};">BFF ${sizeWin > 0 ? '−' : '+'}${Math.abs(sizeWin)}%</strong></span></div>
-          <div class="row"><span class="label">Latency</span><span class="value">BFF <strong>${b.elapsed}</strong> ms vs NSW <strong>${n.elapsed}</strong> ms → <strong style="color: ${speedDelta < 0 ? 'var(--ok)' : 'var(--warn)'};">BFF ${speedDelta >= 0 ? '+' : ''}${speedDelta} ms</strong></span></div>
-          <div class="row"><span class="label">Note</span><span class="value" style="color: var(--muted);">BFF latency includes the BFF's call out to NSW + a tiny processing overhead. The size win is what matters most for mobile data plans.</span></div>
+          <div class="row"><span class="label">Body size</span><span class="value">BFF <strong>${fmtBytes(b.decodedBytes)}</strong> vs ${otherShort} <strong>${fmtBytes(n.decodedBytes)}</strong> → <strong style="color: ${sizeWin > 0 ? 'var(--ok)' : 'var(--warn)'};">BFF ${sizeWin > 0 ? '−' : '+'}${Math.abs(sizeWin)}%</strong></span></div>
+          <div class="row"><span class="label">Latency</span><span class="value">BFF <strong>${b.elapsed}</strong> ms vs ${otherShort} <strong>${n.elapsed}</strong> ms → <strong style="color: ${speedDelta < 0 ? 'var(--ok)' : 'var(--warn)'};">BFF ${speedDelta >= 0 ? '+' : ''}${speedDelta} ms</strong></span></div>
+          <div class="row"><span class="label">Note</span><span class="value" style="color: var(--muted);">${otherShort === 'NSW' ? "BFF latency includes the BFF's call out to NSW + a tiny processing overhead. The size win is what matters most for mobile data plans." : "Both endpoints fan out to the same upstream calls; the size win is purely encoding (proto vs JSON)."}</span></div>
         </div>
       `;
     })();
+
+    const footer = otherShort === 'NSW'
+      ? `<p style="color: var(--muted); font-size: 11px; margin-top: 8px;">ⓘ NSW comparison uses the BFF's <code>/internal/passthrough</code> endpoint (dev-only; disabled in production). If you see "passthrough_failed", verify <code>BFF_DEV_PASSTHROUGH=true</code> is set in <code>local.properties</code> and restart the server.</p>`
+      : `<p style="color: var(--muted); font-size: 11px; margin-top: 8px;">ⓘ Both endpoints hit the same BFF; the size delta is the encoding difference (binary proto vs JSON) for the same logical response.</p>`;
 
     return `
       <div class="inspector-status">
         <span class="badge ok">COMPARE</span>
         <span style="font-family: var(--mono); font-size: 12px;">${esc(e.name)}</span>
         <span class="inspector-url">BFF ${esc(bffReq.url)}</span>
-        <span class="inspector-url">NSW ${esc(nswUrl)}</span>
+        <span class="inspector-url">${otherShort} ${esc(otherUrl)}</span>
       </div>
       ${summary}
       <div class="cmp-grid">
         ${cell(bffRes, 'BFF')}
-        ${cell(nswRes, 'NSW direct (via /internal/passthrough)')}
+        ${cell(otherRes, otherLabel)}
       </div>
-      <p style="color: var(--muted); font-size: 11px; margin-top: 8px;">
-        ⓘ NSW comparison uses the BFF's <code>/internal/passthrough</code> endpoint (dev-only; disabled in production).
-        If you see "passthrough_failed", verify <code>BFF_DEV_PASSTHROUGH=true</code> is set in <code>local.properties</code> and restart the server.
-      </p>
+      ${footer}
     `;
   }
 
