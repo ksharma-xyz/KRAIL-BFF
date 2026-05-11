@@ -119,6 +119,16 @@
     background: var(--accent-soft); color: var(--accent);
     font-weight: 600; font-size: 10px;
   }
+  .card .ribbon .run-one {
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid var(--border); border-radius: 3px;
+    color: var(--muted); cursor: pointer;
+    padding: 2px 8px; font-size: 10px;
+    font-family: var(--mono); text-transform: none; letter-spacing: 0;
+  }
+  .card .ribbon .run-one:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .card .ribbon .run-one:disabled { opacity: 0.5; cursor: wait; }
   .card h3 { font-size: 14px; margin: 0 0 6px; font-weight: 500; }
   .card .url {
     font: 11px var(--mono); color: var(--muted);
@@ -469,7 +479,10 @@ function renderResultsSkeleton() {
   const s = activeScreen();
   $('results').innerHTML = s.paths.map(p => `
     <div class="card idle" data-id="${p.id}">
-      <div class="ribbon"><span class="badge">${p.label}</span></div>
+      <div class="ribbon">
+        <span class="badge">${p.label}</span>
+        <button class="run-one" data-id="${p.id}" title="Fire only this path">Run</button>
+      </div>
       <h3>${p.label}</h3>
       <div class="url" data-url-slot></div>
       <div class="stat-grid">
@@ -482,6 +495,16 @@ function renderResultsSkeleton() {
   `).join('');
   $('summary').style.display = 'none';
   $('summaryBody').innerHTML = '';
+  bindCardRunButtons();
+}
+
+function bindCardRunButtons() {
+  document.querySelectorAll('.card .run-one').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      runOne(btn.dataset.id);
+    });
+  });
 }
 
 function readInputs() {
@@ -615,7 +638,10 @@ function renderCard(path, r) {
   if (r.error) {
     card.classList.add('err');
     card.innerHTML = `
-      <div class="ribbon"><span class="badge">${esc(path.label)}</span></div>
+      <div class="ribbon">
+        <span class="badge">${esc(path.label)}</span>
+        <button class="run-one" data-id="${path.id}">Run</button>
+      </div>
       <h3>${esc(path.label)}</h3>
       <div class="url">${esc(path.build({ base: $('baseUrl').value.replace(/\/+$/, ''), i: readInputs() }))}</div>
       <div class="stat-grid">
@@ -624,6 +650,7 @@ function renderCard(path, r) {
       </div>
       <details class="body-detail"><summary>Error</summary><pre>${esc(r.error)}</pre></details>
     `;
+    bindCardRunButtons();
     return;
   }
 
@@ -632,7 +659,11 @@ function renderCard(path, r) {
   const wire = r.encodedBodySize != null && r.encodedBodySize > 0 ? fmtBytes(r.encodedBodySize) : '—';
 
   card.innerHTML = `
-    <div class="ribbon"><span class="badge">${esc(path.label)}</span><span class="${statusPill}">${r.status}</span></div>
+    <div class="ribbon">
+      <span class="badge">${esc(path.label)}</span>
+      <span class="${statusPill}">${r.status}</span>
+      <button class="run-one" data-id="${path.id}" title="Re-run only this path">Re-run</button>
+    </div>
     <h3>${esc(path.label)}</h3>
     <div class="url">${esc(path.build({ base: $('baseUrl').value.replace(/\/+$/, ''), i: readInputs() }))}</div>
     <div class="stat-grid">
@@ -648,9 +679,30 @@ function renderCard(path, r) {
     <details class="body-detail"><summary>Response body (${fmtBytes(r.decodedBytes)})</summary><pre>${esc(r.body)}</pre></details>
   `;
 
-  // Wire copy buttons.
+  // Wire copy + re-run buttons on this card.
   card.querySelector('.cp-url').addEventListener('click', () => navigator.clipboard.writeText(r.url));
   card.querySelector('.cp-body').addEventListener('click', () => navigator.clipboard.writeText(r.body));
+  bindCardRunButtons();
+}
+
+/**
+ * Fire exactly one path. Used by the Run / Re-run buttons in each card.
+ * Doesn't refresh the deltas table — that needs at least 2 fresh results.
+ */
+async function runOne(pathId) {
+  const s = activeScreen();
+  const path = s.paths.find(p => p.id === pathId);
+  if (!path) return;
+  const inputs = readInputs();
+  const base = ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
+
+  // Mark the card busy via the button text.
+  const btn = document.querySelector(`.card[data-id="${pathId}"] .run-one`);
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  const url = resolveUrl(path, base, inputs);
+  const r = await rawFetch(url, { binary: path.binary });
+  renderCard(path, r);
 }
 
 /**
