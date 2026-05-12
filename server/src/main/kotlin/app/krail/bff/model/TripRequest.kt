@@ -90,16 +90,43 @@ fun ApplicationCall.parseTripRequest(): TripRequest? {
 }
 
 /**
- * Validation errors for trip requests
+ * Validation errors for trip requests. Each carries a stable code (for client log/UX
+ * branching) and a generic message safe to send back.
  */
-sealed class TripRequestError(val message: String, val statusCode: Int) {
-    object MissingOrigin : TripRequestError("Missing 'origin' or 'name_origin' parameter", 400)
-    object MissingDestination : TripRequestError("Missing 'destination' or 'name_destination' parameter", 400)
+sealed class TripRequestError(val code: String, val message: String, val statusCode: Int = 400) {
+    data object MissingOrigin : TripRequestError("missing_origin", "Missing 'origin' or 'name_origin' parameter")
+    data object MissingDestination : TripRequestError("missing_destination", "Missing 'destination' or 'name_destination' parameter")
+    data object InvalidStopId : TripRequestError("invalid_stop_id", "Stop IDs must be 1–32 alphanumeric characters")
+    data object InvalidDate : TripRequestError("invalid_date", "date must be in YYYYMMDD format")
+    data object InvalidTime : TripRequestError("invalid_time", "time must be in HHmm format")
+    data object InvalidDepArr : TripRequestError("invalid_dep_arr", "depArr must be 'dep' or 'arr'")
+    data object InvalidMode : TripRequestError("invalid_mode", "Mode IDs must be a subset of 1, 2, 4, 5, 7, 9, 11")
 
     fun toErrorResponse() = mapOf(
         "error" to "Bad Request",
+        "code" to code,
         "message" to message,
-        "statusCode" to statusCode
+        "statusCode" to statusCode,
     )
+}
+
+private val STOP_ID_REGEX = Regex("^[A-Za-z0-9]{1,32}$")
+private val DATE_REGEX = Regex("^\\d{8}$")
+private val TIME_REGEX = Regex("^\\d{4}$")
+private val ALLOWED_DEP_ARR = setOf("dep", "arr")
+private val ALLOWED_MODES = setOf(1, 2, 4, 5, 7, 9, 11)
+
+/**
+ * Validate parsed [TripRequest]. Returns null when valid, otherwise the first
+ * encountered error (cheap-checks-first ordering).
+ */
+fun TripRequest.validate(): TripRequestError? = when {
+    !origin.matches(STOP_ID_REGEX) -> TripRequestError.InvalidStopId
+    !destination.matches(STOP_ID_REGEX) -> TripRequestError.InvalidStopId
+    depArr !in ALLOWED_DEP_ARR -> TripRequestError.InvalidDepArr
+    date != null && !date.matches(DATE_REGEX) -> TripRequestError.InvalidDate
+    time != null && !time.matches(TIME_REGEX) -> TripRequestError.InvalidTime
+    excludedModes.isNotEmpty() && !ALLOWED_MODES.containsAll(excludedModes) -> TripRequestError.InvalidMode
+    else -> null
 }
 

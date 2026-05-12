@@ -58,7 +58,8 @@ interface NswClient {
 class NswClientImpl(
     private val http: HttpClient,
     private val config: NswConfig,
-    metrics: MetricRegistry
+    metrics: MetricRegistry,
+    private val dailyBudget: NswDailyBudget,
 ) : NswClient {
 
     private val logger = LoggerFactory.getLogger(NswClientImpl::class.java)
@@ -121,6 +122,14 @@ class NswClientImpl(
         time: String?,
         excludedModes: Set<Int>
     ): TripResponse {
+        // Self-imposed daily budget check (Sydney midnight reset).
+        // Counted before the call attempt so that even failed calls consume budget — they
+        // still hit NSW quota.
+        if (!dailyBudget.tryAcquire()) {
+            tripError.inc()
+            throw NswBudgetExceededException()
+        }
+
         val ctx = tripTimer.time()
         return try {
             val baseUrl = "${config.baseUrl.trimEnd('/')}/v1/tp/trip"
@@ -217,7 +226,11 @@ class NswClientImpl(
             if (!response.status.isSuccess()) {
                 logger.error("❌ NSW API returned error status: {} - {}", response.status.value, response.status.description)
                 logger.error("Error response body: {}", responseText)
-                throw IllegalStateException("NSW API returned ${response.status.value}: ${response.status.description}. Body: $responseText")
+                throw NswUpstreamException(
+                    statusCode = response.status.value,
+                    message = "NSW API returned ${response.status.value} ${response.status.description}",
+                    responseBody = responseText,
+                )
             }
 
             // Parse using kotlinx.serialization

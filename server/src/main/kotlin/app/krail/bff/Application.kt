@@ -2,12 +2,14 @@ package app.krail.bff
 
 import app.krail.bff.di.configureDI
 import app.krail.bff.plugins.configureCompression
-import app.krail.bff.plugins.configureHTTP
-import app.krail.bff.plugins.configureMonitoring
-import app.krail.bff.plugins.configureSerialization
 import app.krail.bff.plugins.configureCorrelation
 import app.krail.bff.plugins.configureErrorHandling
+import app.krail.bff.plugins.configureHTTP
 import app.krail.bff.plugins.configureMobileAnalytics
+import app.krail.bff.plugins.configureMonitoring
+import app.krail.bff.plugins.configurePerIpRateLimit
+import app.krail.bff.plugins.configureSerialization
+import app.krail.bff.plugins.configureVersionGate
 import app.krail.bff.routes.configureAdministration
 import app.krail.bff.routes.configureRouting
 import app.krail.bff.routes.configureTripRoutes
@@ -27,6 +29,8 @@ fun Application.module() {
     configureCompression()
     configureSerialization()
     configureAdministration()
+    configureVersionGate()
+    configurePerIpRateLimit()
     configureHTTP()
     configureRouting()
     configureTripRoutes()

@@ -1,6 +1,7 @@
 package app.krail.bff
 
 import app.krail.bff.client.nsw.NswClientImpl
+import app.krail.bff.client.nsw.NswDailyBudget
 import app.krail.bff.config.NswConfig
 import com.codahale.metrics.MetricRegistry
 import io.ktor.client.HttpClient
@@ -25,7 +26,7 @@ class NswClientTest {
         }
         val cfg = baseCfg()
         val metrics = MetricRegistry()
-        val client = NswClientImpl(http, cfg, metrics)
+        val client = NswClientImpl(http, cfg, metrics, NswDailyBudget(Long.MAX_VALUE))
         val ok = kotlinx.coroutines.runBlocking { client.healthCheck() }
         assertTrue(ok)
         assertEquals(1L, metrics.counter("nsw.health.result.success").count)
@@ -44,7 +45,7 @@ class NswClientTest {
         val http = HttpClient(engine) {}
         val cfg = baseCfg().copy(breakerFailureThreshold = 2, breakerResetTimeoutMs = 10_000)
         val metrics = MetricRegistry()
-        val client = NswClientImpl(http, cfg, metrics)
+        val client = NswClientImpl(http, cfg, metrics, NswDailyBudget(Long.MAX_VALUE))
 
         val r1 = kotlinx.coroutines.runBlocking { client.healthCheck() }
         assertFalse(r1)
