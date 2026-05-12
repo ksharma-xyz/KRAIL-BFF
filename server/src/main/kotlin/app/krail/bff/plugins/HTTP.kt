@@ -58,6 +58,18 @@ fun Application.configureHTTP() {
         maxAgeInSeconds = 3600
     }
 
+    // Resource Timing API exposes only a subset of fields cross-origin
+    // unless the server opts in via Timing-Allow-Origin. Without this,
+    // the dashboard at :8000 can't read `encodedBodySize` for responses
+    // from :8080 and shows '—' for the gzipped wire-size column.
+    //
+    // Harmless to set globally — Timing-Allow-Origin governs what timing
+    // metrics the browser exposes to a page, not who can read the body
+    // (CORS still does that).
+    intercept(ApplicationCallPipeline.Plugins) {
+        call.response.headers.append("Timing-Allow-Origin", "*")
+    }
+
     // Global aggregate rate limiter — backstop only. Per-IP limiter is the primary
     // defence (see configurePerIpRateLimit). Defaults are intentionally generous
     // because per-IP catches the common case; this only fires on cross-IP floods.
