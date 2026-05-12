@@ -30,7 +30,7 @@ to a real host — Phase B (production rollout) is blocked on that step.
   green ([report](PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md), 2026-05-11).
 - ⏳ Phase B (production rollout, Firebase RC cohort) — blocked on BFF deploy.
 - ⏳ Phase C (KRAIL adopts proto endpoint) — foundation laid in KRAIL repo.
-- ⏳ Phase D (local stop search via dataset) — schema ready, not wired.
+- ❌ Phase D (local stop search via dataset) — **dropped**. KRAIL stays on NSW direct for `stop_finder` indefinitely. The stops-dataset manifest endpoint stays in the BFF but unused.
 - ⏳ Phase E (delete in-app NSW key) — depends on A–D at 100%.
 
 ## Pick your doc
@@ -71,7 +71,7 @@ point-and-click access to every endpoint, grouped by KRAIL screen.
 | `/api/v1/parking/availability-proto?stopIds=` | binary protobuf | Park & Ride home batch — preferred |
 | `/v[1\|2]/gtfs/realtime/{feed}` | binary protobuf | Live tracking |
 | `/v2/gtfs/vehiclepos/{feed}` | binary protobuf | Map markers |
-| `/v1/data/{stops\|routes}/manifest` | 302 → JSON manifest → `.pb` | Phase D dataset |
+| `/v1/data/{stops\|routes}/manifest` | 302 → JSON manifest → `.pb` | (unused; Phase D dropped) |
 | `/health`, `/ready` | JSON | Operational probes |
 
 **Two BFF design choices to know about:**

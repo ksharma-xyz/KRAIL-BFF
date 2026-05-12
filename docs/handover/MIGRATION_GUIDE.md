@@ -14,7 +14,7 @@
 | **A** | Local-debug override on KRAIL — prove the wire reaches end-to-end | Very low; release unaffected |
 | **B** | Production rollout behind Firebase RC + cohort 10 / 50 / 100 | Medium; rollout discipline matters |
 | **C** | Adopt the proto trip endpoint (`/api/v1/trip/plan-proto`) | Medium; iOS Wire codegen needs care |
-| **D** | Local stop search via the distributed stops dataset (.pb) | Low; weekly dataset already publishing |
+| **D** | Local stop search via the distributed stops dataset (.pb) | Low; **optional** — drop only if you want to remove NSW direct for stop search. KRAIL is fine staying on NSW direct for stop_finder indefinitely. |
 | **E** | Delete the in-app NSW API key | Trivial once D is done |
 
 Phase A on the KRAIL side is **already done** (validated 2026-05-10
@@ -346,11 +346,21 @@ delete the RC flag, delete the model. That's the surface-area win.
 
 ---
 
-## 6 · Phase D — local stop search via stops dataset
+## 6 · Phase D — local stop search via stops dataset (optional)
 
-**Why:** the BFF doesn't have a `stop_finder` endpoint. Stop search is
-high-frequency (every keystroke) and NSW's `stop_finder` is slow +
-rate-limited. The plan: weekly stops dataset distributed via GitHub
+**Decision as of 2026-05-12: KRAIL stays on NSW direct for
+`stop_finder` indefinitely.** The BFF will not have a `stop_finder`
+endpoint, and Phase D below is **optional** — only do it if you
+later decide stop search needs to be offline-capable or you want
+to fully remove NSW-direct calls from the app.
+
+**Implication for Phase E:** if you keep NSW direct for stop search,
+the in-app NSW API key can't be deleted. It stays for stop search
+only. That's a fine endpoint of the migration if Phase D is skipped.
+
+**Why Phase D would be done:** stop search is high-frequency
+(every keystroke) and NSW's `stop_finder` is slow + rate-limited.
+The plan would be: weekly stops dataset distributed via GitHub
 Releases, KRAIL caches locally, all stop search runs offline.
 
 ### 6.1 Steps
