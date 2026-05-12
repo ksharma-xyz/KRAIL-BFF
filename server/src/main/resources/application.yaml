@@ -33,3 +33,7 @@ bff:
         burst: 10
         # Soft cap on tracked IPs in memory. Override via BFF_PER_IP_MAX.
         maxIps: 10000
+    # Cloudflare-shared secret. Required in production (must match Cloudflare's
+    # Transform Rule value). Empty/unset disables the gate (dev/test default).
+    # Override via CF_ORIGIN_TOKEN env var.
+    cfOriginToken: ""

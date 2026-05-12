@@ -1,0 +1,70 @@
+# DigitalOcean App Platform spec.
+#
+# Deploys the BFF as a single Basic-XXS container (US$5/mo) in Sydney.
+# `deploy_on_push: true` makes DO redeploy whenever main moves; the
+# branch ruleset on main + the pr.yml workflow gate that with tests.
+#
+# Apply with: `doctl apps update <APP_ID> --spec .do/app.yaml`
+# (or `doctl apps create --spec .do/app.yaml` for the first time).
+#
+# Secret env vars (NSW_API_KEY, CF_ORIGIN_TOKEN) are NOT in this file.
+# Set them in the DO console or via:
+#   doctl apps update <APP_ID> --spec .do/app.yaml \
+#     --env NSW_API_KEY=... --env CF_ORIGIN_TOKEN=...
+# Once set, they persist as encrypted secrets.
+
+name: krail-bff
+region: syd
+
+services:
+  - name: web
+    dockerfile_path: Dockerfile
+    source_dir: /
+
+    github:
+      repo: ksharma-xyz/KRAIL-BFF
+      branch: main
+      deploy_on_push: true
+
+    instance_count: 1
+    instance_size_slug: basic-xxs
+
+    http_port: 8080
+
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 3
+      success_threshold: 1
+      failure_threshold: 3
+
+    routes:
+      - path: /
+
+    # Non-secret env. Secrets (NSW_API_KEY, CF_ORIGIN_TOKEN) set via DO console.
+    envs:
+      - key: BFF_CORS_ORIGINS
+        scope: RUN_TIME
+        value: ""
+      - key: MIN_APP_VERSION
+        scope: RUN_TIME
+        value: "0.0.0"
+      - key: NSW_DAILY_BUDGET
+        scope: RUN_TIME
+        value: "10000"
+      - key: BFF_PER_IP_RPS
+        scope: RUN_TIME
+        value: "5"
+      - key: BFF_PER_IP_BURST
+        scope: RUN_TIME
+        value: "10"
+      - key: BFF_PER_IP_MAX
+        scope: RUN_TIME
+        value: "10000"
+      - key: BFF_RATE_LIMIT_RPS
+        scope: RUN_TIME
+        value: "50"
+      - key: BFF_RATE_LIMIT_BURST
+        scope: RUN_TIME
+        value: "100"
