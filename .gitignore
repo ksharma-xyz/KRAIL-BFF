@@ -38,6 +38,13 @@ out/
 ### Local Configuration ###
 # Keep your API keys and secrets here - never commit this file!
 local.properties
+
+### Local operational notes (deploy checklists, scratch pads) ###
+# These may contain secrets, hostnames, or env-var values during a
+# deploy. Wipe + recreate fresh per deploy.
+DEPLOY_CHECKLIST.md
+NOTES.md
+SCRATCH.md
 .env
 .env.*
 !.env.example
