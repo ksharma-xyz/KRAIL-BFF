@@ -35,3 +35,7 @@ nsw.apiKey=your-api-key-here
 # Cloudflare Transform Rule that adds the CF-Origin-Token header.
 # bff.cfOriginToken=
 
+# Optional: stops dataset manifest URL. /v1/data/stops/manifest redirects here.
+# Production: GitHub Releases asset URL. Empty/unset returns 404.
+# data.stops.manifestUrl=https://github.com/ksharma-xyz/KRAIL-BFF/releases/latest/download/manifest.json
+
