@@ -1,0 +1,31 @@
+meta {
+  name: Trip plan (protobuf)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/trip/plan-proto?origin=200060&destination=10101100&depArr=dep
+  body: none
+  auth: none
+}
+
+params:query {
+  origin: 200060
+  destination: 10101100
+  depArr: dep
+}
+
+headers {
+  X-Krail-Version: {{appVersion}}
+  Accept: application/protobuf
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test("returns protobuf", function() {
+    expect(res.getHeader("content-type")).to.match(/protobuf/);
+  });
+}

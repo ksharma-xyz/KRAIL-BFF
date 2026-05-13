@@ -1,0 +1,26 @@
+meta {
+  name: Trip plan (legacy NSW shape)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/v1/tp/trip?origin=200060&destination=10101100
+  body: none
+  auth: none
+}
+
+params:query {
+  origin: 200060
+  destination: 10101100
+}
+
+headers {
+  X-Krail-Version: {{appVersion}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

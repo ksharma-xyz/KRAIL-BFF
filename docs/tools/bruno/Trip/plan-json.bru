@@ -1,0 +1,33 @@
+meta {
+  name: Trip plan (JSON)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/trip/plan?origin=200060&destination=10101100&depArr=dep
+  body: none
+  auth: none
+}
+
+params:query {
+  origin: 200060
+  destination: 10101100
+  depArr: dep
+  ~date: 20260508
+  ~time: 1830
+  ~excludedModes: 1,4
+}
+
+headers {
+  X-Krail-Version: {{appVersion}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test("returns JSON", function() {
+    expect(res.getHeader("content-type")).to.match(/json/);
+  });
+}

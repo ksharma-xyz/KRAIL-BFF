@@ -1,0 +1,23 @@
+meta {
+  name: Stops dataset manifest
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/v1/data/stops/manifest
+  body: none
+  auth: none
+}
+
+headers {
+  X-Krail-Version: {{appVersion}}
+}
+
+tests {
+  test("status is 302 or 200 or 404", function() {
+    // 302 once STOPS_MANIFEST_URL is configured + Bruno follows redirect → 200.
+    // 404 with structured envelope before the workflow has published a release.
+    expect([200, 302, 404]).to.include(res.getStatus());
+  });
+}
