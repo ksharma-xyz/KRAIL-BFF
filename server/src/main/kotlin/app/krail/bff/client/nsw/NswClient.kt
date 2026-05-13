@@ -53,6 +53,12 @@ interface NswClient {
         time: String? = null,
         excludedModes: Set<Int> = emptySet()
     ): JourneyList
+
+    /** Departure board for a stop. Returns raw NSW JSON body. */
+    suspend fun getDeparturesRaw(stopId: String, date: String? = null, time: String? = null): String
+
+    /** Park & ride facility list (omit facilityId) or single facility detail. Returns raw NSW JSON. */
+    suspend fun getCarparkRaw(facilityId: String? = null): String
 }
 
 class NswClientImpl(
@@ -78,6 +84,12 @@ class NswClientImpl(
     private val tripTimer = metrics.timer("nsw.trip.duration")
     private val tripSuccess = metrics.counter("nsw.trip.success")
     private val tripError = metrics.counter("nsw.trip.error")
+
+    // Departures + parking metrics
+    private val departuresTimer = metrics.timer("nsw.departures.duration")
+    private val departuresError = metrics.counter("nsw.departures.error")
+    private val carparkTimer = metrics.timer("nsw.carpark.duration")
+    private val carparkError = metrics.counter("nsw.carpark.error")
 
     override suspend fun healthCheck(): Boolean {
         val now = System.currentTimeMillis()
@@ -322,6 +334,84 @@ class NswClientImpl(
             openUntilEpochMs.set(now + config.breakerResetTimeoutMs)
             failures.set(0)
             logger.warn("Circuit breaker opened - failure threshold reached: {}", n)
+        }
+    }
+
+    override suspend fun getDeparturesRaw(stopId: String, date: String?, time: String?): String {
+        if (!dailyBudget.tryAcquire()) {
+            departuresError.inc()
+            throw NswBudgetExceededException()
+        }
+        val ctx = departuresTimer.time()
+        return try {
+            val response = http.get("${config.baseUrl.trimEnd('/')}/v1/tp/departure_mon") {
+                headers.append("Authorization", "apikey ${config.apiKey}")
+                url {
+                    parameters.append("name_dm", stopId)
+                    parameters.append("type_dm", "any")
+                    parameters.append("mode", "direct")
+                    parameters.append("excludedMeans", "checkbox")
+                    parameters.append("limit", "20")
+                    date?.let { parameters.append("itdDate", it) }
+                    time?.let { parameters.append("itdTime", it) }
+                    parameters.append("outputFormat", "rapidJSON")
+                    parameters.append("coordOutputFormat", "EPSG:4326")
+                    parameters.append("TfNSWDM", "true")
+                    parameters.append("version", "10.2.1.42")
+                }
+            }
+            val body = response.bodyAsText()
+            if (!response.status.isSuccess()) {
+                departuresError.inc()
+                throw NswUpstreamException(
+                    statusCode = response.status.value,
+                    message = "NSW departure_mon returned ${response.status.value} ${response.status.description}",
+                    responseBody = body,
+                )
+            }
+            body
+        } catch (e: NswException) {
+            throw e
+        } catch (e: Throwable) {
+            departuresError.inc()
+            logger.error("Failed to fetch departures for stop {}", stopId, e)
+            throw e
+        } finally {
+            ctx.stop()
+        }
+    }
+
+    override suspend fun getCarparkRaw(facilityId: String?): String {
+        if (!dailyBudget.tryAcquire()) {
+            carparkError.inc()
+            throw NswBudgetExceededException()
+        }
+        val ctx = carparkTimer.time()
+        return try {
+            val response = http.get("${config.baseUrl.trimEnd('/')}/v1/carpark") {
+                headers.append("Authorization", "apikey ${config.apiKey}")
+                url {
+                    facilityId?.let { parameters.append("facility", it) }
+                }
+            }
+            val body = response.bodyAsText()
+            if (!response.status.isSuccess()) {
+                carparkError.inc()
+                throw NswUpstreamException(
+                    statusCode = response.status.value,
+                    message = "NSW carpark returned ${response.status.value} ${response.status.description}",
+                    responseBody = body,
+                )
+            }
+            body
+        } catch (e: NswException) {
+            throw e
+        } catch (e: Throwable) {
+            carparkError.inc()
+            logger.error("Failed to fetch carpark (facility={})", facilityId, e)
+            throw e
+        } finally {
+            ctx.stop()
         }
     }
 }
