@@ -1,389 +1,600 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KRAIL BFF - API Tester</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KRAIL BFF — API Tester</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #1c2128;
+    --panel-elev: #22272e;
+    --border: #373e47;
+    --fg: #cdd9e5;
+    --muted: #768390;
+    --accent: #4493f8;
+    --accent-soft: #1f6feb40;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --err: #f85149;
+    --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--fg); }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  header { padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  header h1 { font-size: 22px; margin: 0 0 4px; }
+  header p { color: var(--muted); margin: 0; }
+  header code { font-family: var(--mono); }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+  .config {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+  .config h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .config-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .config-row > div { flex: 1 1 240px; min-width: 200px; }
+  .config-row label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .config-row input {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .config-row input:focus { outline: none; border-color: var(--accent); }
+  .session-note { color: var(--muted); font-size: 12px; margin-top: 12px; }
+  .session-note button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-left: 8px;
+  }
+  .session-note button:hover { background: var(--panel-elev); }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+  .endpoint {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .endpoint-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    user-select: none;
+  }
+  .endpoint-head:hover { background: var(--panel-elev); }
+  .endpoint-head .method {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .endpoint-head .path { font-family: var(--mono); flex: 1; color: var(--fg); }
+  .endpoint-head .name { color: var(--muted); font-size: 13px; }
+  .endpoint-body { padding: 16px; display: none; }
+  .endpoint.open .endpoint-body { display: block; }
+  .endpoint .params { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .endpoint .params label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .endpoint .params input {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .endpoint .params input:focus { outline: none; border-color: var(--accent); }
+  .endpoint button.send {
+    background: var(--accent);
+    color: white;
+    border: 0;
+    padding: 7px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .endpoint button.send:hover { background: #3683e1; }
+  .endpoint button.send:disabled { opacity: 0.5; cursor: wait; }
 
-        .header {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
+  .response { margin-top: 12px; }
+  .response-head { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 8px; flex-wrap: wrap; }
+  .response-head .status { font-family: var(--mono); }
+  .status.ok { color: var(--ok); }
+  .status.warn { color: var(--warn); }
+  .status.err { color: var(--err); }
+  .response pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 360px;
+    overflow: auto;
+  }
+  .response .empty { color: var(--muted); font-style: italic; padding: 8px 0; }
 
-        .header h1 {
-            color: #667eea;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            color: #666;
-            font-size: 16px;
-        }
-
-        .test-panel {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-
-        .test-panel h2 {
-            color: #333;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .status-badge {
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .status-success {
-            background: #10b981;
-            color: white;
-        }
-
-        .status-error {
-            background: #ef4444;
-            color: white;
-        }
-
-        .status-pending {
-            background: #f59e0b;
-            color: white;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #333;
-            font-weight: 500;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 10px;
-            border: 2px solid #e5e7eb;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .response-box {
-            background: #f9fafb;
-            border: 2px solid #e5e7eb;
-            border-radius: 6px;
-            padding: 15px;
-            margin-top: 20px;
-            max-height: 500px;
-            overflow-y: auto;
-        }
-
-        .response-box pre {
-            margin: 0;
-            font-family: 'Monaco', 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.5;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-
-        .journey-card {
-            background: #f0fdf4;
-            border: 2px solid #86efac;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 10px;
-        }
-
-        .journey-card h4 {
-            color: #166534;
-            margin-bottom: 10px;
-        }
-
-        .journey-card p {
-            color: #166534;
-            margin: 5px 0;
-            font-size: 14px;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .stat-card h3 {
-            font-size: 32px;
-            margin-bottom: 5px;
-        }
-
-        .stat-card p {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
+  .smoke {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 24px;
+  }
+  .smoke h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .smoke button {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 7px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .smoke button:hover { background: var(--accent-soft); }
+  .smoke button:disabled { opacity: 0.5; cursor: wait; }
+  .smoke-results { margin-top: 12px; font-family: var(--mono); font-size: 12px; }
+  .smoke-row { display: flex; gap: 10px; padding: 4px 0; }
+  .smoke-row .label { flex: 1; color: var(--muted); }
+  .smoke-row .pass { color: var(--ok); }
+  .smoke-row .fail { color: var(--err); }
+  .smoke-row .pending { color: var(--warn); }
+</style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🚂 KRAIL BFF API Tester</h1>
-            <p>Test your Backend-for-Frontend API endpoints in the browser</p>
-        </div>
+<div class="wrap">
 
-        <div class="test-panel">
-            <h2>
-                Test Endpoint
-                <span class="status-badge" id="status-badge">Ready</span>
-            </h2>
+  <header>
+    <h1>KRAIL BFF — API Tester</h1>
+    <p>Single-page tester for every BFF endpoint. Open <code>file://</code> or via any local server. Config + form values are kept in <strong>sessionStorage</strong> (cleared on tab close).</p>
+  </header>
 
-            <div class="form-group">
-                <label for="origin">Origin Stop ID</label>
-                <input type="text" id="origin" value="200060" placeholder="e.g., 200060 (Central Station)">
-            </div>
-
-            <div class="form-group">
-                <label for="destination">Destination Stop ID</label>
-                <input type="text" id="destination" value="200070" placeholder="e.g., 200070 (Town Hall Station)">
-            </div>
-
-            <div class="form-group">
-                <label for="endpoint">Endpoint URL</label>
-                <input type="text" id="endpoint" value="http://localhost:8080/v1/tp/trip" readonly>
-            </div>
-
-            <button class="btn" id="test-btn" onclick="testEndpoint()">
-                🚀 Test API
-            </button>
-
-            <div class="stats" id="stats" style="display: none;">
-                <div class="stat-card">
-                    <h3 id="journey-count">-</h3>
-                    <p>Journeys Found</p>
-                </div>
-                <div class="stat-card">
-                    <h3 id="response-size">-</h3>
-                    <p>Response Size</p>
-                </div>
-                <div class="stat-card">
-                    <h3 id="response-time">-</h3>
-                    <p>Response Time</p>
-                </div>
-            </div>
-
-            <div class="response-box" id="response-box" style="display: none;">
-                <pre id="response-content"></pre>
-            </div>
-        </div>
-
-        <div class="test-panel" id="journeys-panel" style="display: none;">
-            <h2>📋 Journeys</h2>
-            <div id="journeys-list"></div>
-        </div>
+  <section class="config">
+    <h2>Config</h2>
+    <div class="config-row">
+      <div>
+        <label for="baseUrl">Base URL</label>
+        <input id="baseUrl" placeholder="http://localhost:8080" autocomplete="off">
+      </div>
+      <div>
+        <label for="auth">Authorization (sessionStorage; sent only if non-empty)</label>
+        <input id="auth" type="password" placeholder="apikey ..." autocomplete="off">
+      </div>
+      <div>
+        <label for="version">X-Krail-Version (sent only if non-empty)</label>
+        <input id="version" placeholder="1.5.0" autocomplete="off">
+      </div>
     </div>
+    <p class="session-note">
+      Values persist for this tab only. Closing the tab wipes everything.
+      <button id="clearSession" type="button">Clear session storage now</button>
+    </p>
+  </section>
 
-    <script>
-        async function testEndpoint() {
-            const origin = document.getElementById('origin').value;
-            const destination = document.getElementById('destination').value;
-            const endpoint = document.getElementById('endpoint').value;
-            const statusBadge = document.getElementById('status-badge');
-            const responseBox = document.getElementById('response-box');
-            const responseContent = document.getElementById('response-content');
-            const testBtn = document.getElementById('test-btn');
-            const stats = document.getElementById('stats');
-            const journeysPanel = document.getElementById('journeys-panel');
-            const journeysList = document.getElementById('journeys-list');
+  <main id="endpoints"></main>
 
-            // Reset
-            statusBadge.className = 'status-badge status-pending';
-            statusBadge.textContent = 'Loading...';
-            testBtn.disabled = true;
-            testBtn.innerHTML = '<span class="loading"></span> Testing...';
-            responseBox.style.display = 'none';
-            stats.style.display = 'none';
-            journeysPanel.style.display = 'none';
+  <section class="smoke">
+    <h2>Smoke tests</h2>
+    <p style="color: var(--muted); margin: 0 0 10px;">Runs every <code>GET</code> endpoint in sequence with the inputs filled above. Useful after a deploy or when the server is first stood up locally.</p>
+    <button id="runSmoke" type="button">Run all GETs</button>
+    <div class="smoke-results" id="smokeResults"></div>
+  </section>
 
-            const url = `${endpoint}?name_origin=${origin}&name_destination=${destination}&depArrMacro=dep&excludedMeans=checkbox`;
+  <p style="color: var(--muted); font-size: 12px; margin-top: 32px;">
+    Source: <code>docs/tools/api-tester.html</code>. Future: extend the <code>endpoints</code> array below to add more tests.
+  </p>
+</div>
 
-            const startTime = performance.now();
+<script>
+  // Endpoint catalogue. Add new entries here to expose them in the UI and smoke runner.
+  const endpoints = [
+    {
+      id: 'health',
+      method: 'GET',
+      path: '/health',
+      name: 'Health probe (no auth required)',
+      params: [],
+      smoke: { include: true },
+    },
+    {
+      id: 'ready',
+      method: 'GET',
+      path: '/ready',
+      name: 'Readiness probe (NSW upstream check)',
+      params: [],
+      smoke: { include: true },
+    },
+    {
+      id: 'tripPlanJson',
+      method: 'GET',
+      path: '/api/v1/trip/plan',
+      name: 'Trip planner — JSON',
+      params: [
+        { name: 'origin', default: '200060' },
+        { name: 'destination', default: '10101100' },
+        { name: 'depArr', default: 'dep' },
+        { name: 'date', placeholder: 'YYYYMMDD (optional)' },
+        { name: 'time', placeholder: 'HHmm (optional)' },
+        { name: 'excludedModes', placeholder: 'comma-separated (optional)' },
+      ],
+      smoke: { include: true },
+    },
+    {
+      id: 'tripPlanProto',
+      method: 'GET',
+      path: '/api/v1/trip/plan-proto',
+      name: 'Trip planner — protobuf binary',
+      binary: true,
+      params: [
+        { name: 'origin', default: '200060' },
+        { name: 'destination', default: '10101100' },
+        { name: 'depArr', default: 'dep' },
+      ],
+      smoke: { include: true },
+    },
+    {
+      id: 'tripLegacy',
+      method: 'GET',
+      path: '/v1/tp/trip',
+      name: 'Trip planner — legacy NSW-shape JSON',
+      params: [
+        { name: 'origin', default: '200060' },
+        { name: 'destination', default: '10101100' },
+      ],
+      smoke: { include: false },
+    },
+    {
+      id: 'departures',
+      method: 'GET',
+      path: '/v1/stops/{stopId}/departures',
+      name: 'Departure board for a stop',
+      pathParams: [{ name: 'stopId', default: '200060' }],
+      params: [
+        { name: 'date', placeholder: 'YYYYMMDD (optional)' },
+        { name: 'time', placeholder: 'HHmm (optional)' },
+      ],
+      smoke: { include: true, pathFill: { stopId: '200060' } },
+    },
+    {
+      id: 'parkingList',
+      method: 'GET',
+      path: '/v1/parking/facilities',
+      name: 'Park & Ride — facility list',
+      params: [],
+      smoke: { include: true },
+    },
+    {
+      id: 'parkingAvailability',
+      method: 'GET',
+      path: '/v1/parking/facilities/{facilityId}/availability',
+      name: 'Park & Ride — availability for a facility',
+      pathParams: [{ name: 'facilityId', default: '1' }],
+      params: [],
+      smoke: { include: true, pathFill: { facilityId: '1' } },
+    },
+    {
+      id: 'gtfsRtV1',
+      method: 'GET',
+      path: '/v1/gtfs/realtime/{feed}',
+      name: 'GTFS-RT trip updates v1 (binary)',
+      binary: true,
+      pathParams: [{ name: 'feed', default: 'buses' }],
+      params: [],
+      smoke: { include: true, pathFill: { feed: 'buses' } },
+    },
+    {
+      id: 'gtfsRtV2',
+      method: 'GET',
+      path: '/v2/gtfs/realtime/{feed}',
+      name: 'GTFS-RT trip updates v2 (binary)',
+      binary: true,
+      pathParams: [{ name: 'feed', default: 'sydneytrains' }],
+      params: [],
+      smoke: { include: true, pathFill: { feed: 'sydneytrains' } },
+    },
+    {
+      id: 'gtfsVehiclepos',
+      method: 'GET',
+      path: '/v2/gtfs/vehiclepos/{feed}',
+      name: 'GTFS-RT vehicle positions (binary)',
+      binary: true,
+      pathParams: [{ name: 'feed', default: 'sydneytrains' }],
+      params: [],
+      smoke: { include: true, pathFill: { feed: 'sydneytrains' } },
+    },
+    {
+      id: 'stopsManifest',
+      method: 'GET',
+      path: '/v1/data/stops/manifest',
+      name: 'Stops dataset manifest (302 redirect)',
+      params: [],
+      followRedirect: true,
+      smoke: { include: true },
+    },
+    {
+      id: 'routesManifest',
+      method: 'GET',
+      path: '/v1/data/routes/manifest',
+      name: 'Routes dataset manifest (302 redirect)',
+      params: [],
+      followRedirect: true,
+      smoke: { include: true },
+    },
+  ];
 
-            try {
-                const response = await fetch(url);
-                const endTime = performance.now();
-                const responseTime = Math.round(endTime - startTime);
+  // ---- Storage helpers (sessionStorage only — wiped on tab close) ----
 
-                const contentType = response.headers.get('content-type');
-                const data = await response.json();
+  const SS = window.sessionStorage;
+  const SS_PREFIX = 'krail-bff-tester:';
+  const ssGet = (k, fallback = '') => SS.getItem(SS_PREFIX + k) ?? fallback;
+  const ssSet = (k, v) => { v ? SS.setItem(SS_PREFIX + k, v) : SS.removeItem(SS_PREFIX + k); };
+  const ssClear = () => {
+    Object.keys(SS).filter(k => k.startsWith(SS_PREFIX)).forEach(k => SS.removeItem(k));
+  };
 
-                if (response.ok) {
-                    statusBadge.className = 'status-badge status-success';
-                    statusBadge.textContent = '✅ Success';
+  // ---- Config bar ----
 
-                    // Show stats
-                    stats.style.display = 'grid';
-                    document.getElementById('journey-count').textContent = data.journeys?.length || 0;
-                    document.getElementById('response-size').textContent = formatBytes(JSON.stringify(data).length);
-                    document.getElementById('response-time').textContent = `${responseTime}ms`;
+  const baseUrlEl = document.getElementById('baseUrl');
+  const authEl = document.getElementById('auth');
+  const versionEl = document.getElementById('version');
 
-                    // Show formatted JSON
-                    responseBox.style.display = 'block';
-                    responseContent.textContent = JSON.stringify(data, null, 2);
+  baseUrlEl.value = ssGet('baseUrl', 'http://localhost:8080');
+  authEl.value = ssGet('auth');
+  versionEl.value = ssGet('version');
 
-                    // Show journeys
-                    if (data.journeys && data.journeys.length > 0) {
-                        journeysPanel.style.display = 'block';
-                        journeysList.innerHTML = data.journeys.map((journey, index) => {
-                            const leg = journey.legs[0];
-                            const origin = leg?.origin?.disassembledName || leg?.origin?.name || 'Unknown';
-                            const destination = leg?.destination?.disassembledName || leg?.destination?.name || 'Unknown';
-                            const departure = leg?.origin?.departureTimePlanned || leg?.origin?.departureTimeEstimated;
-                            const arrival = leg?.destination?.arrivalTimePlanned || leg?.destination?.arrivalTimeEstimated;
-                            const transport = leg?.transportation?.disassembledName || leg?.transportation?.number || 'Walk';
+  baseUrlEl.addEventListener('input', () => ssSet('baseUrl', baseUrlEl.value.trim()));
+  authEl.addEventListener('input', () => ssSet('auth', authEl.value));
+  versionEl.addEventListener('input', () => ssSet('version', versionEl.value.trim()));
 
-                            return `
-                                <div class="journey-card">
-                                    <h4>Journey ${index + 1}: ${transport}</h4>
-                                    <p><strong>From:</strong> ${origin}</p>
-                                    <p><strong>To:</strong> ${destination}</p>
-                                    <p><strong>Departs:</strong> ${formatTime(departure)}</p>
-                                    <p><strong>Arrives:</strong> ${formatTime(arrival)}</p>
-                                </div>
-                            `;
-                        }).join('');
-                    }
-                } else {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-            } catch (error) {
-                statusBadge.className = 'status-badge status-error';
-                statusBadge.textContent = '❌ Error';
-                responseBox.style.display = 'block';
+  document.getElementById('clearSession').addEventListener('click', () => {
+    ssClear();
+    baseUrlEl.value = 'http://localhost:8080';
+    authEl.value = '';
+    versionEl.value = '';
+    document.querySelectorAll('.endpoint .params input').forEach(i => { i.value = i.dataset.default || ''; });
+    document.querySelectorAll('.response').forEach(r => { r.innerHTML = '<div class="empty">No request sent yet.</div>'; });
+  });
 
-                let errorDetails = `Error: ${error.message}\n\n`;
+  // ---- Render endpoint catalogue ----
 
-                if (error.message === 'Failed to fetch') {
-                    errorDetails += `❌ Cannot connect to server!\n\n`;
-                    errorDetails += `Possible causes:\n`;
-                    errorDetails += `1. Server is not running\n`;
-                    errorDetails += `   → Run: ./gradlew :server:run\n\n`;
-                    errorDetails += `2. Server is not accessible at http://localhost:8080\n`;
-                    errorDetails += `   → Check if server started successfully\n\n`;
-                    errorDetails += `3. CORS is not configured (if opening from file://)\n`;
-                    errorDetails += `   → Server needs CORS headers for browser requests\n\n`;
-                    errorDetails += `Quick test:\n`;
-                    errorDetails += `  curl http://localhost:8080/health\n\n`;
-                    errorDetails += `If curl works but browser doesn't, restart the server\n`;
-                    errorDetails += `after the recent CORS configuration update.`;
-                } else {
-                    errorDetails += `Details: ${JSON.stringify(error, null, 2)}`;
-                }
+  const root = document.getElementById('endpoints');
 
-                responseContent.textContent = errorDetails;
-            } finally {
-                testBtn.disabled = false;
-                testBtn.innerHTML = '🚀 Test API';
-            }
-        }
+  function renderEndpoint(e) {
+    const wrap = document.createElement('section');
+    wrap.className = 'endpoint open';
+    wrap.dataset.id = e.id;
 
-        function formatBytes(bytes) {
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-        }
+    const head = document.createElement('div');
+    head.className = 'endpoint-head';
+    head.innerHTML = `
+      <span class="method">${e.method}</span>
+      <span class="path">${e.path}</span>
+      <span class="name">${e.name}</span>
+    `;
+    head.addEventListener('click', () => wrap.classList.toggle('open'));
+    wrap.appendChild(head);
 
-        function formatTime(isoString) {
-            if (!isoString) return 'N/A';
-            const date = new Date(isoString);
-            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        }
+    const body = document.createElement('div');
+    body.className = 'endpoint-body';
 
-        // Auto-test on load
-        window.addEventListener('load', () => {
-            setTimeout(testEndpoint, 500);
-        });
-    </script>
+    const allParams = [...(e.pathParams || []), ...(e.params || [])];
+    if (allParams.length) {
+      const grid = document.createElement('div');
+      grid.className = 'params';
+      for (const p of allParams) {
+        const isPath = (e.pathParams || []).some(pp => pp.name === p.name);
+        const id = `${e.id}-${p.name}`;
+        const wrap2 = document.createElement('div');
+        wrap2.innerHTML = `
+          <label for="${id}">${p.name}${isPath ? ' (path)' : ''}</label>
+          <input id="${id}" data-name="${p.name}" data-default="${p.default || ''}" placeholder="${p.placeholder || ''}">
+        `;
+        const input = wrap2.querySelector('input');
+        const stored = ssGet(`p:${e.id}:${p.name}`);
+        input.value = stored || (p.default || '');
+        input.addEventListener('input', () => ssSet(`p:${e.id}:${p.name}`, input.value));
+        grid.appendChild(wrap2);
+      }
+      body.appendChild(grid);
+    }
+
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'send';
+    sendBtn.type = 'button';
+    sendBtn.textContent = 'Send';
+    body.appendChild(sendBtn);
+
+    const resp = document.createElement('div');
+    resp.className = 'response';
+    resp.innerHTML = '<div class="empty">No request sent yet.</div>';
+    body.appendChild(resp);
+
+    sendBtn.addEventListener('click', async () => {
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+      try {
+        const result = await sendRequest(e, paramValues(wrap, e));
+        resp.innerHTML = renderResult(result);
+      } catch (err) {
+        resp.innerHTML = `<div class="response-head"><span class="status err">ERROR</span></div><pre>${escapeHtml(err.message || String(err))}</pre>`;
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send';
+      }
+    });
+
+    wrap.appendChild(body);
+    root.appendChild(wrap);
+  }
+
+  endpoints.forEach(renderEndpoint);
+
+  // ---- Request execution ----
+
+  function paramValues(wrap, e) {
+    const out = { path: {}, query: {} };
+    const inputs = wrap.querySelectorAll('input');
+    for (const input of inputs) {
+      const name = input.dataset.name;
+      const v = input.value.trim();
+      if (!v) continue;
+      const isPath = (e.pathParams || []).some(pp => pp.name === name);
+      if (isPath) out.path[name] = v;
+      else out.query[name] = v;
+    }
+    return out;
+  }
+
+  function buildUrl(base, e, vals) {
+    let path = e.path;
+    for (const [k, v] of Object.entries(vals.path)) {
+      path = path.replace('{' + k + '}', encodeURIComponent(v));
+    }
+    const url = new URL(path, base.endsWith('/') ? base : base + '/');
+    for (const [k, v] of Object.entries(vals.query)) {
+      url.searchParams.set(k, v);
+    }
+    return url.toString();
+  }
+
+  async function sendRequest(e, vals) {
+    const base = (baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '');
+    const url = buildUrl(base, e, vals);
+
+    const headers = {};
+    const auth = authEl.value.trim();
+    if (auth) headers['Authorization'] = auth;
+    const ver = versionEl.value.trim();
+    if (ver) headers['X-Krail-Version'] = ver;
+
+    const t0 = performance.now();
+    const res = await fetch(url, {
+      method: e.method,
+      headers,
+      redirect: e.followRedirect === false ? 'manual' : 'follow',
+    });
+    const elapsed = Math.round(performance.now() - t0);
+
+    const ct = res.headers.get('Content-Type') || '';
+    const isJson = ct.includes('application/json') || ct.includes('text/');
+    const isProto = ct.includes('protobuf');
+
+    let bodyText;
+    if (e.binary || isProto) {
+      const buf = await res.arrayBuffer();
+      bodyText = `<binary, ${buf.byteLength} bytes>\n\n` + hexPreview(new Uint8Array(buf), 256);
+    } else if (isJson) {
+      const text = await res.text();
+      try { bodyText = JSON.stringify(JSON.parse(text), null, 2); } catch { bodyText = text; }
+    } else {
+      bodyText = await res.text();
+    }
+
+    const headerLines = [];
+    res.headers.forEach((v, k) => headerLines.push(`${k}: ${v}`));
+
+    return { url, status: res.status, statusText: res.statusText, elapsed, headers: headerLines.join('\n'), body: bodyText };
+  }
+
+  function renderResult({ url, status, statusText, elapsed, headers, body }) {
+    const cls = status >= 200 && status < 300 ? 'ok' : status >= 400 ? 'err' : 'warn';
+    return `
+      <div class="response-head">
+        <span class="status ${cls}">${status} ${escapeHtml(statusText)}</span>
+        <span>${elapsed} ms</span>
+        <span class="path-display" title="${escapeHtml(url)}">${truncate(escapeHtml(url), 80)}</span>
+      </div>
+      <pre>${escapeHtml(headers)}\n\n${escapeHtml(body)}</pre>
+    `;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+  function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+  function hexPreview(bytes, max = 256) {
+    const slice = bytes.slice(0, max);
+    const lines = [];
+    for (let i = 0; i < slice.length; i += 16) {
+      const row = Array.from(slice.slice(i, i + 16));
+      const hex = row.map(b => b.toString(16).padStart(2, '0')).join(' ');
+      const ascii = row.map(b => (b >= 32 && b < 127) ? String.fromCharCode(b) : '.').join('');
+      lines.push(`${i.toString(16).padStart(8, '0')}  ${hex.padEnd(48)}  ${ascii}`);
+    }
+    if (bytes.length > max) lines.push(`… (${bytes.length - max} more bytes)`);
+    return lines.join('\n');
+  }
+
+  // ---- Smoke runner ----
+
+  document.getElementById('runSmoke').addEventListener('click', runSmoke);
+
+  async function runSmoke() {
+    const btn = document.getElementById('runSmoke');
+    const out = document.getElementById('smokeResults');
+    btn.disabled = true;
+    out.innerHTML = '';
+    const targets = endpoints.filter(e => e.smoke?.include);
+    let pass = 0, fail = 0;
+    for (const e of targets) {
+      const row = document.createElement('div');
+      row.className = 'smoke-row';
+      row.innerHTML = `<span class="label">${e.method} ${e.path}</span><span class="pending">running…</span>`;
+      out.appendChild(row);
+
+      const wrap = root.querySelector(`section.endpoint[data-id="${e.id}"]`);
+      const vals = paramValues(wrap, e);
+      for (const [k, v] of Object.entries(e.smoke?.pathFill || {})) {
+        if (!vals.path[k]) vals.path[k] = v;
+      }
+      try {
+        const r = await sendRequest(e, vals);
+        const ok = (r.status >= 200 && r.status < 300) || (e.followRedirect && r.status >= 300 && r.status < 400);
+        row.lastElementChild.outerHTML = `<span class="${ok ? 'pass' : 'fail'}">${r.status} ${escapeHtml(r.statusText)} (${r.elapsed} ms)</span>`;
+        ok ? pass++ : fail++;
+      } catch (err) {
+        row.lastElementChild.outerHTML = `<span class="fail">ERROR: ${escapeHtml(err.message || String(err))}</span>`;
+        fail++;
+      }
+    }
+    const summary = document.createElement('div');
+    summary.className = 'smoke-row';
+    summary.innerHTML = `<span class="label">Summary</span><span class="${fail === 0 ? 'pass' : 'fail'}">${pass} passed, ${fail} failed</span>`;
+    out.appendChild(summary);
+    btn.disabled = false;
+  }
+</script>
 </body>
 </html>
-
