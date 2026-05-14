@@ -3,6 +3,11 @@ name: PR Build
 on:
   pull_request:
     branches: [main]
+  push:
+    # Direct pushes to main (rare — usually we go through PRs). The PR
+    # build already ran on the PR, but if someone pushes straight to main
+    # we still want a green check on the merge commit.
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
