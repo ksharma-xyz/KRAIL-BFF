@@ -27,9 +27,7 @@ Each follows the same playbook. Read this once, then apply per-endpoint.
 
 Before you start an endpoint migration in KRAIL, verify:
 
-- [ ] **`krail-api-proto` repo exists and is pinned**
-  Both KRAIL-BFF and KRAIL reference the same tagged version (e.g. `v0.3.0`). Wire-generated Kotlin classes compile in
-  both repos.
+- [x] **`krail-api-proto` repo exists and is pinned** — done 2026-05-09. Public at <https://github.com/ksharma-xyz/KRAIL-API-PROTO>, Apache 2.0, currently at `v0.2.0` (polyline fields). KRAIL-BFF consumes via submodule at `krail-api-proto/`. KRAIL app picks the same submodule per `docs/handover/MIGRATION_GUIDE.md` section 4.
 - [ ] **The endpoint exists in KRAIL-BFF**, deployed, reachable from a development device or emulator. Hit the health
   endpoint first; do not assume.
 - [ ] **Cloudflare + DO origin lockdown is live**
@@ -93,7 +91,7 @@ uses the existing mapper. The UI doesn't care which one ran.
 
 Once `BffDeparturesResponse → DomainDeparture` is in place, the existing `DepartureMonitorMapper` (NSW → domain) keeps
 living for the duration of the rollout, then deletes when you hit "100% rolled out + grace period passed."
-See [API_SCHEMA_DESIGN.md §5](API_SCHEMA_DESIGN.md) for the full deletion plan per mapper.
+See [API_SCHEMA_DESIGN.md 5](API_SCHEMA_DESIGN.md) for the full deletion plan per mapper.
 
 ### Step 4 — Compare-mode testing (the most useful step)
 
@@ -119,7 +117,7 @@ before shipping; you don't want production devices double-calling.
 
 ### Step 5 — Cohort rollout
 
-Per Modernization Plan §"NSW API key migration":
+Per Modernization Plan "NSW API key migration":
 
 - 0% → internal devices only (you, manual testing)
 - 10% → real users; watch error rate and "trip results shown" success metric for 48–72h
@@ -140,7 +138,7 @@ are degraded.
 
 - Delete the NSW-direct call site for this endpoint
 - Delete the corresponding NSW response models if no other endpoint uses them
-- Delete the corresponding mapper(s) per the inventory in [API_SCHEMA_DESIGN.md §5](API_SCHEMA_DESIGN.md)
+- Delete the corresponding mapper(s) per the inventory in [API_SCHEMA_DESIGN.md 5](API_SCHEMA_DESIGN.md)
 - Remove the per-endpoint feature flag (the kill switch stays)
 - Update the version floor (`MIN_APP_VERSION`) only if you've also done a force-update pass
 
@@ -202,7 +200,7 @@ For a single endpoint:
 For the full migration:
 
 - All four endpoints (departures, park-ride, trip results, journey + live) are at 100%.
-- The NSW-direct API key has been **deleted from NSW** (per Modernization Plan §"NSW API key migration").
+- The NSW-direct API key has been **deleted from NSW** (per Modernization Plan "NSW API key migration").
 - `feature/track/network/` no longer references GTFS-RT directly — the BFF serves matched vehicles only.
 - `gtfs-static/` is significantly thinner (or gone) once the stops dataset is BFF-distributed.
 
@@ -251,8 +249,8 @@ Do not redeploy the BFF as a panic move — flag flips are faster and reversible
 | Schema source of truth    | `krail-api-proto` repo, tagged version                          |
 | BFF endpoint contracts    | [API_SCHEMA_DESIGN.md](API_SCHEMA_DESIGN.md)                    |
 | Field-level inventory     | [SCREEN_DATA_INVENTORY.md](SCREEN_DATA_INVENTORY.md)            |
-| Deploy & infra            | [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) §0.3             |
-| Cost cap & defenders      | [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) §"Hard cost cap" |
+| Deploy & infra            | [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) 0.3             |
+| Cost cap & defenders      | [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) "Hard cost cap" |
 | Per-endpoint feature flag | Firebase Remote Config, `bff_use_for_<endpoint>`                |
 | Kill switch               | Firebase Remote Config, `bff_kill_switch`                       |
 | Server-side version floor | BFF env var `MIN_APP_VERSION`                                   |

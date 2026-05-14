@@ -97,6 +97,19 @@ data class TripResponse(
          * not enough to constitute a standalone walking leg.
          */
         @SerialName("interchange") val interchange: Interchange? = null,
+
+        /**
+         * Polyline points along this leg, ordered from origin to destination.
+         * Each entry is `[latitude, longitude]` in EPSG:4326 decimal degrees.
+         *
+         * NSW returns this on most transit legs (and on walking legs when
+         * geometry is available). May be null/empty for some bus routes
+         * or when the upstream chose not to emit geometry. JourneyMap
+         * polyline rendering reads this directly; the proto endpoint
+         * surfaces it via `TransportLeg.coords` / `WalkingLeg.coords`
+         * (KRAIL-API-PROTO v0.2.0+).
+         */
+        @SerialName("coords") val coords: List<List<Double>>? = null,
     )
 
     @Serializable
@@ -157,6 +170,14 @@ data class TripResponse(
          * Contains additional information about this stop, such as wheelchair accessibility information.
          */
         @SerialName("properties") val properties: DestinationProperties? = null,
+
+        /**
+         * Point-on-map for this stop. `[latitude, longitude]` in EPSG:4326
+         * decimal degrees. NSW returns it for most stops but not all
+         * (planning-only stops can be missing). The proto endpoint
+         * surfaces it via `Stop.coord` (KRAIL-API-PROTO v0.2.0+).
+         */
+        @SerialName("coord") val coord: List<Double>? = null,
     )
 
     @Serializable

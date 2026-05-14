@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KRAIL BFF — API Tester</title>
+<title>KRAIL-BFF · screen-first tester</title>
 <style>
   :root {
     --bg: #0e1116;
@@ -20,874 +20,866 @@
     --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  html, body { background: var(--bg); color: var(--fg); }
+  html, body { background: var(--bg); color: var(--fg); margin: 0; }
   body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
-    line-height: 1.5;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
   }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
-  header { padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
-  header h1 { font-size: 22px; margin: 0 0 4px; }
-  header p { color: var(--muted); margin: 0; }
-  header code { font-family: var(--mono); }
+  a { color: var(--accent); }
+  code, pre { font-family: var(--mono); }
 
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-  .panel h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  header { margin-bottom: 24px; }
+  header h1 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 12px; }
 
-  .config-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
-  .config-row > div { flex: 1 1 240px; min-width: 200px; }
-  .config-row label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-  .config-row input {
-    width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 6px; color: var(--fg); font-family: var(--mono); font-size: 13px;
+  .config {
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+    margin: 12px 0 24px;
+    padding: 10px 14px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
   }
-  .config-row input:focus { outline: none; border-color: var(--accent); }
-  .session-note { color: var(--muted); font-size: 12px; margin-top: 12px; }
-  .session-note button {
-    background: transparent; border: 1px solid var(--border); color: var(--fg);
-    padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 8px;
+  .config label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .config input {
+    padding: 5px 8px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--fg); font: 12px var(--mono);
+    min-width: 200px;
   }
-  .session-note button:hover { background: var(--panel-elev); }
+  .config input:focus { outline: none; border-color: var(--accent); }
 
-  .scenarios { display: flex; flex-wrap: wrap; gap: 8px; }
-  .scenarios button {
-    background: transparent; border: 1px solid var(--border); color: var(--fg);
-    padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;
-    font-family: var(--mono);
+  /* Screen tabs */
+  .screens { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+  .screen-tab {
+    padding: 10px 16px; background: transparent;
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--muted); cursor: pointer; font-size: 13px;
+    font-weight: 500;
   }
-  .scenarios button:hover { background: var(--panel-elev); border-color: var(--accent); }
-
-  .endpoint {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-    margin-bottom: 16px; overflow: hidden;
+  .screen-tab:hover { color: var(--fg); border-color: var(--accent-soft); }
+  .screen-tab.active {
+    background: var(--accent-soft); border-color: var(--accent);
+    color: var(--fg);
   }
-  .endpoint-head {
-    display: flex; align-items: baseline; gap: 12px; padding: 12px 16px;
-    cursor: pointer; border-bottom: 1px solid var(--border); user-select: none;
-  }
-  .endpoint-head:hover { background: var(--panel-elev); }
-  .endpoint-head .method {
-    font-family: var(--mono); font-size: 11px; font-weight: 600;
-    padding: 2px 8px; border-radius: 3px; background: var(--accent-soft); color: var(--accent);
-  }
-  .endpoint-head .path { font-family: var(--mono); flex: 1; color: var(--fg); }
-  .endpoint-head .name { color: var(--muted); font-size: 13px; }
-  .endpoint-body { padding: 16px; display: none; }
-  .endpoint.open .endpoint-body { display: block; }
-  .endpoint .params { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
-  .endpoint .params label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-  .endpoint .params input {
-    width: 100%; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 4px; color: var(--fg); font-family: var(--mono); font-size: 12px;
-  }
-  .endpoint .params input:focus { outline: none; border-color: var(--accent); }
-  .endpoint-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .endpoint-actions button {
-    background: var(--accent); color: white; border: 0; padding: 7px 14px;
-    border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;
-  }
-  .endpoint-actions button:hover { background: #3683e1; }
-  .endpoint-actions button:disabled { opacity: 0.5; cursor: wait; }
-  .endpoint-actions button.secondary { background: transparent; border: 1px solid var(--border); color: var(--fg); }
-  .endpoint-actions button.secondary:hover { border-color: var(--accent); background: var(--accent-soft); }
-  .endpoint-actions input[type=number] {
-    width: 70px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 4px; color: var(--fg); font-family: var(--mono); font-size: 12px;
+  .screen-tab .pill {
+    margin-left: 8px;
+    padding: 1px 6px; border-radius: 10px;
+    background: var(--bg); color: var(--muted); font-size: 10px; font-family: var(--mono);
   }
 
-  .response { margin-top: 12px; }
-  .response-head { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 8px; flex-wrap: wrap; }
-  .response-head .status { font-family: var(--mono); }
-  .response-head .metric { font-family: var(--mono); }
-  .response-head .metric strong { color: var(--fg); }
-  .status.ok { color: var(--ok); }
-  .status.warn { color: var(--warn); }
-  .status.err { color: var(--err); }
-  .response pre {
+  .screen-desc {
+    color: var(--muted); font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  /* Inputs */
+  .inputs {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 16px; margin-bottom: 16px;
+  }
+  .inputs h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 12px; }
+  .inputs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+  .inputs label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .inputs input {
+    width: 100%; padding: 6px 8px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 4px;
+    color: var(--fg); font: 12px var(--mono);
+  }
+  .inputs input:focus { outline: none; border-color: var(--accent); }
+  .inputs .actions { margin-top: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--accent); color: white; border: 0;
+    padding: 8px 18px; border-radius: 4px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+  }
+  .btn-primary:hover { background: #3683e1; }
+  .btn-primary:disabled { opacity: 0.5; cursor: wait; }
+  .btn-link {
+    background: transparent; border: 0; color: var(--accent);
+    cursor: pointer; font-size: 12px; padding: 6px 0;
+  }
+  .btn-link:hover { text-decoration: underline; }
+  .inputs .hint { color: var(--muted); font-size: 11px; }
+
+  /* Result cards */
+  .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 14px;
+  }
+  .card.idle { opacity: 0.85; border-style: dashed; }
+  .card.idle h3, .card.idle .url, .card.idle .stat .value { opacity: 0.6; }
+  .card.err { border-color: var(--err); }
+  .card .ribbon {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted); margin-bottom: 8px;
+    display: flex; gap: 6px; align-items: center;
+  }
+  .card .ribbon .badge {
+    padding: 2px 6px; border-radius: 2px;
+    background: var(--accent-soft); color: var(--accent);
+    font-weight: 600; font-size: 10px;
+  }
+  .card .ribbon .run-one {
+    margin-left: auto;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent); border-radius: 4px;
+    color: var(--fg); cursor: pointer;
+    padding: 3px 12px; font-size: 11px; font-weight: 600;
+    font-family: inherit; text-transform: none; letter-spacing: 0;
+  }
+  .card .ribbon .run-one:hover:not(:disabled) { background: var(--accent); color: white; }
+  .card .ribbon .run-one:disabled { opacity: 0.5; cursor: wait; }
+  .card h3 { font-size: 14px; margin: 0 0 6px; font-weight: 500; }
+  .card .url {
+    font: 11px var(--mono); color: var(--muted);
+    word-break: break-all;
+    margin-bottom: 12px;
+    max-height: 36px; overflow: hidden;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+    margin-bottom: 10px;
+  }
+  .stat { font-family: var(--mono); }
+  .stat .label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat .value { font-size: 16px; font-weight: 600; }
+  .stat.ok .value { color: var(--ok); }
+  .stat.err .value { color: var(--err); }
+  .stat.warn .value { color: var(--warn); }
+  .stat .sub { font-size: 11px; color: var(--muted); }
+
+  .card .card-actions { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .card .card-actions button {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 3px 8px; border-radius: 3px; cursor: pointer; font: 10px var(--mono);
+  }
+  .card .card-actions button:hover { border-color: var(--accent); color: var(--accent); }
+
+  details.body-detail {
+    margin-top: 10px;
+    border: 1px solid var(--border); border-radius: 4px;
+    background: var(--bg);
+  }
+  details.body-detail summary {
+    list-style: none; cursor: pointer; padding: 6px 10px;
+    color: var(--muted); font-size: 11px;
+  }
+  details.body-detail summary::-webkit-details-marker { display: none; }
+  details.body-detail summary::before { content: '▸ '; }
+  details.body-detail[open] summary::before { content: '▾ '; }
+  details.body-detail pre {
+    margin: 0; padding: 10px;
+    font: 11px var(--mono); white-space: pre-wrap; word-break: break-all;
+    border-top: 1px solid var(--border);
+    max-height: 60vh; overflow: auto;
+  }
+
+  /* Summary panel */
+  .summary {
+    background: linear-gradient(180deg, rgba(68, 147, 248, 0.08), rgba(68, 147, 248, 0.02));
+    border: 1px solid var(--accent-soft); border-left: 3px solid var(--accent);
+    border-radius: 6px; padding: 14px 18px;
+    margin-bottom: 24px;
+  }
+  .summary h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--accent); margin: 0 0 10px;
+  }
+  .summary table { width: 100%; border-collapse: collapse; font: 13px var(--mono); }
+  .summary th, .summary td { text-align: left; padding: 4px 8px 4px 0; }
+  .summary th { color: var(--muted); font-weight: 400; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .summary td.savings { font-weight: 600; }
+  .summary td.win { color: var(--ok); }
+  .summary td.neutral { color: var(--muted); }
+  .summary td.loss { color: var(--warn); }
+  .summary .note { color: var(--muted); font-size: 11px; margin-top: 10px; font-style: italic; }
+
+  /* Custom debug section */
+  details.debug-section {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    margin-top: 32px;
+  }
+  details.debug-section summary {
+    list-style: none; cursor: pointer; padding: 12px 16px;
+    color: var(--muted); font-size: 13px;
+  }
+  details.debug-section summary::-webkit-details-marker { display: none; }
+  details.debug-section summary::before { content: '▸ '; }
+  details.debug-section[open] summary::before { content: '▾ '; }
+  details.debug-section .debug-body { padding: 0 16px 16px; border-top: 1px solid var(--border); }
+  details.debug-section textarea {
+    width: 100%; min-height: 80px; padding: 8px;
     background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
-    padding: 10px 12px; margin: 0; font-family: var(--mono); font-size: 12px;
-    line-height: 1.5; white-space: pre-wrap; word-break: break-all;
-    max-height: 360px; overflow: auto;
+    color: var(--fg); font: 12px var(--mono); resize: vertical;
+    margin: 10px 0;
   }
-  .response .empty { color: var(--muted); font-style: italic; padding: 8px 0; }
 
-  .stats { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 12px; margin-top: 8px; font-family: var(--mono); font-size: 12px; }
-  .stats .row { display: flex; gap: 14px; padding: 2px 0; }
-  .stats .label { color: var(--muted); min-width: 130px; }
-  .stats .value { color: var(--fg); }
-  .stats .value strong { color: var(--accent); }
-  .stats-bar { display: flex; gap: 1px; height: 8px; margin-top: 6px; background: var(--panel-elev); border-radius: 2px; overflow: hidden; }
-  .stats-bar .seg { background: var(--accent); }
-  .stats-bar .seg.err { background: var(--err); }
-
-  .smoke-results { margin-top: 12px; font-family: var(--mono); font-size: 12px; }
-  .smoke-row { display: flex; gap: 10px; padding: 4px 0; }
-  .smoke-row .label { flex: 1; color: var(--muted); }
-  .smoke-row .pass { color: var(--ok); }
-  .smoke-row .fail { color: var(--err); }
-  .smoke-row .pending { color: var(--warn); }
-
-  /* Inspector — request/response details */
-  .inspector { margin-top: 12px; }
-  .inspector-status {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-    font-family: var(--mono); font-size: 13px;
-  }
-  .inspector-status .badge {
-    padding: 3px 10px; border-radius: 3px; font-weight: 600; font-size: 12px;
-  }
-  .inspector-status .badge.ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); }
-  .inspector-status .badge.warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
-  .inspector-status .badge.err { background: rgba(248, 81, 73, 0.15); color: var(--err); }
-  .inspector-status .method-pill {
-    background: var(--accent-soft); color: var(--accent); padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600;
-  }
-  .inspector-url { word-break: break-all; color: var(--fg); flex: 1 1 100%; padding: 8px 0 0; font-size: 12px; }
-  .inspector-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-  .inspector-actions button {
-    background: transparent; border: 1px solid var(--border); color: var(--fg);
-    padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 11px;
-    font-family: var(--mono);
-  }
-  .inspector-actions button:hover { border-color: var(--accent); color: var(--accent); }
-  .inspector details { margin-top: 8px; }
-  .inspector details summary {
-    cursor: pointer; padding: 6px 10px; color: var(--muted); font-size: 12px;
-    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
-    user-select: none;
-  }
-  .inspector details[open] summary { border-radius: 4px 4px 0 0; border-bottom: 0; }
-  .inspector details summary:hover { color: var(--fg); }
-  .inspector details > div, .inspector details > pre {
-    border: 1px solid var(--border); border-top: 0; border-radius: 0 0 4px 4px;
-    padding: 10px 12px; margin: 0; background: var(--bg);
-    font-family: var(--mono); font-size: 12px; line-height: 1.5;
-    white-space: pre-wrap; word-break: break-all;
-    max-height: 360px; overflow: auto;
-  }
-  .diag-list { padding: 0; margin: 0; list-style: none; }
-  .diag-list li {
-    padding: 6px 0; color: var(--fg); font-size: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  .diag-list li:last-child { border-bottom: 0; }
-  .diag-list code { background: var(--panel-elev); padding: 1px 4px; border-radius: 2px; font-size: 11px; }
-  .diag-fix { color: var(--accent); }
+  .pill-ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+  .pill-err { background: rgba(248, 81, 73, 0.15); color: var(--err); padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+  .pill-warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <header>
-    <h1>KRAIL BFF — API Tester</h1>
-    <p>Single page. Every endpoint. Real metrics. Config + form values in <strong>sessionStorage</strong> only — wiped on tab close.</p>
-  </header>
+<header>
+  <h1>KRAIL-BFF · screen-first tester</h1>
+  <div class="sub">Pick a KRAIL screen below. The tester fires every path that screen exercises in parallel and shows you the deltas.</div>
+</header>
 
-  <section class="panel">
-    <h2>Config</h2>
-    <div class="config-row">
-      <div>
-        <label for="baseUrl">Base URL</label>
-        <input id="baseUrl" placeholder="http://localhost:8080" autocomplete="off">
-      </div>
-      <div>
-        <label for="auth">Authorization (sent only if non-empty)</label>
-        <input id="auth" type="password" placeholder="apikey ..." autocomplete="off">
-      </div>
-      <div>
-        <label for="version">X-Krail-Version (sent only if non-empty)</label>
-        <input id="version" placeholder="1.5.0" autocomplete="off">
-      </div>
-    </div>
-    <p class="session-note">
-      Values persist for this tab only.
-      <button id="clearSession" type="button">Clear session storage now</button>
-    </p>
-  </section>
-
-  <section class="panel">
-    <h2>Scenarios</h2>
-    <p style="color: var(--muted); margin: 0 0 10px;">One-click presets — fill an endpoint's inputs with realistic values then jump to it. Click again to re-fill.</p>
-    <div class="scenarios" id="scenarios"></div>
-  </section>
-
-  <main id="endpoints"></main>
-
-  <section class="panel">
-    <h2>Smoke tests</h2>
-    <p style="color: var(--muted); margin: 0 0 10px;">Hit every <code>GET</code> endpoint once with the inputs filled above and report pass/fail.</p>
-    <div class="endpoint-actions">
-      <button id="runSmoke" type="button">Run all GETs</button>
-      <button id="exportCsv" type="button" class="secondary">Export last run as CSV</button>
-    </div>
-    <div class="smoke-results" id="smokeResults"></div>
-  </section>
-
-  <p style="color: var(--muted); font-size: 12px; margin-top: 32px;">
-    Source: <code>docs/tools/api-tester.html</code>. Add new endpoints / scenarios via the arrays at the top of <code>&lt;script&gt;</code>.
-  </p>
+<div class="config">
+  <label>Base URL <input id="baseUrl" value="http://localhost:8080"></label>
+  <label>X-Krail-Version <input id="version" placeholder="optional"></label>
 </div>
 
+<div class="screens" id="screens"></div>
+<div class="screen-desc" id="screenDesc"></div>
+
+<section class="inputs">
+  <h2>Inputs</h2>
+  <div class="inputs-grid" id="inputs"></div>
+  <div class="actions">
+    <button class="btn-primary" id="runAll">Run all paths</button>
+    <span class="hint" id="runHint"></span>
+  </div>
+</section>
+
+<section class="results" id="results"></section>
+
+<section class="summary" id="summary" style="display: none;">
+  <h2>Wire-size deltas</h2>
+  <div id="summaryBody"></div>
+</section>
+
+<details class="debug-section">
+  <summary>Debug any URL or curl</summary>
+  <div class="debug-body">
+    <textarea id="debugInput" placeholder="Paste a URL (any host) or a curl command. NSW URLs are auto-routed through /internal/passthrough."></textarea>
+    <button class="btn-primary" id="debugRun">Fire</button>
+    <div id="debugResult"></div>
+  </div>
+</details>
+
 <script>
-  // --------------------------------------------------------------------------------
-  // Endpoint catalogue. Add new entries here to expose them in the UI + smoke runner.
-  // --------------------------------------------------------------------------------
-  const endpoints = [
-    {
-      id: 'health', method: 'GET', path: '/health',
-      name: 'Health probe (no auth required)',
-      params: [], smoke: { include: true },
-    },
-    {
-      id: 'ready', method: 'GET', path: '/ready',
-      name: 'Readiness probe (NSW upstream check)',
-      params: [], smoke: { include: true },
-    },
-    {
-      id: 'tripPlanJson', method: 'GET', path: '/api/v1/trip/plan',
-      name: 'Trip planner — JSON',
-      params: [
-        { name: 'origin', default: '200060' },
-        { name: 'destination', default: '10101100' },
-        { name: 'depArr', default: 'dep' },
-        { name: 'date', placeholder: 'YYYYMMDD (optional)' },
-        { name: 'time', placeholder: 'HHmm (optional)' },
-        { name: 'excludedModes', placeholder: 'comma-separated (optional)' },
-      ],
-      smoke: { include: true },
-    },
-    {
-      id: 'tripPlanProto', method: 'GET', path: '/api/v1/trip/plan-proto',
-      name: 'Trip planner — protobuf binary',
-      binary: true,
-      params: [
-        { name: 'origin', default: '200060' },
-        { name: 'destination', default: '10101100' },
-        { name: 'depArr', default: 'dep' },
-      ],
-      smoke: { include: true },
-      pairWith: 'tripPlanJson', // for comparison: protobuf vs JSON savings
-    },
-    {
-      id: 'tripLegacy', method: 'GET', path: '/v1/tp/trip',
-      name: 'Trip planner — legacy NSW-shape JSON',
-      params: [
-        { name: 'origin', default: '200060' },
-        { name: 'destination', default: '10101100' },
-      ],
-      smoke: { include: false },
-    },
-    {
-      id: 'departures', method: 'GET', path: '/v1/stops/{stopId}/departures',
-      name: 'Departure board for a stop',
-      pathParams: [{ name: 'stopId', default: '200060' }],
-      params: [
-        { name: 'date', placeholder: 'YYYYMMDD (optional)' },
-        { name: 'time', placeholder: 'HHmm (optional)' },
-      ],
-      smoke: { include: true, pathFill: { stopId: '200060' } },
-    },
-    {
-      id: 'parkingList', method: 'GET', path: '/v1/parking/facilities',
-      name: 'Park & Ride — facility list',
-      params: [], smoke: { include: true },
-    },
-    {
-      id: 'parkingAvailability', method: 'GET', path: '/v1/parking/facilities/{facilityId}/availability',
-      name: 'Park & Ride — availability for a facility',
-      pathParams: [{ name: 'facilityId', default: '1' }],
-      params: [], smoke: { include: true, pathFill: { facilityId: '1' } },
-    },
-    {
-      id: 'gtfsRtV1', method: 'GET', path: '/v1/gtfs/realtime/{feed}',
-      name: 'GTFS-RT trip updates v1 (binary)',
-      binary: true,
-      pathParams: [{ name: 'feed', default: 'buses' }],
-      params: [], smoke: { include: true, pathFill: { feed: 'buses' } },
-    },
-    {
-      id: 'gtfsRtV2', method: 'GET', path: '/v2/gtfs/realtime/{feed}',
-      name: 'GTFS-RT trip updates v2 (binary)',
-      binary: true,
-      pathParams: [{ name: 'feed', default: 'sydneytrains' }],
-      params: [], smoke: { include: true, pathFill: { feed: 'sydneytrains' } },
-    },
-    {
-      id: 'gtfsVehiclepos', method: 'GET', path: '/v2/gtfs/vehiclepos/{feed}',
-      name: 'GTFS-RT vehicle positions (binary)',
-      binary: true,
-      pathParams: [{ name: 'feed', default: 'sydneytrains' }],
-      params: [], smoke: { include: true, pathFill: { feed: 'sydneytrains' } },
-    },
-    {
-      id: 'stopsManifest', method: 'GET', path: '/v1/data/stops/manifest',
-      name: 'Stops dataset manifest (302 redirect)',
-      params: [], followRedirect: true, smoke: { include: true },
-    },
-    {
-      id: 'routesManifest', method: 'GET', path: '/v1/data/routes/manifest',
-      name: 'Routes dataset manifest (302 redirect)',
-      params: [], followRedirect: true, smoke: { include: true },
-    },
-  ];
+'use strict';
 
-  // --------------------------------------------------------------------------------
-  // Scenarios. A scenario fills one endpoint's inputs and scrolls to it.
-  // Add more here for common test cases you run repeatedly.
-  // --------------------------------------------------------------------------------
-  const scenarios = [
-    { name: 'Trip: Wynyard → Town Hall', endpoint: 'tripPlanJson', vals: { origin: '200070', destination: '200060' } },
-    { name: 'Trip: Central → Bondi Junction', endpoint: 'tripPlanJson', vals: { origin: '200080', destination: '202020' } },
-    { name: 'Trip (proto): Wynyard → Town Hall', endpoint: 'tripPlanProto', vals: { origin: '200070', destination: '200060' } },
-    { name: 'Departures: Town Hall', endpoint: 'departures', vals: { stopId: '200060' } },
-    { name: 'Departures: Wynyard', endpoint: 'departures', vals: { stopId: '200070' } },
-    { name: 'GTFS-RT: sydneytrains', endpoint: 'gtfsRtV2', vals: { feed: 'sydneytrains' } },
-    { name: 'Vehiclepos: sydneytrains', endpoint: 'gtfsVehiclepos', vals: { feed: 'sydneytrains' } },
-    { name: 'Parking: facility 1', endpoint: 'parkingAvailability', vals: { facilityId: '1' } },
-    { name: 'Stops manifest', endpoint: 'stopsManifest', vals: {} },
-    { name: 'Routes manifest', endpoint: 'routesManifest', vals: {} },
-  ];
+// ---------------------------------------------------------------------------
+// Screens — one entry per KRAIL screen. Each defines:
+//   inputs:   form fields { name, label, placeholder, default }
+//   paths:    array of paths to fire in parallel { id, label, kind, build }
+//             kind: 'bff-json' | 'bff-proto' | 'nsw'
+//             build({base, inputs}) returns the absolute URL to fetch
+// ---------------------------------------------------------------------------
+const SCREENS = [
+  {
+    id: 'trip',
+    title: 'Trip results',
+    desc: 'TimeTableScreen — searches NSW trip planner, draws journey cards + journey map polyline.',
+    inputs: [
+      { name: 'origin', label: 'Origin stop', default: '200070', placeholder: '200070 (Town Hall)' },
+      { name: 'destination', label: 'Destination stop', default: '215020', placeholder: '215020 (Bondi Junction)' },
+      { name: 'depArr', label: 'Mode', default: 'dep', placeholder: 'dep | arr' },
+    ],
+    paths: [
+      {
+        id: 'nsw',
+        label: 'NSW direct',
+        kind: 'nsw',
+        binary: false,
+        build: ({ i }) =>
+          `https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=${i.origin}&name_destination=${i.destination}` +
+          `&depArrMacro=${i.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any` +
+          `&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&itOptionsActive=1` +
+          `&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON`,
+      },
+      {
+        id: 'bff-json',
+        label: 'BFF JSON',
+        kind: 'bff-json',
+        binary: false,
+        build: ({ base, i }) =>
+          `${base}/v1/tp/trip?name_origin=${i.origin}&name_destination=${i.destination}` +
+          `&depArrMacro=${i.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any` +
+          `&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&itOptionsActive=1` +
+          `&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON`,
+      },
+      {
+        id: 'bff-proto',
+        label: 'BFF proto',
+        kind: 'bff-proto',
+        binary: true,
+        build: ({ base, i }) =>
+          `${base}/api/v1/trip/plan-proto?origin=${i.origin}&destination=${i.destination}&depArr=${i.depArr || 'dep'}`,
+      },
+    ],
+  },
+  {
+    id: 'departures',
+    title: 'Departures',
+    desc: 'Saved Trips card — fetches next departures for a stop. JSON pass-through is NSW shape verbatim; proto is screen-shaped (line + destination + time + platform).',
+    inputs: [
+      { name: 'stopId', label: 'Stop ID', default: '200060', placeholder: '200060' },
+      { name: 'date', label: 'Date (YYYYMMDD)', default: '', placeholder: 'optional' },
+      { name: 'time', label: 'Time (HHmm)', default: '', placeholder: 'optional' },
+    ],
+    paths: [
+      {
+        id: 'nsw',
+        label: 'NSW direct',
+        kind: 'nsw',
+        binary: false,
+        build: ({ i }) => {
+          let u = `https://api.transport.nsw.gov.au/v1/tp/departure_mon?name_dm=${i.stopId}` +
+            `&type_dm=any&mode=direct&excludedMeans=checkbox&limit=20` +
+            `&outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&TfNSWDM=true&version=10.2.1.42`;
+          if (i.date) u += `&itdDate=${i.date}`;
+          if (i.time) u += `&itdTime=${i.time}`;
+          return u;
+        },
+      },
+      {
+        id: 'bff-json',
+        label: 'BFF JSON',
+        kind: 'bff-json',
+        binary: false,
+        build: ({ base, i }) => {
+          let u = `${base}/v1/stops/${i.stopId}/departures`;
+          const qs = [];
+          if (i.date) qs.push(`date=${i.date}`);
+          if (i.time) qs.push(`time=${i.time}`);
+          if (qs.length) u += '?' + qs.join('&');
+          return u;
+        },
+      },
+      {
+        id: 'bff-proto',
+        label: 'BFF proto',
+        kind: 'bff-proto',
+        binary: true,
+        build: ({ base, i }) => {
+          let u = `${base}/api/v1/stops/${i.stopId}/departures-proto`;
+          const qs = [];
+          if (i.date) qs.push(`date=${i.date}`);
+          if (i.time) qs.push(`time=${i.time}`);
+          if (qs.length) u += '?' + qs.join('&');
+          return u;
+        },
+      },
+    ],
+  },
+  {
+    id: 'parking',
+    title: 'Park & Ride',
+    desc: 'Home parking cards — fan-out per saved-trip stop. No single NSW URL matches (each stop becomes N upstream calls), so we compare proto vs the BFF JSON variant of the same query.',
+    inputs: [
+      { name: 'stopIds', label: 'Stop IDs (comma)', default: '2155384,275010', placeholder: '2155384,275010' },
+    ],
+    paths: [
+      {
+        id: 'bff-json',
+        label: 'BFF JSON',
+        kind: 'bff-json',
+        binary: false,
+        build: ({ base, i }) => `${base}/v1/parking/availability?stopIds=${encodeURIComponent(i.stopIds)}`,
+      },
+      {
+        id: 'bff-proto',
+        label: 'BFF proto',
+        kind: 'bff-proto',
+        binary: true,
+        build: ({ base, i }) => `${base}/api/v1/parking/availability-proto?stopIds=${encodeURIComponent(i.stopIds)}`,
+      },
+    ],
+  },
+  {
+    id: 'tracking',
+    title: 'Live tracking',
+    desc: 'TrackTripScreen / JourneyMapScreen — GTFS-RT polling. BFF is byte-for-byte upstream protobuf pass-through; no proto-vs-JSON delta exists.',
+    inputs: [
+      { name: 'feed', label: 'Feed', default: 'sydneytrains', placeholder: 'sydneytrains' },
+      { name: 'kind', label: 'Kind', default: 'vehiclepos', placeholder: 'vehiclepos | realtime' },
+    ],
+    paths: [
+      {
+        id: 'nsw',
+        label: 'NSW direct',
+        kind: 'nsw',
+        binary: true,
+        build: ({ i }) => {
+          const isV2 = i.feed === 'sydneytrains' || i.feed === 'metro';
+          const v = isV2 ? 'v2' : 'v1';
+          return i.kind === 'vehiclepos'
+            ? `https://api.transport.nsw.gov.au/v2/gtfs/vehiclepos/${i.feed}`
+            : `https://api.transport.nsw.gov.au/${v}/gtfs/realtime/${i.feed}`;
+        },
+      },
+      {
+        id: 'bff',
+        label: 'BFF (pass-through)',
+        kind: 'bff-proto',
+        binary: true,
+        build: ({ base, i }) => {
+          const isV2 = i.feed === 'sydneytrains' || i.feed === 'metro';
+          const v = isV2 ? 'v2' : 'v1';
+          return i.kind === 'vehiclepos'
+            ? `${base}/v2/gtfs/vehiclepos/${i.feed}`
+            : `${base}/${v}/gtfs/realtime/${i.feed}`;
+        },
+      },
+    ],
+  },
+];
 
-  // --------------------------------------------------------------------------------
-  // Storage (sessionStorage only — cleared on tab close).
-  // --------------------------------------------------------------------------------
-  const SS = window.sessionStorage;
-  const SS_PREFIX = 'krail-bff-tester:';
-  const ssGet = (k, fallback = '') => SS.getItem(SS_PREFIX + k) ?? fallback;
-  const ssSet = (k, v) => { v ? SS.setItem(SS_PREFIX + k, v) : SS.removeItem(SS_PREFIX + k); };
-  const ssClear = () => { Object.keys(SS).filter(k => k.startsWith(SS_PREFIX)).forEach(k => SS.removeItem(k)); };
+// ---------------------------------------------------------------------------
+// State + UI binding.
+// ---------------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const ss = window.sessionStorage;
 
-  // --------------------------------------------------------------------------------
-  // Config bar
-  // --------------------------------------------------------------------------------
-  const baseUrlEl = document.getElementById('baseUrl');
-  const authEl = document.getElementById('auth');
-  const versionEl = document.getElementById('version');
+let activeScreenId = ss.getItem('screen') || SCREENS[0].id;
 
-  baseUrlEl.value = ssGet('baseUrl', 'http://localhost:8080');
-  authEl.value = ssGet('auth');
-  versionEl.value = ssGet('version');
-  baseUrlEl.addEventListener('input', () => ssSet('baseUrl', baseUrlEl.value.trim()));
-  authEl.addEventListener('input', () => ssSet('auth', authEl.value));
-  versionEl.addEventListener('input', () => ssSet('version', versionEl.value.trim()));
+function activeScreen() { return SCREENS.find(s => s.id === activeScreenId) || SCREENS[0]; }
 
-  document.getElementById('clearSession').addEventListener('click', () => {
-    ssClear();
-    baseUrlEl.value = 'http://localhost:8080';
-    authEl.value = '';
-    versionEl.value = '';
-    document.querySelectorAll('.endpoint .params input').forEach(i => { i.value = i.dataset.default || ''; });
-    document.querySelectorAll('.response').forEach(r => { r.innerHTML = '<div class="empty">No request sent yet.</div>'; });
-    document.querySelectorAll('.stats').forEach(s => s.remove());
-  });
-
-  // --------------------------------------------------------------------------------
-  // Render endpoints
-  // --------------------------------------------------------------------------------
-  const root = document.getElementById('endpoints');
-  const sectionByEndpoint = new Map();
-
-  function renderEndpoint(e) {
-    const wrap = document.createElement('section');
-    wrap.className = 'endpoint open';
-    wrap.dataset.id = e.id;
-    sectionByEndpoint.set(e.id, wrap);
-
-    const head = document.createElement('div');
-    head.className = 'endpoint-head';
-    head.innerHTML = `<span class="method">${e.method}</span><span class="path">${e.path}</span><span class="name">${e.name}</span>`;
-    head.addEventListener('click', () => wrap.classList.toggle('open'));
-    wrap.appendChild(head);
-
-    const body = document.createElement('div');
-    body.className = 'endpoint-body';
-
-    const allParams = [...(e.pathParams || []), ...(e.params || [])];
-    if (allParams.length) {
-      const grid = document.createElement('div');
-      grid.className = 'params';
-      for (const p of allParams) {
-        const isPath = (e.pathParams || []).some(pp => pp.name === p.name);
-        const id = `${e.id}-${p.name}`;
-        const w2 = document.createElement('div');
-        w2.innerHTML = `
-          <label for="${id}">${p.name}${isPath ? ' (path)' : ''}</label>
-          <input id="${id}" data-name="${p.name}" data-default="${p.default || ''}" placeholder="${p.placeholder || ''}">
-        `;
-        const input = w2.querySelector('input');
-        const stored = ssGet(`p:${e.id}:${p.name}`);
-        input.value = stored || (p.default || '');
-        input.addEventListener('input', () => ssSet(`p:${e.id}:${p.name}`, input.value));
-        grid.appendChild(w2);
-      }
-      body.appendChild(grid);
-    }
-
-    const actions = document.createElement('div');
-    actions.className = 'endpoint-actions';
-    actions.innerHTML = `
-      <button class="send" type="button">Send</button>
-      <span style="color: var(--muted); font-size: 12px;">or run</span>
-      <input type="number" class="runs" min="2" max="100" value="10">
-      <button class="run-multi secondary" type="button">× times</button>
-    `;
-    body.appendChild(actions);
-
-    const resp = document.createElement('div');
-    resp.className = 'response';
-    resp.innerHTML = '<div class="empty">No request sent yet.</div>';
-    body.appendChild(resp);
-
-    actions.querySelector('.send').addEventListener('click', async (ev) => {
-      const btn = ev.target;
-      btn.disabled = true; btn.textContent = 'Sending…';
-      const vals = paramValues(wrap, e);
-      const requestSnapshot = buildRequestSnapshot(e, vals);
-      try {
-        const result = await sendRequest(e, vals);
-        resp.innerHTML = renderInspector(result, requestSnapshot);
-        bindCopyButtons(resp, result, requestSnapshot);
-      } catch (err) {
-        resp.innerHTML = renderError(err, requestSnapshot);
-        bindCopyButtons(resp, null, requestSnapshot);
-      } finally {
-        btn.disabled = false; btn.textContent = 'Send';
-      }
-    });
-
-    actions.querySelector('.run-multi').addEventListener('click', async (ev) => {
-      const btn = ev.target;
-      const n = Math.max(2, Math.min(100, parseInt(actions.querySelector('.runs').value) || 10));
-      btn.disabled = true; btn.textContent = `Running ${n}…`;
-      try {
-        const results = await runMultiple(e, paramValues(wrap, e), n);
-        resp.innerHTML = renderMulti(results, e);
-      } catch (err) {
-        resp.innerHTML = `<div class="response-head"><span class="status err">ERROR</span></div><pre>${esc(err.message || String(err))}</pre>`;
-      } finally {
-        btn.disabled = false; btn.textContent = '× times';
-      }
-    });
-
-    wrap.appendChild(body);
-    root.appendChild(wrap);
-  }
-
-  endpoints.forEach(renderEndpoint);
-
-  // --------------------------------------------------------------------------------
-  // Scenarios
-  // --------------------------------------------------------------------------------
-  const scRoot = document.getElementById('scenarios');
-  scenarios.forEach(s => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = s.name;
+function renderScreens() {
+  $('screens').innerHTML = SCREENS.map(s => `
+    <button class="screen-tab ${s.id === activeScreenId ? 'active' : ''}" data-id="${s.id}">
+      ${s.title}<span class="pill">${s.paths.length}</span>
+    </button>
+  `).join('');
+  $('screens').querySelectorAll('.screen-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      const section = sectionByEndpoint.get(s.endpoint);
-      if (!section) return;
-      Object.entries(s.vals).forEach(([k, v]) => {
-        const input = section.querySelector(`input[data-name="${k}"]`);
-        if (input) {
-          input.value = v;
-          ssSet(`p:${s.endpoint}:${k}`, v);
-        }
-      });
-      section.classList.add('open');
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      activeScreenId = btn.dataset.id;
+      ss.setItem('screen', activeScreenId);
+      renderAll();
     });
-    scRoot.appendChild(btn);
+  });
+}
+
+function renderInputs() {
+  const s = activeScreen();
+  $('screenDesc').textContent = s.desc;
+  $('inputs').innerHTML = s.inputs.map(input => {
+    const stored = ss.getItem(`input:${s.id}:${input.name}`);
+    const v = stored !== null ? stored : (input.default || '');
+    return `
+      <div>
+        <label for="in-${input.name}">${input.label}</label>
+        <input id="in-${input.name}" data-name="${input.name}" value="${esc(v)}" placeholder="${esc(input.placeholder || '')}">
+      </div>
+    `;
+  }).join('');
+  $('inputs').querySelectorAll('input').forEach(el => {
+    el.addEventListener('input', () => ss.setItem(`input:${s.id}:${el.dataset.name}`, el.value));
+  });
+}
+
+function renderResultsSkeleton() {
+  const s = activeScreen();
+  $('results').innerHTML = s.paths.map(p => `
+    <div class="card idle" data-id="${p.id}">
+      <div class="ribbon">
+        <span class="badge">${p.label}</span>
+        <button class="run-one" data-id="${p.id}" title="Fire only this path">Run</button>
+      </div>
+      <h3>${p.label}</h3>
+      <div class="url" data-url-slot></div>
+      <div class="stat-grid">
+        <div class="stat"><div class="label">Status</div><div class="value">—</div></div>
+        <div class="stat"><div class="label">Latency</div><div class="value">—</div></div>
+        <div class="stat"><div class="label">Body</div><div class="value">—</div></div>
+        <div class="stat"><div class="label">Wire (gz)</div><div class="value">—</div></div>
+      </div>
+    </div>
+  `).join('');
+  $('summary').style.display = 'none';
+  $('summaryBody').innerHTML = '';
+  bindCardRunButtons();
+}
+
+function bindCardRunButtons() {
+  document.querySelectorAll('.card .run-one').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      runOne(btn.dataset.id);
+    });
+  });
+}
+
+function readInputs() {
+  const s = activeScreen();
+  const i = {};
+  s.inputs.forEach(input => {
+    const el = $(`in-${input.name}`);
+    i[input.name] = (el ? el.value : input.default || '').trim();
+  });
+  return i;
+}
+
+// ---------------------------------------------------------------------------
+// HTTP firing.
+// ---------------------------------------------------------------------------
+async function rawFetch(url, { binary = false } = {}) {
+  const t0 = performance.now();
+  let response;
+  try {
+    response = await fetch(url, { headers: optHeaders() });
+  } catch (e) {
+    return { url, error: e.message || String(e), elapsed: Math.round(performance.now() - t0) };
+  }
+  const elapsed = Math.round(performance.now() - t0);
+
+  const buf = await response.arrayBuffer();
+  const ct = response.headers.get('Content-Type') || '';
+  const decodedBytes = buf.byteLength;
+
+  let body;
+  const isJsonish = ct.includes('json') || ct.includes('text');
+  const isProtoish = ct.includes('protobuf');
+  if (binary || isProtoish) {
+    body = `<binary, ${decodedBytes} bytes>\n\n${hexPreview(new Uint8Array(buf), 256)}`;
+  } else if (isJsonish) {
+    const text = new TextDecoder().decode(buf);
+    try { body = JSON.stringify(JSON.parse(text), null, 2); } catch { body = text; }
+  } else {
+    body = new TextDecoder().decode(buf);
+  }
+
+  // Wire size via Resource Timing.
+  let encodedBodySize = null;
+  try {
+    const entries = performance.getEntriesByName(url);
+    const last = entries[entries.length - 1];
+    if (last && typeof last.encodedBodySize === 'number') encodedBodySize = last.encodedBodySize;
+  } catch {}
+
+  return {
+    url, status: response.status, statusText: response.statusText,
+    elapsed, decodedBytes, encodedBodySize, body,
+  };
+}
+
+function optHeaders() {
+  const h = {};
+  const v = ($('version').value || '').trim();
+  if (v) h['X-Krail-Version'] = v;
+  return h;
+}
+
+/**
+ * Resolve a path's URL: build via screen-config, then wrap NSW URLs in
+ * /internal/passthrough so the browser doesn't choke on missing CORS.
+ */
+function resolveUrl(path, base, inputs) {
+  const raw = path.build({ base, i: inputs });
+  if (path.kind === 'nsw') {
+    return `${base}/internal/passthrough?url=${encodeURIComponent(raw)}`;
+  }
+  return raw;
+}
+
+// ---------------------------------------------------------------------------
+// Run all paths in parallel + render results + summary.
+// ---------------------------------------------------------------------------
+async function runAll() {
+  const s = activeScreen();
+  const inputs = readInputs();
+  const base = ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
+
+  // Validate required inputs.
+  for (const input of s.inputs) {
+    if (!input.default && !inputs[input.name]) continue; // optional
+    if (input.default && !inputs[input.name]) {
+      $('runHint').textContent = `Need a value for ${input.label}.`;
+      return;
+    }
+  }
+
+  $('runAll').disabled = true;
+  $('runAll').textContent = 'Running…';
+  $('runHint').textContent = '';
+  renderResultsSkeleton();
+
+  // Stamp each card with its displayed URL up-front.
+  s.paths.forEach(p => {
+    const card = document.querySelector(`.card[data-id="${p.id}"]`);
+    if (!card) return;
+    const rawUrl = p.build({ base, i: inputs });
+    card.querySelector('[data-url-slot]').textContent = rawUrl;
   });
 
-  // --------------------------------------------------------------------------------
-  // Request execution
-  // --------------------------------------------------------------------------------
-  function paramValues(wrap, e) {
-    const out = { path: {}, query: {} };
-    wrap.querySelectorAll('.params input').forEach(input => {
-      const name = input.dataset.name;
-      const v = input.value.trim();
-      if (!v) return;
-      const isPath = (e.pathParams || []).some(pp => pp.name === name);
-      if (isPath) out.path[name] = v;
-      else out.query[name] = v;
-    });
-    return out;
+  // Fire all in parallel.
+  const fetches = s.paths.map(p => {
+    const url = resolveUrl(p, base, inputs);
+    return rawFetch(url, { binary: p.binary }).then(r => ({ path: p, r }));
+  });
+  const settled = await Promise.allSettled(fetches);
+
+  // Render each card.
+  const results = [];
+  settled.forEach((res, idx) => {
+    const p = s.paths[idx];
+    const r = res.status === 'fulfilled' ? res.value.r : { error: res.reason?.message || String(res.reason) };
+    renderCard(p, r);
+    results.push({ path: p, r });
+  });
+
+  renderSummary(results);
+
+  $('runAll').disabled = false;
+  $('runAll').textContent = 'Run all paths';
+}
+
+function renderCard(path, r) {
+  const card = document.querySelector(`.card[data-id="${path.id}"]`);
+  if (!card) return;
+  card.classList.remove('idle');
+  if (r.error) {
+    card.classList.add('err');
+    card.innerHTML = `
+      <div class="ribbon">
+        <span class="badge">${esc(path.label)}</span>
+        <button class="run-one" data-id="${path.id}">Run</button>
+      </div>
+      <h3>${esc(path.label)}</h3>
+      <div class="url">${esc(path.build({ base: $('baseUrl').value.replace(/\/+$/, ''), i: readInputs() }))}</div>
+      <div class="stat-grid">
+        <div class="stat err"><div class="label">Status</div><div class="value">NET ERROR</div></div>
+        <div class="stat"><div class="label">Latency</div><div class="value">—</div></div>
+      </div>
+      <details class="body-detail"><summary>Error</summary><pre>${esc(r.error)}</pre></details>
+    `;
+    bindCardRunButtons();
+    return;
   }
 
-  function buildUrl(base, e, vals) {
-    let path = e.path;
-    for (const [k, v] of Object.entries(vals.path)) path = path.replace('{' + k + '}', encodeURIComponent(v));
-    const url = new URL(path, base.endsWith('/') ? base : base + '/');
-    for (const [k, v] of Object.entries(vals.query)) url.searchParams.set(k, v);
-    return url.toString();
+  const okCls = r.status >= 200 && r.status < 400 ? 'ok' : 'err';
+  const statusPill = okCls === 'ok' ? 'pill-ok' : 'pill-err';
+  const wire = r.encodedBodySize != null && r.encodedBodySize > 0 ? fmtBytes(r.encodedBodySize) : '—';
+
+  card.innerHTML = `
+    <div class="ribbon">
+      <span class="badge">${esc(path.label)}</span>
+      <span class="${statusPill}">${r.status}</span>
+      <button class="run-one" data-id="${path.id}" title="Re-run only this path">Re-run</button>
+    </div>
+    <h3>${esc(path.label)}</h3>
+    <div class="url">${esc(path.build({ base: $('baseUrl').value.replace(/\/+$/, ''), i: readInputs() }))}</div>
+    <div class="stat-grid">
+      <div class="stat ${okCls}"><div class="label">Status</div><div class="value">${r.status}</div><div class="sub">${esc(r.statusText || '')}</div></div>
+      <div class="stat"><div class="label">Latency</div><div class="value">${r.elapsed}<span style="font-size:11px;color:var(--muted)"> ms</span></div></div>
+      <div class="stat"><div class="label">Body</div><div class="value">${fmtBytes(r.decodedBytes)}</div></div>
+      <div class="stat"><div class="label">Wire (gz)</div><div class="value">${wire}</div></div>
+    </div>
+    <div class="card-actions">
+      <button class="cp-url">Copy URL</button>
+      <button class="cp-body">Copy body</button>
+    </div>
+    <details class="body-detail"><summary>Response body (${fmtBytes(r.decodedBytes)})</summary><pre>${esc(r.body)}</pre></details>
+  `;
+
+  // Wire copy + re-run buttons on this card.
+  card.querySelector('.cp-url').addEventListener('click', () => navigator.clipboard.writeText(r.url));
+  card.querySelector('.cp-body').addEventListener('click', () => navigator.clipboard.writeText(r.body));
+  bindCardRunButtons();
+}
+
+/**
+ * Fire exactly one path. Used by the Run / Re-run buttons in each card.
+ * Doesn't refresh the deltas table — that needs at least 2 fresh results.
+ */
+async function runOne(pathId) {
+  const s = activeScreen();
+  const path = s.paths.find(p => p.id === pathId);
+  if (!path) return;
+  const inputs = readInputs();
+  const base = ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
+
+  // Mark the card busy via the button text.
+  const btn = document.querySelector(`.card[data-id="${pathId}"] .run-one`);
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  const url = resolveUrl(path, base, inputs);
+  const r = await rawFetch(url, { binary: path.binary });
+  renderCard(path, r);
+}
+
+/**
+ * Build the deltas table: for each pair of paths in the screen, show
+ * what the size delta + savings % is. We prefer "vs NSW" comparisons
+ * when an NSW path is present, else "vs BFF JSON".
+ */
+function renderSummary(results) {
+  const ok = results.filter(({ r }) => r && !r.error && r.status >= 200 && r.status < 400);
+  if (ok.length < 2) {
+    $('summary').style.display = 'none';
+    return;
   }
 
-  async function sendRequest(e, vals) {
-    const base = (baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '');
-    const url = buildUrl(base, e, vals);
+  // Pick the baseline:
+  //   - NSW direct if present (the "what would have been transferred" baseline)
+  //   - else BFF JSON
+  const baseline = ok.find(({ path }) => path.kind === 'nsw')
+    || ok.find(({ path }) => path.kind === 'bff-json')
+    || ok[0];
 
-    const headers = {};
-    const auth = authEl.value.trim();
-    if (auth) headers['Authorization'] = auth;
-    const ver = versionEl.value.trim();
-    if (ver) headers['X-Krail-Version'] = ver;
-
-    const t0 = performance.now();
-    const res = await fetch(url, { method: e.method, headers, redirect: e.followRedirect === false ? 'manual' : 'follow' });
-    const elapsed = Math.round(performance.now() - t0);
-
-    const ct = res.headers.get('Content-Type') || '';
-    const isJson = ct.includes('application/json') || ct.includes('text/');
-    const isProto = ct.includes('protobuf');
-
-    // Read full body so we can size it.
-    const bodyBuffer = await res.arrayBuffer();
-    const decodedBytes = bodyBuffer.byteLength;
-
-    let bodyText;
-    if (e.binary || isProto) {
-      bodyText = `<binary, ${decodedBytes} bytes>\n\n` + hexPreview(new Uint8Array(bodyBuffer), 256);
-    } else if (isJson) {
-      const text = new TextDecoder().decode(bodyBuffer);
-      try { bodyText = JSON.stringify(JSON.parse(text), null, 2); } catch { bodyText = text; }
-    } else {
-      bodyText = new TextDecoder().decode(bodyBuffer);
-    }
-
-    const headerLines = [];
-    res.headers.forEach((v, k) => headerLines.push(`${k}: ${v}`));
-
-    // Performance API gives us the wire-encoded size when available.
-    let transferSize = null, encodedBodySize = null;
-    try {
-      const entries = performance.getEntriesByName(url);
-      const last = entries[entries.length - 1];
-      if (last) {
-        transferSize = last.transferSize ?? null;
-        encodedBodySize = last.encodedBodySize ?? null;
-      }
-    } catch (_) {}
-
+  const rows = ok.filter(o => o.path.id !== baseline.path.id).map(({ path, r }) => {
+    const dRaw = pct(baseline.r.decodedBytes, r.decodedBytes);
+    const dWire = (baseline.r.encodedBodySize && r.encodedBodySize)
+      ? pct(baseline.r.encodedBodySize, r.encodedBodySize)
+      : null;
+    const dLatency = r.elapsed - baseline.r.elapsed;
     return {
-      url, status: res.status, statusText: res.statusText, elapsed,
-      headers: headerLines.join('\n'), body: bodyText,
-      decodedBytes, encodedBodySize, transferSize, contentType: ct,
+      label: path.label, dRaw, dWire, dLatency,
+      thisRaw: r.decodedBytes, thisWire: r.encodedBodySize,
+      baseRaw: baseline.r.decodedBytes, baseWire: baseline.r.encodedBodySize,
     };
-  }
-
-  // Build a snapshot of what we're about to send, so we can show it on success AND on error.
-  function buildRequestSnapshot(e, vals) {
-    const base = (baseUrlEl.value || 'http://localhost:8080').replace(/\/+$/, '');
-    const url = buildUrl(base, e, vals);
-    const headers = {};
-    const auth = authEl.value.trim();
-    if (auth) headers['Authorization'] = '<set>';  // mask in display
-    const ver = versionEl.value.trim();
-    if (ver) headers['X-Krail-Version'] = ver;
-    return { method: e.method, url, headers, hasAuth: !!auth, baseUrl: base };
-  }
-
-  function renderInspector(r, req) {
-    const cls = r.status >= 200 && r.status < 300 ? 'ok' : r.status >= 400 ? 'err' : 'warn';
-    const sizeMetrics = renderSizeMetrics(r);
-    const reqHeadersRendered = renderHeadersBlock(req.headers);
-    return `
-      <div class="inspector">
-        <div class="inspector-status">
-          <span class="method-pill">${esc(r.method || req.method)}</span>
-          <span class="badge ${cls}">${r.status} ${esc(r.statusText)}</span>
-          <span><strong>${r.elapsed}</strong> ms</span>
-          ${sizeMetrics}
-          <span class="inspector-url">${esc(r.url)}</span>
-          <div class="inspector-actions">
-            <button class="copy-url" type="button">Copy URL</button>
-            <button class="copy-curl" type="button">Copy as curl</button>
-            <button class="copy-body" type="button">Copy body</button>
-          </div>
-        </div>
-
-        <details><summary>Request headers ${req.hasAuth ? '<span style="color: var(--warn);"> · Authorization set</span>' : ''}</summary>
-          <pre>${reqHeadersRendered || '<em style="color: var(--muted)">(none beyond browser defaults)</em>'}</pre>
-        </details>
-
-        <details open><summary>Response headers</summary>
-          <pre>${esc(r.headers || '(none)')}</pre>
-        </details>
-
-        <details open><summary>Response body${r.decodedBytes ? ` · ${fmtBytes(r.decodedBytes)}` : ''}</summary>
-          <pre>${esc(r.body)}</pre>
-        </details>
-      </div>
-    `;
-  }
-
-  function renderError(err, req) {
-    const msg = err.message || String(err);
-    const isFetchFail = /failed to fetch|network/i.test(msg);
-    const reqHeadersRendered = renderHeadersBlock(req.headers);
-    const diag = isFetchFail ? renderFetchFailDiagnostic(req) : `<p style="color: var(--muted); font-size: 12px;">No response received from the server. Check the browser DevTools Network panel for the underlying error.</p>`;
-    return `
-      <div class="inspector">
-        <div class="inspector-status">
-          <span class="method-pill">${esc(req.method)}</span>
-          <span class="badge err">NETWORK ERROR</span>
-          <span style="color: var(--err); font-family: var(--mono); font-size: 12px;">${esc(msg)}</span>
-          <span class="inspector-url">${esc(req.url)}</span>
-          <div class="inspector-actions">
-            <button class="copy-url" type="button">Copy URL</button>
-            <button class="copy-curl" type="button">Copy as curl</button>
-          </div>
-        </div>
-
-        <details open><summary>What this means + how to fix</summary>
-          <div>${diag}</div>
-        </details>
-
-        <details><summary>Request headers ${req.hasAuth ? '<span style="color: var(--warn);"> · Authorization set</span>' : ''}</summary>
-          <pre>${reqHeadersRendered || '<em style="color: var(--muted)">(none)</em>'}</pre>
-        </details>
-      </div>
-    `;
-  }
-
-  function renderHeadersBlock(headers) {
-    return Object.entries(headers).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join('\n');
-  }
-
-  function renderFetchFailDiagnostic(req) {
-    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)/.test(req.url);
-    const items = [];
-    if (isLocal) {
-      items.push(`<li><strong>Server not running.</strong> Verify with <code>curl ${esc(req.baseUrl)}/health</code> in a terminal. <span class="diag-fix">Fix: <code>./scripts/dev.sh up</code> from the repo root.</span></li>`);
-      items.push(`<li><strong>CORS — origin blocked.</strong> If this page is loaded over <code>file://</code> the BFF won't allow it. <span class="diag-fix">Fix: open via <code>http://localhost:8000/api-tester.html</code> instead (the dev script does this for you).</span></li>`);
-    } else {
-      items.push(`<li><strong>Cross-origin request blocked.</strong> NSW Open Data and most external APIs don't send CORS headers; browsers can't talk to them directly. <span class="diag-fix">Fix: point Base URL at <code>http://localhost:8080</code> (the BFF) and let the BFF talk to upstream server-side.</span></li>`);
-      items.push(`<li><strong>Mixed content.</strong> If this page is on <code>https://</code>, browsers block <code>http://</code> calls. <span class="diag-fix">Fix: use the same scheme on both sides.</span></li>`);
-    }
-    items.push(`<li><strong>DevTools tells the truth.</strong> Open <code>F12 → Network</code>, run the request again, click the failing row. The <em>Status</em> column or the red CORS message there is the real error; "Failed to fetch" is the JS-level placeholder.</li>`);
-    items.push(`<li><strong>Try with curl</strong> using the "Copy as curl" button above — if curl works and the browser doesn't, it's CORS. If neither works, the server is unreachable.</li>`);
-    return `<ul class="diag-list">${items.join('')}</ul>`;
-  }
-
-  function bindCopyButtons(scope, result, req) {
-    const buttons = scope.querySelectorAll('.copy-url, .copy-curl, .copy-body');
-    buttons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        let text = '';
-        if (btn.classList.contains('copy-url')) text = req.url;
-        else if (btn.classList.contains('copy-curl')) text = toCurl(req);
-        else if (btn.classList.contains('copy-body') && result) text = result.body;
-        if (!text) return;
-        navigator.clipboard.writeText(text).then(
-          () => { const orig = btn.textContent; btn.textContent = 'copied!'; setTimeout(() => btn.textContent = orig, 1200); },
-          () => { btn.textContent = 'clipboard denied'; },
-        );
-      });
-    });
-  }
-
-  function toCurl(req) {
-    const parts = [`curl -i -X ${req.method} '${req.url.replace(/'/g, `'\\''`)}'`];
-    Object.entries(req.headers).forEach(([k, v]) => {
-      // Substitute the actual values from current input fields, not the masked '<set>' placeholder.
-      let actual = v;
-      if (k === 'Authorization' && v === '<set>') actual = authEl.value.trim();
-      parts.push(`  -H '${k}: ${actual.replace(/'/g, `'\\''`)}'`);
-    });
-    return parts.join(' \\\n');
-  }
-
-  function renderSizeMetrics(r) {
-    const parts = [];
-    parts.push(`<span class="metric">body <strong>${fmtBytes(r.decodedBytes)}</strong></span>`);
-    if (r.encodedBodySize != null && r.encodedBodySize > 0 && r.encodedBodySize < r.decodedBytes) {
-      const savings = Math.round((1 - r.encodedBodySize / r.decodedBytes) * 100);
-      parts.push(`<span class="metric">wire <strong>${fmtBytes(r.encodedBodySize)}</strong> (gzip −${savings}%)</span>`);
-    } else if (r.encodedBodySize != null && r.encodedBodySize > 0) {
-      parts.push(`<span class="metric">wire <strong>${fmtBytes(r.encodedBodySize)}</strong></span>`);
-    }
-    return parts.join(' ');
-  }
-
-  // --------------------------------------------------------------------------------
-  // Multi-run stats
-  // --------------------------------------------------------------------------------
-  async function runMultiple(e, vals, n) {
-    const results = [];
-    for (let i = 0; i < n; i++) {
-      try {
-        results.push(await sendRequest(e, vals));
-      } catch (err) {
-        results.push({ error: err.message || String(err) });
-      }
-      // Tiny delay so we don't slam local server with N parallel calls.
-      await new Promise(r => setTimeout(r, 30));
-    }
-    return results;
-  }
-
-  function renderMulti(results, e) {
-    const okResults = results.filter(r => !r.error && r.status >= 200 && r.status < 400);
-    const failed = results.length - okResults.length;
-    if (okResults.length === 0) {
-      return `<div class="response-head"><span class="status err">ALL FAILED</span><span class="metric">${results.length} attempts</span></div>` +
-        `<pre>${results.map((r, i) => `#${i + 1}: ${r.error || (r.status + ' ' + r.statusText)}`).join('\n')}</pre>`;
-    }
-    const lat = okResults.map(r => r.elapsed).sort((a, b) => a - b);
-    const sizes = okResults.map(r => r.decodedBytes).sort((a, b) => a - b);
-    const wire = okResults.map(r => r.encodedBodySize).filter(x => x != null && x > 0).sort((a, b) => a - b);
-
-    const stat = (arr) => ({
-      count: arr.length,
-      mean: Math.round(arr.reduce((a, b) => a + b, 0) / arr.length),
-      min: arr[0],
-      max: arr[arr.length - 1],
-      p50: arr[Math.floor(arr.length * 0.5)],
-      p95: arr[Math.floor(arr.length * 0.95)] ?? arr[arr.length - 1],
-    });
-    const lStats = stat(lat);
-    const sStats = stat(sizes);
-    const wStats = wire.length ? stat(wire) : null;
-
-    const failBar = renderBar(okResults.length, results.length);
-    const csvLines = ['#,status,elapsed_ms,decoded_bytes,wire_bytes', ...results.map((r, i) => {
-      if (r.error) return `${i + 1},ERROR,,,`;
-      return `${i + 1},${r.status},${r.elapsed},${r.decodedBytes},${r.encodedBodySize ?? ''}`;
-    })];
-    const csv = csvLines.join('\n');
-    window._lastMultiCsv = csv;
-
-    return `
-      <div class="response-head">
-        <span class="status ${failed > 0 ? 'warn' : 'ok'}">${okResults.length}/${results.length} succeeded</span>
-      </div>
-      ${failBar}
-      <div class="stats">
-        <div class="row"><span class="label">Latency (ms)</span>
-          <span class="value">mean <strong>${lStats.mean}</strong> · p50 <strong>${lStats.p50}</strong> · p95 <strong>${lStats.p95}</strong> · min <strong>${lStats.min}</strong> · max <strong>${lStats.max}</strong></span>
-        </div>
-        <div class="row"><span class="label">Body size (decoded)</span>
-          <span class="value">mean <strong>${fmtBytes(sStats.mean)}</strong> · p50 <strong>${fmtBytes(sStats.p50)}</strong> · min <strong>${fmtBytes(sStats.min)}</strong> · max <strong>${fmtBytes(sStats.max)}</strong></span>
-        </div>
-        ${wStats ? `<div class="row"><span class="label">Wire size (encoded)</span>
-          <span class="value">mean <strong>${fmtBytes(wStats.mean)}</strong> · p50 <strong>${fmtBytes(wStats.p50)}</strong> · min <strong>${fmtBytes(wStats.min)}</strong> · max <strong>${fmtBytes(wStats.max)}</strong></span>
-        </div>
-        <div class="row"><span class="label">Compression</span>
-          <span class="value"><strong>−${Math.round((1 - wStats.mean / sStats.mean) * 100)}%</strong> on the wire vs decoded</span>
-        </div>` : ''}
-        <div class="row" style="margin-top: 8px;"><span class="label">Export</span>
-          <span class="value"><a href="#" id="copyMultiCsv" style="color: var(--accent);">copy CSV</a> (status,elapsed_ms,decoded_bytes,wire_bytes per run)</span>
-        </div>
-      </div>
-      <details style="margin-top: 8px;"><summary style="cursor: pointer; color: var(--muted); font-size: 12px;">Last response body</summary><pre>${esc(okResults[okResults.length - 1].body)}</pre></details>
-    `;
-  }
-
-  // Bind copy-CSV after every multi-run render.
-  document.addEventListener('click', (ev) => {
-    if (ev.target.id === 'copyMultiCsv') {
-      ev.preventDefault();
-      navigator.clipboard.writeText(window._lastMultiCsv || '').then(
-        () => { ev.target.textContent = 'copied!'; setTimeout(() => ev.target.textContent = 'copy CSV', 1500); },
-        () => { ev.target.textContent = 'clipboard denied'; },
-      );
-    }
   });
 
-  function renderBar(ok, total) {
-    const okPct = (ok / total) * 100;
-    const failPct = 100 - okPct;
-    return `<div class="stats-bar"><div class="seg" style="width:${okPct}%"></div>${failPct > 0 ? `<div class="seg err" style="width:${failPct}%"></div>` : ''}</div>`;
+  if (!rows.length) {
+    $('summary').style.display = 'none';
+    return;
   }
 
-  // --------------------------------------------------------------------------------
-  // Helpers
-  // --------------------------------------------------------------------------------
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const headerLatency = '<th>Latency Δ</th>';
+  const html = `
+    <table>
+      <thead>
+        <tr>
+          <th>vs ${esc(baseline.path.label)}</th>
+          <th>Body</th>
+          <th>Wire (gz)</th>
+          ${headerLatency}
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => {
+          const rawCls = r.dRaw == null ? 'neutral' : (r.dRaw <= -5 ? 'win' : r.dRaw >= 5 ? 'loss' : 'neutral');
+          const wireCls = r.dWire == null ? 'neutral' : (r.dWire <= -5 ? 'win' : r.dWire >= 5 ? 'loss' : 'neutral');
+          const latCls = r.dLatency == null ? 'neutral' : (r.dLatency <= -25 ? 'win' : r.dLatency >= 25 ? 'loss' : 'neutral');
+          return `
+          <tr>
+            <td>${esc(r.label)}</td>
+            <td class="savings ${rawCls}">${fmtSavings(r.dRaw)} <span style="color:var(--muted);font-weight:400">(${fmtBytes(r.thisRaw)} vs ${fmtBytes(r.baseRaw)})</span></td>
+            <td class="savings ${wireCls}">${r.dWire == null ? '—' : fmtSavings(r.dWire)} ${r.thisWire && r.baseWire ? `<span style="color:var(--muted);font-weight:400">(${fmtBytes(r.thisWire)} vs ${fmtBytes(r.baseWire)})</span>` : ''}</td>
+            <td class="savings ${latCls}">${r.dLatency >= 0 ? '+' : ''}${r.dLatency} ms</td>
+          </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+    <div class="note">${noteForScreen()}</div>
+  `;
+  $('summaryBody').innerHTML = html;
+  $('summary').style.display = '';
+}
+
+function noteForScreen() {
+  const s = activeScreen();
+  if (s.id === 'trip') return 'JSON pass-through equals NSW direct in body size by design — the BFF forwards verbatim. Proto reshapes to a smaller binary.';
+  if (s.id === 'departures') return 'JSON pass-through is byte-equal to NSW. Proto is screen-shaped (only line + destination + time + platform), so it carries far less.';
+  if (s.id === 'parking') return 'No NSW direct comparison — the BFF fan-out makes N upstream calls per request. Proto vs JSON shows the encoding-only delta for the same logical batch.';
+  if (s.id === 'tracking') return 'GTFS-RT is byte-for-byte pass-through. No delta is expected; this check confirms the BFF isn\'t silently reshaping.';
+  return '';
+}
+
+// ---------------------------------------------------------------------------
+// Debug-any-URL panel.
+// ---------------------------------------------------------------------------
+async function runDebug() {
+  const raw = $('debugInput').value.trim();
+  if (!raw) return;
+  $('debugRun').disabled = true; $('debugRun').textContent = 'Firing…';
+  $('debugResult').innerHTML = '';
+
+  const base = ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
+  // Parse: either URL or curl. Curl handling kept minimal.
+  let url = raw;
+  let method = 'GET';
+  if (/^curl\s/i.test(raw)) {
+    const m = raw.match(/'((https?|http):\/\/[^']+)'|"((https?|http):\/\/[^"]+)"|((https?|http):\/\/\S+)/);
+    if (m) url = m[1] || m[3] || m[5];
   }
-  function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
-  function fmtBytes(b) {
-    if (b == null) return '?';
-    if (b < 1024) return b + ' B';
-    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
-    return (b / 1024 / 1024).toFixed(2) + ' MB';
-  }
-  function hexPreview(bytes, max = 256) {
-    const slice = bytes.slice(0, max);
-    const lines = [];
-    for (let i = 0; i < slice.length; i += 16) {
-      const row = Array.from(slice.slice(i, i + 16));
-      const hex = row.map(b => b.toString(16).padStart(2, '0')).join(' ');
-      const ascii = row.map(b => (b >= 32 && b < 127) ? String.fromCharCode(b) : '.').join('');
-      lines.push(`${i.toString(16).padStart(8, '0')}  ${hex.padEnd(48)}  ${ascii}`);
-    }
-    if (bytes.length > max) lines.push(`… (${bytes.length - max} more bytes)`);
-    return lines.join('\n');
-  }
-
-  // --------------------------------------------------------------------------------
-  // Smoke runner
-  // --------------------------------------------------------------------------------
-  document.getElementById('runSmoke').addEventListener('click', runSmoke);
-  document.getElementById('exportCsv').addEventListener('click', exportSmokeCsv);
-
-  let lastSmoke = [];
-
-  async function runSmoke() {
-    const btn = document.getElementById('runSmoke');
-    const out = document.getElementById('smokeResults');
-    btn.disabled = true;
-    out.innerHTML = '';
-    lastSmoke = [];
-    const targets = endpoints.filter(e => e.smoke?.include);
-    let pass = 0, fail = 0;
-    for (const e of targets) {
-      const row = document.createElement('div');
-      row.className = 'smoke-row';
-      row.innerHTML = `<span class="label">${e.method} ${e.path}</span><span class="pending">running…</span>`;
-      out.appendChild(row);
-
-      const wrap = sectionByEndpoint.get(e.id);
-      const vals = paramValues(wrap, e);
-      for (const [k, v] of Object.entries(e.smoke?.pathFill || {})) {
-        if (!vals.path[k]) vals.path[k] = v;
-      }
-      try {
-        const r = await sendRequest(e, vals);
-        const ok = (r.status >= 200 && r.status < 300) || (e.followRedirect && r.status >= 300 && r.status < 400);
-        const sizeStr = `${fmtBytes(r.decodedBytes)}` + (r.encodedBodySize != null && r.encodedBodySize !== r.decodedBytes ? ` / ${fmtBytes(r.encodedBodySize)} wire` : '');
-        row.lastElementChild.outerHTML = `<span class="${ok ? 'pass' : 'fail'}">${r.status} (${r.elapsed} ms, ${sizeStr})</span>`;
-        ok ? pass++ : fail++;
-        lastSmoke.push({ endpoint: e.id, path: e.path, status: r.status, elapsed: r.elapsed, body_bytes: r.decodedBytes, wire_bytes: r.encodedBodySize ?? '' });
-      } catch (err) {
-        row.lastElementChild.outerHTML = `<span class="fail">ERROR: ${esc(err.message || String(err))}</span>`;
-        fail++;
-        lastSmoke.push({ endpoint: e.id, path: e.path, status: 'ERROR', elapsed: '', body_bytes: '', wire_bytes: '' });
-      }
-    }
-    const summary = document.createElement('div');
-    summary.className = 'smoke-row';
-    summary.innerHTML = `<span class="label">Summary</span><span class="${fail === 0 ? 'pass' : 'fail'}">${pass} passed, ${fail} failed</span>`;
-    out.appendChild(summary);
-    btn.disabled = false;
+  // Auto-wrap NSW URLs.
+  if (url.startsWith('https://api.transport.nsw.gov.au')) {
+    url = `${base}/internal/passthrough?url=${encodeURIComponent(url)}`;
   }
 
-  function exportSmokeCsv() {
-    if (!lastSmoke.length) { alert('Run the smoke tests first.'); return; }
-    const headers = ['endpoint', 'path', 'status', 'elapsed_ms', 'body_bytes', 'wire_bytes'];
-    const lines = [headers.join(','), ...lastSmoke.map(r => headers.map(h => r[h] ?? '').join(','))];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `krail-bff-smoke-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const r = await rawFetch(url, { binary: false });
+  if (r.error) {
+    $('debugResult').innerHTML = `<div class="card err" style="margin-top:12px;"><div class="ribbon">DEBUG</div><h3>Network error</h3><pre>${esc(r.error)}</pre></div>`;
+  } else {
+    const okCls = r.status >= 200 && r.status < 400 ? 'ok' : 'err';
+    const statusPill = okCls === 'ok' ? 'pill-ok' : 'pill-err';
+    const wire = r.encodedBodySize != null ? fmtBytes(r.encodedBodySize) : '—';
+    $('debugResult').innerHTML = `
+      <div class="card" style="margin-top:12px;">
+        <div class="ribbon"><span class="badge">DEBUG</span><span class="${statusPill}">${r.status}</span></div>
+        <div class="url">${esc(url)}</div>
+        <div class="stat-grid">
+          <div class="stat ${okCls}"><div class="label">Status</div><div class="value">${r.status}</div></div>
+          <div class="stat"><div class="label">Latency</div><div class="value">${r.elapsed}<span style="font-size:11px;color:var(--muted)"> ms</span></div></div>
+          <div class="stat"><div class="label">Body</div><div class="value">${fmtBytes(r.decodedBytes)}</div></div>
+          <div class="stat"><div class="label">Wire</div><div class="value">${wire}</div></div>
+        </div>
+        <details class="body-detail" open><summary>Body</summary><pre>${esc(r.body)}</pre></details>
+      </div>
+    `;
   }
+  $('debugRun').disabled = false; $('debugRun').textContent = 'Fire';
+}
+
+// ---------------------------------------------------------------------------
+// Utils
+// ---------------------------------------------------------------------------
+function pct(base, current) {
+  if (!base || base === 0) return null;
+  return Math.round((current / base - 1) * 100);
+}
+function fmtSavings(p) {
+  if (p === null || p === undefined) return '—';
+  if (p === 0) return '0%';
+  return p > 0 ? `+${p}%` : `${p}%`;
+}
+function fmtBytes(b) {
+  if (b == null) return '—';
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / 1024 / 1024).toFixed(1)} MB`;
+}
+function hexPreview(bytes, max = 256) {
+  const slice = bytes.slice(0, max);
+  const rows = [];
+  for (let i = 0; i < slice.length; i += 16) {
+    const chunk = slice.slice(i, i + 16);
+    const hex = Array.from(chunk).map(b => b.toString(16).padStart(2, '0')).join(' ');
+    rows.push(hex);
+  }
+  return rows.join('\n') + (bytes.length > max ? `\n... (${bytes.length - max} more bytes)` : '');
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+// ---------------------------------------------------------------------------
+// Wire up + first render.
+// ---------------------------------------------------------------------------
+function renderAll() {
+  renderScreens();
+  renderInputs();
+  renderResultsSkeleton();
+}
+
+$('runAll').addEventListener('click', () => runAll());
+$('debugRun').addEventListener('click', () => runDebug());
+$('baseUrl').addEventListener('input', () => ss.setItem('baseUrl', $('baseUrl').value));
+$('version').addEventListener('input', () => ss.setItem('version', $('version').value));
+
+// Restore persisted base / version.
+if (ss.getItem('baseUrl')) $('baseUrl').value = ss.getItem('baseUrl');
+if (ss.getItem('version')) $('version').value = ss.getItem('version');
+
+renderAll();
 </script>
 </body>
 </html>

@@ -9,11 +9,16 @@ object MobileAttributes {
     val Key = AttributeKey<MobileContext>("MobileContext")
 }
 
+// Compile-once: stripped from every header on every request. Allocating a
+// fresh Regex per header per request was the previous behavior — wasteful
+// since the pattern is immutable + thread-safe.
+private val CONTROL_CHARS_REGEX = Regex("[\\p{Cntrl}]")
+
 private fun sanitizeHeader(value: String?, maxLen: Int = 256): String? {
     if (value == null) return null
-    // Strip control characters (includes CR/LF, tabs, etc.) and DEL
-    val noCtrl = value.replace(Regex("[\\p{Cntrl}]"), "")
-    // Cap length to avoid log bloat
+    // Strip control characters (includes CR/LF, tabs, etc.) and DEL.
+    val noCtrl = value.replace(CONTROL_CHARS_REGEX, "")
+    // Cap length to avoid log bloat.
     val capped = if (noCtrl.length > maxLen) noCtrl.substring(0, maxLen) else noCtrl
     return capped.ifBlank { null }
 }
