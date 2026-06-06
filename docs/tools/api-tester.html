@@ -221,6 +221,151 @@
   .pill-ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
   .pill-err { background: rgba(248, 81, 73, 0.15); color: var(--err); padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
   .pill-warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+
+  /* TfNSW Inspector */
+  .inspector-section {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    margin-top: 32px; padding: 16px;
+  }
+  .inspector-section h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--muted); margin: 0 0 4px;
+  }
+  .inspector-section .insp-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .inspector-url-row { display: flex; gap: 8px; align-items: stretch; }
+  .inspector-url-row input {
+    flex: 1; padding: 7px 10px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 4px;
+    color: var(--fg); font: 12px var(--mono);
+  }
+  .inspector-url-row input:focus { outline: none; border-color: var(--accent); }
+
+  .journey-list { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .journey-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px 14px;
+  }
+  .journey-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .journey-num {
+    background: var(--accent-soft); border: 1px solid var(--accent);
+    color: var(--accent); font: 600 11px var(--mono);
+    padding: 2px 8px; border-radius: 3px; min-width: 24px; text-align: center;
+  }
+  .journey-times { font: 13px var(--mono); color: var(--fg); font-weight: 600; }
+  .journey-dur { font: 11px var(--mono); color: var(--muted); }
+  .journey-changes { font: 11px var(--mono); color: var(--muted); }
+  .mode-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+  .mode-pill {
+    font: 600 10px var(--mono); padding: 2px 7px; border-radius: 3px;
+    letter-spacing: 0.03em; white-space: nowrap;
+  }
+  .mode-train  { background: rgba(255,140,  50, 0.15); color: #ff8c32; border: 1px solid rgba(255,140,50,0.3); }
+  .mode-metro  { background: rgba( 30, 180, 100, 0.15); color: #1eb464; border: 1px solid rgba(30,180,100,0.3); }
+  .mode-bus    { background: rgba(100, 170, 255, 0.15); color: #64aaff; border: 1px solid rgba(100,170,255,0.3); }
+  .mode-ferry  { background: rgba( 80, 210, 220, 0.15); color: #50d2dc; border: 1px solid rgba(80,210,220,0.3); }
+  .mode-light  { background: rgba(200, 100, 255, 0.15); color: #c864ff; border: 1px solid rgba(200,100,255,0.3); }
+  .mode-coach  { background: rgba(150, 120, 200, 0.15); color: #9678c8; border: 1px solid rgba(150,120,200,0.3); }
+  .mode-walk   { background: rgba(120, 120, 120, 0.15); color: var(--muted); border: 1px solid rgba(120,120,120,0.3); }
+  .mode-other  { background: rgba(180, 180,  60, 0.15); color: #b4b43c; border: 1px solid rgba(180,180,60,0.3); }
+
+  .legs-table { width: 100%; border-collapse: collapse; font: 12px var(--mono); }
+  .legs-table th {
+    text-align: left; color: var(--muted); font-weight: 400;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 0 8px 6px 0; border-bottom: 1px solid var(--border);
+  }
+  .legs-table td { padding: 6px 8px 6px 0; border-bottom: 1px solid rgba(55,62,71,0.5); vertical-align: top; }
+  .legs-table tr:last-child td { border-bottom: none; }
+  .legs-table .leg-from { color: var(--fg); }
+  .legs-table .leg-to   { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .legs-table .leg-line { font-weight: 600; }
+
+  .insp-meta {
+    display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;
+    font: 12px var(--mono); color: var(--muted);
+  }
+  .insp-meta span { color: var(--fg); font-weight: 600; }
+
+  details.insp-raw {
+    margin-top: 12px; border: 1px solid var(--border); border-radius: 4px;
+    background: var(--bg);
+  }
+  details.insp-raw summary {
+    list-style: none; cursor: pointer; padding: 6px 10px;
+    color: var(--muted); font-size: 11px;
+  }
+  details.insp-raw summary::-webkit-details-marker { display: none; }
+  details.insp-raw summary::before { content: '▸ '; }
+  details.insp-raw[open] summary::before { content: '▾ '; }
+  details.insp-raw pre {
+    margin: 0; padding: 10px;
+    font: 11px var(--mono); white-space: pre-wrap; word-break: break-all;
+    border-top: 1px solid var(--border);
+    max-height: 50vh; overflow: auto;
+  }
+
+  /* Mode toggle buttons */
+  .mode-toggles { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+  .mode-toggle {
+    display: flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 5px; cursor: pointer;
+    font: 600 12px var(--mono); border: 2px solid transparent;
+    transition: opacity 0.15s, filter 0.15s;
+    user-select: none;
+  }
+  .mode-toggle .mot-icon { font-size: 14px; line-height: 1; }
+  .mode-toggle.on  { opacity: 1; }
+  .mode-toggle.off { opacity: 0.35; filter: grayscale(0.8); }
+  .mode-toggle.mt-train  { background: rgba(255,140,50,0.15); color:#ff8c32; border-color:rgba(255,140,50,0.4); }
+  .mode-toggle.mt-metro  { background: rgba(30,180,100,0.15); color:#1eb464; border-color:rgba(30,180,100,0.4); }
+  .mode-toggle.mt-light  { background: rgba(200,100,255,0.15); color:#c864ff; border-color:rgba(200,100,255,0.4); }
+  .mode-toggle.mt-bus    { background: rgba(100,170,255,0.15); color:#64aaff; border-color:rgba(100,170,255,0.4); }
+  .mode-toggle.mt-coach  { background: rgba(150,120,200,0.15); color:#9678c8; border-color:rgba(150,120,200,0.4); }
+  .mode-toggle.mt-ferry  { background: rgba(80,210,220,0.15);  color:#50d2dc; border-color:rgba(80,210,220,0.4); }
+  .mode-toggle.mt-school { background: rgba(100,170,255,0.10); color:#4a8fcc; border-color:rgba(100,170,255,0.3); }
+
+  .insp-form-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .insp-form-row label { font-size: 11px; color: var(--muted); display:flex; flex-direction:column; gap:3px; }
+  .insp-form-row input {
+    padding: 5px 8px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 4px;
+    color: var(--fg); font: 12px var(--mono); width: 120px;
+  }
+  .insp-form-row input:focus { outline: none; border-color: var(--accent); }
+  .insp-depart-toggle { display: flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .insp-depart-toggle button {
+    background: transparent; border: none; color: var(--muted);
+    padding: 5px 10px; cursor: pointer; font: 12px var(--mono);
+  }
+  .insp-depart-toggle button.active { background: var(--accent-soft); color: var(--fg); }
+
+  .insp-url-display {
+    margin: 10px 0 0;
+    padding: 8px 10px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    font: 11px var(--mono); color: var(--muted);
+    word-break: break-all; white-space: pre-wrap;
+    max-height: 56px; overflow: hidden;
+  }
+  .insp-url-display em { color: var(--accent); font-style: normal; }
+
+  .insp-paste-hint {
+    font-size: 11px; color: var(--muted); margin-bottom: 8px;
+    border-bottom: 1px solid var(--border); padding-bottom: 8px;
+  }
+  .insp-paste-hint input {
+    width: 100%; padding: 5px 8px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 4px;
+    color: var(--muted); font: 11px var(--mono); margin-top: 4px;
+  }
+  .insp-paste-hint input:focus { outline: none; border-color: var(--accent); color: var(--fg); }
+
+  .insp-count-row { display: flex; align-items: center; gap: 8px; }
+  .insp-count-row label { font-size: 11px; color: var(--muted); }
+  .insp-count-row input { width: 50px; padding: 4px 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--fg); font: 12px var(--mono); }
 </style>
 </head>
 <body>
@@ -233,6 +378,7 @@
 <div class="config">
   <label>Base URL <input id="baseUrl" value="http://localhost:8080"></label>
   <label>X-Krail-Version <input id="version" placeholder="optional"></label>
+  <label style="flex:1;min-width:260px;">NSW API Key <input id="nswApiKey" placeholder="Paste key → direct NSW calls (no BFF needed)" style="width:100%;min-width:200px;"></label>
 </div>
 
 <div class="screens" id="screens"></div>
@@ -252,6 +398,75 @@
 <section class="summary" id="summary" style="display: none;">
   <h2>Wire-size deltas</h2>
   <div id="summaryBody"></div>
+</section>
+
+<section class="inspector-section">
+  <h2>TfNSW API Inspector</h2>
+  <div class="insp-sub">Build a trip query visually, or paste a URL/JSON. Set NSW API Key above for direct calls (no BFF needed).</div>
+
+  <div style="display:flex;gap:6px;margin-bottom:12px;">
+    <button class="screen-tab active" id="inspModeUrl" style="padding:6px 12px;font-size:12px;">Trip Builder</button>
+    <button class="screen-tab" id="inspModeJson" style="padding:6px 12px;font-size:12px;">Paste JSON</button>
+  </div>
+
+  <div id="inspUrlPane">
+    <!-- optional: paste a URL to auto-fill the form -->
+    <div class="insp-paste-hint">
+      <span>Optional: paste an existing NSW URL to auto-fill ↓</span>
+      <input id="inspPasteUrl" placeholder="https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=…">
+    </div>
+
+    <!-- origin / destination / dep-arr / count -->
+    <div class="insp-form-row">
+      <label>Origin stop ID
+        <input id="inspOrigin" value="200080" style="width:110px;">
+      </label>
+      <label>Destination stop ID
+        <input id="inspDest" value="214710" style="width:110px;">
+      </label>
+      <label>Depart / Arrive
+        <div class="insp-depart-toggle">
+          <button id="inspDep" class="active">dep</button>
+          <button id="inspArr">arr</button>
+        </div>
+      </label>
+      <label>Journeys
+        <input id="inspCount" value="6" style="width:50px;">
+      </label>
+    </div>
+
+    <!-- mode toggles -->
+    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px;">Transport modes — click to exclude:</div>
+    <div class="mode-toggles" id="modeToggles">
+      <button class="mode-toggle mt-train on"  data-mot="1"  title="Toggle Train">🚂 Train</button>
+      <button class="mode-toggle mt-metro on"  data-mot="2"  title="Toggle Metro">🚇 Metro</button>
+      <button class="mode-toggle mt-light on"  data-mot="4"  title="Toggle Light Rail">🚊 Light Rail</button>
+      <button class="mode-toggle mt-bus   on"  data-mot="5"  title="Toggle Bus">🚌 Bus</button>
+      <button class="mode-toggle mt-coach on"  data-mot="7"  title="Toggle Coach">🚎 Coach</button>
+      <button class="mode-toggle mt-ferry on"  data-mot="9"  title="Toggle Ferry">⛴️ Ferry</button>
+      <button class="mode-toggle mt-school on" data-mot="11" title="Toggle School Bus">🚐 School Bus</button>
+    </div>
+
+    <!-- live URL preview -->
+    <div style="font-size:11px;color:var(--muted);margin:10px 0 3px;">Constructed URL:</div>
+    <div class="insp-url-display" id="inspBuiltUrl"></div>
+
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn-primary" id="inspRun">Fetch &amp; Inspect</button>
+      <div class="insp-depart-toggle" title="NSW Direct: browser calls NSW with your API key (auto-falls back to BFF if CORS blocks). BFF: proxied via localhost:8080.">
+        <button id="inspViaNsw" class="active">NSW Direct</button>
+        <button id="inspViaBff">BFF Passthrough</button>
+      </div>
+      <span style="font-size:11px;color:var(--muted)" id="inspHint"></span>
+    </div>
+  </div>
+
+  <div id="inspJsonPane" style="display:none;">
+    <textarea id="inspJson" style="width:100%;min-height:110px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--fg);font:12px var(--mono);resize:vertical;" placeholder="Paste rapidJSON trip response here…"></textarea>
+    <button class="btn-primary" id="inspJsonRun" style="margin-top:8px;">Inspect JSON</button>
+  </div>
+
+  <div id="inspResult"></div>
 </section>
 
 <details class="debug-section">
@@ -862,6 +1077,324 @@ function hexPreview(bytes, max = 256) {
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
 // ---------------------------------------------------------------------------
+// TfNSW Inspector
+// ---------------------------------------------------------------------------
+const MOT_CLASS = {
+  1:   { label: 'Train',      css: 'mode-train'  },
+  2:   { label: 'Metro',      css: 'mode-metro'  },
+  4:   { label: 'Light Rail', css: 'mode-light'  },
+  5:   { label: 'Bus',        css: 'mode-bus'    },
+  7:   { label: 'Coach',      css: 'mode-coach'  },
+  9:   { label: 'Ferry',      css: 'mode-ferry'  },
+  11:  { label: 'School Bus', css: 'mode-bus'    },
+  99:  { label: 'Walk',       css: 'mode-walk'   },
+  100: { label: 'Walk',       css: 'mode-walk'   },
+};
+
+function motInfo(cls) {
+  return MOT_CLASS[cls] || { label: `MOT-${cls}`, css: 'mode-other' };
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false });
+  } catch { return iso; }
+}
+
+function fmtDuration(secs) {
+  if (secs == null) return '—';
+  const m = Math.round(secs / 60);
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+// ---------------------------------------------------------------------------
+// Mode toggle state + URL builder
+// ---------------------------------------------------------------------------
+// Set of MOT classes currently EXCLUDED (shown as "off" / greyed)
+const inspExcluded = new Set();
+let inspDepArr = 'dep';
+
+function inspBuildUrl() {
+  const origin = ($('inspOrigin').value || '').trim() || '200080';
+  const dest   = ($('inspDest').value   || '').trim() || '214710';
+  const count  = ($('inspCount').value  || '').trim() || '6';
+  let u = `https://api.transport.nsw.gov.au/v1/tp/trip` +
+    `?name_origin=${encodeURIComponent(origin)}&name_destination=${encodeURIComponent(dest)}` +
+    `&depArrMacro=${inspDepArr}&type_destination=any&calcNumberOfTrips=${encodeURIComponent(count)}&type_origin=any` +
+    `&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG%3A4326&itOptionsActive=1` +
+    `&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON`;
+  if (inspExcluded.size > 0) {
+    u += `&excludedMeans=checkbox`;
+    inspExcluded.forEach(mot => { u += `&exclMOT_${mot}=1`; });
+  }
+  return u;
+}
+
+function inspRefreshUrlDisplay() {
+  const el = $('inspBuiltUrl');
+  if (!el) return;
+  const u = inspBuildUrl();
+  // Highlight exclusion params in accent colour.
+  const safe = esc(u).replace(/(&amp;exclMOT_\d+=1|&amp;excludedMeans=checkbox)/g,
+    '<em>$1</em>');
+  el.innerHTML = safe;
+}
+
+function inspToggleMode(mot) {
+  if (inspExcluded.has(mot)) {
+    inspExcluded.delete(mot);
+  } else {
+    inspExcluded.add(mot);
+  }
+  // Re-sync button visual state.
+  document.querySelectorAll('#modeToggles .mode-toggle').forEach(btn => {
+    const m = parseInt(btn.dataset.mot, 10);
+    btn.classList.toggle('on',  !inspExcluded.has(m));
+    btn.classList.toggle('off',  inspExcluded.has(m));
+  });
+  inspRefreshUrlDisplay();
+}
+
+// Parse a pasted NSW trip URL and apply its params to the form.
+function inspApplyPastedUrl(raw) {
+  try {
+    const u = new URL(raw);
+    const p = u.searchParams;
+    if (p.get('name_origin'))      $('inspOrigin').value = p.get('name_origin');
+    if (p.get('name_destination')) $('inspDest').value   = p.get('name_destination');
+    if (p.get('calcNumberOfTrips')) $('inspCount').value = p.get('calcNumberOfTrips');
+    if (p.get('depArrMacro')) {
+      inspDepArr = p.get('depArrMacro');
+      $('inspDep').classList.toggle('active', inspDepArr === 'dep');
+      $('inspArr').classList.toggle('active', inspDepArr === 'arr');
+    }
+    // Reset all toggles to ON, then apply exclusions from URL.
+    // Accept both exclMOT_5=1 (correct) and legacy exclMOT5=5 (old/wrong).
+    inspExcluded.clear();
+    [1, 2, 4, 5, 7, 9, 11].forEach(mot => {
+      if (p.get(`exclMOT_${mot}`) != null || p.get(`exclMOT${mot}`) != null) inspExcluded.add(mot);
+    });
+    document.querySelectorAll('#modeToggles .mode-toggle').forEach(btn => {
+      const m = parseInt(btn.dataset.mot, 10);
+      btn.classList.toggle('on',  !inspExcluded.has(m));
+      btn.classList.toggle('off',  inspExcluded.has(m));
+    });
+    inspRefreshUrlDisplay();
+    $('inspHint').textContent = 'URL parsed ✓';
+    setTimeout(() => { $('inspHint').textContent = ''; }, 2000);
+  } catch {
+    $('inspHint').textContent = 'Could not parse URL';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// NSW fetch helper — direct (with API key) or via passthrough
+// ---------------------------------------------------------------------------
+let inspVia = 'nsw'; // 'nsw' | 'bff'
+
+async function nswFetch(nswUrl) {
+  if (inspVia === 'nsw') {
+    const apiKey = ($('nswApiKey').value || '').trim();
+    const t0 = performance.now();
+    try {
+      const headers = apiKey ? { 'Authorization': `apikey ${apiKey}` } : {};
+      const resp = await fetch(nswUrl, { headers });
+      const elapsed = Math.round(performance.now() - t0);
+      const buf = await resp.arrayBuffer();
+      const text = new TextDecoder().decode(buf);
+      let body;
+      try { body = JSON.stringify(JSON.parse(text), null, 2); } catch { body = text; }
+      return { url: nswUrl, status: resp.status, statusText: resp.statusText,
+               elapsed, decodedBytes: buf.byteLength, encodedBodySize: null, body, via: 'nsw' };
+    } catch (e) {
+      // CORS blocks direct browser calls to NSW — auto-fallback to BFF passthrough.
+      $('inspHint').textContent = 'NSW Direct CORS-blocked → falling back to BFF…';
+      const base = ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
+      const proxyUrl = `${base}/internal/passthrough?url=${encodeURIComponent(nswUrl)}`;
+      const r = await rawFetch(proxyUrl, { binary: false });
+      return { ...r, via: 'bff-fallback' };
+    }
+  }
+  // Explicit BFF passthrough
+  const base = ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
+  const proxyUrl = `${base}/internal/passthrough?url=${encodeURIComponent(nswUrl)}`;
+  const r = await rawFetch(proxyUrl, { binary: false });
+  return { ...r, via: 'bff' };
+}
+
+async function runInspector() {
+  const nswUrl = inspBuildUrl();
+  const btn = $('inspRun');
+  btn.disabled = true; btn.textContent = 'Fetching…';
+  $('inspResult').innerHTML = '';
+  $('inspHint').textContent = '';
+
+  const r = await nswFetch(nswUrl);
+  btn.disabled = false; btn.textContent = 'Fetch & Inspect';
+
+  if (r.error) {
+    const hint = (r.via === 'bff-fallback' || inspVia === 'bff')
+      ? 'BFF Passthrough failed — is BFF running at localhost:8080? Run: ./gradlew :server:run'
+      : 'NSW Direct failed — check NSW API Key is set above.';
+    $('inspResult').innerHTML = `<div class="card err" style="margin-top:12px;">
+      <div class="ribbon"><span class="badge">INSPECTOR</span></div>
+      <h3>Network error</h3>
+      <pre>${esc(r.error)}</pre>
+      <div style="margin-top:8px;font-size:12px;color:var(--warn)">${hint}</div>
+    </div>`;
+    return;
+  }
+
+  let parsed = null;
+  try { parsed = JSON.parse(r.body); } catch {}
+
+  let html;
+  if (parsed && (parsed.journeys || parsed.trips)) {
+    html = renderTripInspection(parsed.journeys ? parsed : { journeys: parsed.trips }, r.body, r);
+  } else if (parsed && parsed.stopEvents) {
+    html = renderDeparturesInspection(parsed.stopEvents, r.body);
+  } else {
+    html = renderGenericInspection(r, r.body);
+  }
+  $('inspResult').innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+// Render helpers
+// ---------------------------------------------------------------------------
+function renderTripInspection(data, rawJson, r) {
+  const journeys = data.journeys || [];
+  const viaLabel = r?.via === 'nsw' ? 'NSW Direct' : r?.via === 'bff-fallback' ? 'BFF fallback (CORS)' : 'BFF Passthrough';
+  const statBar = r ? `
+    <div style="display:flex;gap:12px;font:11px var(--mono);color:var(--muted);margin-bottom:8px;">
+      <span><span style="color:var(--ok);font-weight:600">${r.status}</span> ${esc(r.statusText||'')}</span>
+      <span>${r.elapsed} ms</span>
+      <span>${fmtBytes(r.decodedBytes)}</span>
+      <span style="color:var(--accent)">${viaLabel}</span>
+    </div>` : '';
+
+  if (!journeys.length) {
+    return `${statBar}<div style="color:var(--warn);margin-top:8px;font-size:13px;">No journeys in response — NSW returned 0 results for these params / exclusions.</div>
+            <details class="insp-raw"><summary>Raw JSON</summary><pre>${esc(rawJson)}</pre></details>`;
+  }
+
+  const allModes = new Set();
+  journeys.forEach(j => (j.legs || []).forEach(l => {
+    const cls = l.transportation?.product?.class;
+    if (cls != null && cls !== 99 && cls !== 100) allModes.add(cls);
+  }));
+  const modeSummaryPills = [...allModes].sort().map(c => {
+    const m = motInfo(c);
+    return `<span class="mode-pill ${m.css}">${m.label}</span>`;
+  }).join(' ');
+
+  const metaHtml = `
+    ${statBar}
+    <div class="insp-meta" style="margin-top:8px;">
+      Journeys: <span>${journeys.length}</span>
+      &nbsp;·&nbsp; Modes in results: ${modeSummaryPills || '<span style="color:var(--muted)">none (walk-only?)</span>'}
+    </div>`;
+
+  const journeyCards = journeys.map((j, idx) => {
+    const legs = j.legs || [];
+    const depTime = fmtTime(legs[0]?.origin?.departureTimePlanned);
+    const arrTime = fmtTime(legs[legs.length - 1]?.destination?.arrivalTimePlanned);
+    const durSecs = j.duration;
+    const transitLegs = legs.filter(l => { const c = l.transportation?.product?.class; return c != null && c !== 99 && c !== 100; });
+    const interchanges = Math.max(0, transitLegs.length - 1);
+
+    const legModePills = legs.map(l => {
+      const cls = l.transportation?.product?.class;
+      if (cls == null || cls === 99 || cls === 100) return '';
+      const m = motInfo(cls);
+      return `<span class="mode-pill ${m.css}">${m.label}</span>`;
+    }).join('');
+
+    const legsRows = legs.map(l => {
+      const cls = l.transportation?.product?.class;
+      const m = motInfo(cls ?? 99);
+      const lineName = l.transportation?.disassembledName || l.transportation?.name || (cls === 99 || cls === 100 ? 'Walk' : '—');
+      const fromStop = l.origin?.name || '—';
+      const toStop   = l.destination?.name || '—';
+      const depT = fmtTime(l.origin?.departureTimePlanned);
+      const arrT = fmtTime(l.destination?.arrivalTimePlanned);
+      const legDur = fmtDuration(l.duration);
+      const stopCount = l.stopSequence ? l.stopSequence.length : '—';
+      return `
+        <tr>
+          <td><span class="mode-pill ${m.css}">${m.label}</span></td>
+          <td class="leg-line">${esc(lineName)}</td>
+          <td><div class="leg-from">${esc(fromStop)}</div><div class="leg-to">→ ${esc(toStop)}</div></td>
+          <td>${esc(depT)} → ${esc(arrT)}</td>
+          <td>${esc(legDur)}</td>
+          <td style="color:var(--muted)">${stopCount}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+      <div class="journey-card">
+        <div class="journey-header">
+          <span class="journey-num">${idx + 1}</span>
+          <span class="journey-times">${depTime} → ${arrTime}</span>
+          <span class="journey-dur">${fmtDuration(durSecs)}</span>
+          ${interchanges > 0 ? `<span class="journey-changes">${interchanges} change${interchanges !== 1 ? 's' : ''}</span>` : ''}
+          <div class="mode-pills">${legModePills}</div>
+        </div>
+        <table class="legs-table">
+          <thead><tr><th>Mode</th><th>Line</th><th>From → To</th><th>Times</th><th>Duration</th><th>Stops</th></tr></thead>
+          <tbody>${legsRows}</tbody>
+        </table>
+      </div>`;
+  }).join('');
+
+  return `${metaHtml}<div class="journey-list">${journeyCards}</div>
+          <details class="insp-raw"><summary>Raw JSON (${fmtBytes(rawJson.length)} chars)</summary><pre>${esc(rawJson)}</pre></details>`;
+}
+
+function renderDeparturesInspection(events, rawJson) {
+  const rows = events.slice(0, 40).map(e => {
+    const cls = e.transportation?.product?.class;
+    const m = motInfo(cls ?? 99);
+    const line = e.transportation?.disassembledName || e.transportation?.name || '—';
+    const dest = e.transportation?.destination?.name || '—';
+    const dep = fmtTime(e.departureTimePlanned);
+    const depRT = e.departureTimeEstimated ? fmtTime(e.departureTimeEstimated) : null;
+    const platform = e.location?.properties?.stopId || '—';
+    return `<tr>
+      <td><span class="mode-pill ${m.css}">${m.label}</span></td>
+      <td class="leg-line">${esc(line)}</td>
+      <td>${esc(dest)}</td>
+      <td>${esc(dep)}${depRT && depRT !== dep ? ` <span style="color:var(--warn)">${esc(depRT)}</span>` : ''}</td>
+      <td style="color:var(--muted)">${esc(String(platform))}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="insp-meta" style="margin-top:14px;">Departures: <span>${events.length}</span></div>
+    <div class="journey-list"><div class="journey-card">
+      <table class="legs-table">
+        <thead><tr><th>Mode</th><th>Line</th><th>Destination</th><th>Departs (RT)</th><th>Platform/Stop</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div></div>
+    <details class="insp-raw"><summary>Raw JSON</summary><pre>${esc(rawJson)}</pre></details>`;
+}
+
+function renderGenericInspection(r, rawJson) {
+  return `
+    <div class="card" style="margin-top:12px;">
+      <div class="ribbon"><span class="badge">INSPECTOR</span><span class="${r.status < 400 ? 'pill-ok' : 'pill-err'}">${r.status}</span></div>
+      <div class="stat-grid">
+        <div class="stat ${r.status < 400 ? 'ok' : 'err'}"><div class="label">Status</div><div class="value">${r.status}</div></div>
+        <div class="stat"><div class="label">Latency</div><div class="value">${r.elapsed} ms</div></div>
+        <div class="stat"><div class="label">Body</div><div class="value">${fmtBytes(r.decodedBytes)}</div></div>
+      </div>
+      <details class="insp-raw" open><summary>Body</summary><pre>${esc(rawJson)}</pre></details>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
 // Wire up + first render.
 // ---------------------------------------------------------------------------
 function renderAll() {
@@ -872,14 +1405,99 @@ function renderAll() {
 
 $('runAll').addEventListener('click', () => runAll());
 $('debugRun').addEventListener('click', () => runDebug());
+
+// Inspector: mode toggle buttons
+document.querySelectorAll('#modeToggles .mode-toggle').forEach(btn => {
+  btn.addEventListener('click', () => inspToggleMode(parseInt(btn.dataset.mot, 10)));
+});
+
+// Inspector: dep/arr toggle
+$('inspDep').addEventListener('click', () => {
+  inspDepArr = 'dep';
+  $('inspDep').classList.add('active'); $('inspArr').classList.remove('active');
+  inspRefreshUrlDisplay();
+});
+$('inspArr').addEventListener('click', () => {
+  inspDepArr = 'arr';
+  $('inspArr').classList.add('active'); $('inspDep').classList.remove('active');
+  inspRefreshUrlDisplay();
+});
+
+// Inspector: origin/dest/count inputs live-refresh URL
+['inspOrigin', 'inspDest', 'inspCount'].forEach(id => {
+  $(id).addEventListener('input', inspRefreshUrlDisplay);
+});
+
+// Inspector: paste-URL auto-fill
+$('inspPasteUrl').addEventListener('paste', e => {
+  setTimeout(() => {
+    const v = ($('inspPasteUrl').value || '').trim();
+    if (v.includes('api.transport.nsw.gov.au')) inspApplyPastedUrl(v);
+  }, 0);
+});
+$('inspPasteUrl').addEventListener('blur', () => {
+  const v = ($('inspPasteUrl').value || '').trim();
+  if (v.includes('api.transport.nsw.gov.au')) inspApplyPastedUrl(v);
+});
+
+// Inspector: BFF vs NSW toggle
+$('inspViaBff').addEventListener('click', () => {
+  inspVia = 'bff';
+  $('inspViaBff').classList.add('active'); $('inspViaNsw').classList.remove('active');
+});
+$('inspViaNsw').addEventListener('click', () => {
+  inspVia = 'nsw';
+  $('inspViaNsw').classList.add('active'); $('inspViaBff').classList.remove('active');
+});
+
+// Inspector: fetch
+$('inspRun').addEventListener('click', () => runInspector());
+
+// Inspector: paste JSON tab
+$('inspJsonRun').addEventListener('click', () => {
+  const raw = ($('inspJson').value || '').trim();
+  if (!raw) return;
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch (e) {
+    $('inspResult').innerHTML = `<div style="color:var(--err);margin-top:10px;font:12px var(--mono)">JSON parse error: ${esc(e.message)}</div>`;
+    return;
+  }
+  if (parsed.journeys || parsed.trips) {
+    $('inspResult').innerHTML = renderTripInspection(parsed.journeys ? parsed : { journeys: parsed.trips }, raw, null);
+  } else if (parsed.stopEvents) {
+    $('inspResult').innerHTML = renderDeparturesInspection(parsed.stopEvents, raw);
+  } else {
+    $('inspResult').innerHTML = renderGenericInspection({ status: 200, elapsed: 0, decodedBytes: raw.length }, raw);
+  }
+});
+
+// Tab switch
+$('inspModeUrl').addEventListener('click', () => {
+  $('inspUrlPane').style.display = '';
+  $('inspJsonPane').style.display = 'none';
+  $('inspModeUrl').classList.add('active');
+  $('inspModeJson').classList.remove('active');
+});
+$('inspModeJson').addEventListener('click', () => {
+  $('inspUrlPane').style.display = 'none';
+  $('inspJsonPane').style.display = '';
+  $('inspModeUrl').classList.remove('active');
+  $('inspModeJson').classList.add('active');
+});
+
+// Persist NSW API key
+$('nswApiKey').addEventListener('input', () => ss.setItem('nswApiKey', $('nswApiKey').value));
+if (ss.getItem('nswApiKey')) $('nswApiKey').value = ss.getItem('nswApiKey');
 $('baseUrl').addEventListener('input', () => ss.setItem('baseUrl', $('baseUrl').value));
 $('version').addEventListener('input', () => ss.setItem('version', $('version').value));
 
 // Restore persisted base / version.
 if (ss.getItem('baseUrl')) $('baseUrl').value = ss.getItem('baseUrl');
 if (ss.getItem('version')) $('version').value = ss.getItem('version');
+if (ss.getItem('nswApiKey')) $('nswApiKey').value = ss.getItem('nswApiKey');
 
 renderAll();
+inspRefreshUrlDisplay();
 </script>
 </body>
 </html>

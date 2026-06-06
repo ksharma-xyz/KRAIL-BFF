@@ -238,18 +238,18 @@ class NswClientImpl(
                     parameters.append("useElevationData", "1")
                     parameters.append("outputFormat", "rapidJSON")
 
-                    // Add excluded transport modes
+                    // Exclude transport modes. Per TfNSW Trip Planner API spec, exclMOT_<id> value must
+                    // always be "1" (not the mode ID). See:
+                    // https://opendata.transport.nsw.gov.au/data/dataset/trip-planner-apis/resource/917c66c3-8123-4a0f-b1b1-b4220f32585d
                     if (excludedModes.isNotEmpty()) {
                         parameters.append("excludedMeans", "checkbox")
                         if (1 in excludedModes) parameters.append("exclMOT_1", "1")
-                        if (2 in excludedModes) parameters.append("exclMOT_2", "2")
-                        if (4 in excludedModes) parameters.append("exclMOT_4", "4")
-                        if (5 in excludedModes || 11 in excludedModes) {
-                            parameters.append("exclMOT_5", "5")
-                            parameters.append("exclMOT_11", "11")
-                        }
-                        if (7 in excludedModes) parameters.append("exclMOT_7", "7")
-                        if (9 in excludedModes) parameters.append("exclMOT_9", "9")
+                        if (2 in excludedModes) parameters.append("exclMOT_2", "1")
+                        if (4 in excludedModes) parameters.append("exclMOT_4", "1")
+                        if (5 in excludedModes) parameters.append("exclMOT_5", "1")
+                        if (7 in excludedModes) parameters.append("exclMOT_7", "1")
+                        if (9 in excludedModes) parameters.append("exclMOT_9", "1")
+                        if (11 in excludedModes) parameters.append("exclMOT_11", "1")
                     }
                 }
             }
@@ -365,17 +365,18 @@ class NswClientImpl(
                     parameters.append("useElevationData", "1")
                     parameters.append("outputFormat", "rapidJSON")
 
+                    // Exclude transport modes. Per TfNSW Trip Planner API spec, exclMOT_<id> value must
+                    // always be "1" (not the mode ID). See:
+                    // https://opendata.transport.nsw.gov.au/data/dataset/trip-planner-apis/resource/917c66c3-8123-4a0f-b1b1-b4220f32585d
                     if (excludedModes.isNotEmpty()) {
                         parameters.append("excludedMeans", "checkbox")
                         if (1 in excludedModes) parameters.append("exclMOT_1", "1")
-                        if (2 in excludedModes) parameters.append("exclMOT_2", "2")
-                        if (4 in excludedModes) parameters.append("exclMOT_4", "4")
-                        if (5 in excludedModes || 11 in excludedModes) {
-                            parameters.append("exclMOT_5", "5")
-                            parameters.append("exclMOT_11", "11")
-                        }
-                        if (7 in excludedModes) parameters.append("exclMOT_7", "7")
-                        if (9 in excludedModes) parameters.append("exclMOT_9", "9")
+                        if (2 in excludedModes) parameters.append("exclMOT_2", "1")
+                        if (4 in excludedModes) parameters.append("exclMOT_4", "1")
+                        if (5 in excludedModes) parameters.append("exclMOT_5", "1")
+                        if (7 in excludedModes) parameters.append("exclMOT_7", "1")
+                        if (9 in excludedModes) parameters.append("exclMOT_9", "1")
+                        if (11 in excludedModes) parameters.append("exclMOT_11", "1")
                     }
                 }
             }

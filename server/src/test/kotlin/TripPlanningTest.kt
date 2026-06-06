@@ -99,7 +99,7 @@ class TripPlanningTest {
         assertNotNull(capturedUrl)
         assertTrue(capturedUrl!!.contains("excludedMeans=checkbox"))
         assertTrue(capturedUrl!!.contains("exclMOT_1=1"))
-        assertTrue(capturedUrl!!.contains("exclMOT_4=4"))
+        assertTrue(capturedUrl!!.contains("exclMOT_4=1"))
     }
 
     @Test
