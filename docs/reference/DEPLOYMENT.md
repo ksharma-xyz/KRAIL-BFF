@@ -55,16 +55,32 @@ Architecture: `KRAIL app → Cloudflare → DigitalOcean App Platform → NSW Op
    - Per-IP: 60 req / minute / per IP, expression `(http.host eq "bff.krail.app")`, action: Block 1 minute.
    - Per-IP burst: 20 req / 10 sec / per IP, action: Challenge.
 
-### 3. DO firewall — IP allowlist
+### 3. Origin lockdown — the token gate is the control
 
-Lock origin to only accept inbound from Cloudflare's IP ranges.
+App Platform offers **no IP firewall** (DO Cloud Firewalls attach to
+Droplets only; "Trusted Sources" is a managed-database feature). Do not
+look for one. The direct `*.ondigitalocean.app` URL stays reachable —
+and that is fine, because the application-level `CF-Origin-Token` gate
+returns **403** to any request that didn't come through Cloudflare
+(only Cloudflare's Transform Rule injects the header).
 
-1. Get current Cloudflare IPs: `curl https://www.cloudflare.com/ips-v4` and `https://www.cloudflare.com/ips-v6`.
-2. DO console → Networking → Firewalls → Create Firewall.
-3. Inbound rule: HTTPS (port 443), source = the Cloudflare IP ranges from step 1.
-4. Apply firewall to the App Platform droplet.
+Verify after setting `CF_ORIGIN_TOKEN` on DO and deploying the
+Transform Rule:
 
-⚠ Cloudflare changes their IPs occasionally. Set a calendar reminder (or cron) to refresh quarterly.
+```bash
+# Direct origin, no token → locked
+curl -s -o /dev/null -w '%{http_code}\n' \
+  https://<app>.ondigitalocean.app/api/v1/stops/200060/departures-proto
+# expect: 403
+
+# Via Cloudflare → token injected → works
+curl -s -o /dev/null -w '%{http_code}\n' \
+  https://bff.krail.app/api/v1/stops/200060/departures-proto
+# expect: 200
+```
+
+If the direct call returns 200, `CF_ORIGIN_TOKEN` is missing/empty on
+DO (an empty value disables the gate). Fix before going further.
 
 ---
 
@@ -95,9 +111,9 @@ curl -fsS \
 # Negative: missing version header (should be 200 if MIN_APP_VERSION=0.0.0, 400 otherwise)
 curl -i "https://bff.krail.app/api/v1/trip/plan?origin=10101100&destination=10101328"
 
-# Negative: direct origin hit (should be blocked by DO firewall)
-curl -i --resolve bff.krail.app:443:<DO_IP> https://bff.krail.app/health
-# Expected: connection refused or timeout
+# Negative: direct origin hit without the Cloudflare-injected token
+curl -i https://<app>.ondigitalocean.app/api/v1/stops/200060/departures-proto
+# Expected: 403 (origin token gate; health endpoints stay exempt)
 ```
 
 ### Logs
@@ -167,7 +183,7 @@ There is no persistent database to restore. If GTFS dataset distribution (PR 4) 
 | 426 Upgrade Required | `MIN_APP_VERSION` too high or app version below floor | Lower the floor or roll out the new app version |
 | 503 service_temporarily_limited | Daily NSW budget hit | Wait until Sydney midnight or raise `NSW_DAILY_BUDGET` |
 | 429 Too Many Requests | Per-IP or global rate limit hit | Tune `BFF_PER_IP_RPS` / `BFF_RATE_LIMIT_RPS` if legitimate; otherwise leave |
-| Direct origin IP works (firewall not blocking) | DO firewall not applied or Cloudflare IPs stale | Verify firewall is attached to the droplet; refresh IP ranges |
+| Direct origin URL returns 200 on real endpoints | `CF_ORIGIN_TOKEN` unset/empty on DO (empty disables the gate) | Set the secret in DO, redeploy, re-test for 403 |
 | Build fails on deploy | Dockerfile path or test failure | Check DO build logs; reproduce locally with `docker build .` |
 
 ---
@@ -177,14 +193,14 @@ There is no persistent database to restore. If GTFS dataset distribution (PR 4) 
 Before flipping the switch on a real domain:
 
 - [ ] DO app provisioned and healthy on a temporary `*.ondigitalocean.app` URL
-- [ ] `NSW_API_KEY` set as a secret in DO; `local.properties` confirmed not in repo
+- [ ] `NSW_API_KEY` set as a secret in DO (BFF-only key, not the app's); `local.properties` confirmed not in repo
 - [ ] `CF_ORIGIN_TOKEN` set in both Cloudflare and DO
-- [ ] DO firewall attached, inbound limited to Cloudflare IPs
+- [ ] `BFF_DEV_PASSTHROUGH` unset or `false` in DO; `GET /internal/passthrough?...` returns 404
+- [ ] Direct origin hit on a real endpoint returns 403 (token gate active)
 - [ ] DO billing alerts at 50% and 100%
 - [ ] Cloudflare proxying enabled (orange cloud) on the BFF DNS record
 - [ ] Cloudflare Transform Rule for `CF-Origin-Token` deployed
 - [ ] Cloudflare rate limit rules active
 - [ ] Smoke test against the proxied URL passes
-- [ ] Direct origin IP hit is blocked
 - [ ] Logs are flowing
 - [ ] `MIN_APP_VERSION` matches the minimum app version you actually want to support

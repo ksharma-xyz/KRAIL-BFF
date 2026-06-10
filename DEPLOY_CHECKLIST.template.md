@@ -22,7 +22,10 @@
   doctl auth init      # paste DO API token
   doctl account get    # sanity check
   ```
-- [ ] Cloudflare account exists with `krail.app` (or chosen domain) added.
+- [ ] Cloudflare account exists with `krail.app` (or chosen domain) added
+      and **nameservers switched to Cloudflare** at the registrar.
+      *(First time? `docs/guides/FIRST_DEPLOY.md` §2 walks through the
+      move, including keeping the GitHub Pages site working.)*
 - [ ] You own / control DNS for the chosen hostname.
 - [ ] Separate **BFF-only** NSW Open Data API key registered at
       <https://opendata.transport.nsw.gov.au/>. *(Do not reuse the
@@ -36,11 +39,6 @@
 
 ## 1 · Decisions to lock down
 
-- [ ] **Merge path:**
-      `[ ] A` Land the 13-PR stack top-down on GitHub, then a 14th PR for new commits.
-      `[ ] B` Hybrid — manually review existing PRs first, then one
-              consolidated PR with **rebase-and-merge** (not squash).
-              *Last-deploy choice — adjust if the stack has changed.*
 - [ ] **Hostname:** `bff.krail.app`
 - [ ] **DO region:** Sydney (`syd1`, already in `.do/app.yaml`)
 - [ ] **CF_ORIGIN_TOKEN:** generated with `openssl rand -hex 32`. Paste here while working:
@@ -50,55 +48,16 @@
 
 ---
 
-## 2 · Land the code on main
+## 2 · Verify the code is on main
 
-**Plan:** Manual review of the existing PR stack first (audit trail),
-then one consolidated PR with all commits, **rebase-and-merge** so each
-commit lands individually on `main`.
+*(The historical PR stack is fully merged — #46 through #72. Nothing to
+merge; just confirm you're deploying what you think you are.)*
 
-### 2a · Manually review the existing PR stack (no merge yet)
-
-List the open PRs:
-
-```bash
-gh pr list --state open --base main
-```
-
-Review each one. After review, leave a comment / close each as
-**superseded by the consolidated PR** below (or let them auto-close
-once main moves past their tips).
-
-### 2b · Consolidated PR with rebase-and-merge
-
-- [ ] Identify the working branch tip (likely whichever branch has
-      everything stacked):
-      ```bash
-      BRANCH=<name-of-tip-branch>     # e.g. proto-submodule
-      git log --oneline main..$BRANCH | wc -l
-      git diff --stat main..$BRANCH | tail -1
-      ```
-- [ ] Push the branch:
-      ```bash
-      git push -u origin $BRANCH
-      ```
-- [ ] Open the PR:
-      ```bash
-      gh pr create --base main --head $BRANCH \
-        --title "feat: BFF v1 — endpoints + proto schemas + dashboard + docs" \
-        --body "Consolidated PR. Full state-of-play: docs/handover/README.md.
-        Endpoint specs: docs/handover/API_REFERENCE.md.
-        Merge as: **rebase-and-merge** (preserves the per-commit history)."
-      ```
-- [ ] Wait for CI green on the PR.
-- [ ] **Rebase-and-merge** (NOT squash) — GitHub UI: "Rebase and merge"
-      button on the PR. This replays each commit onto `main` as a linear
-      sequence so the commit story survives.
-- [ ] Close any pre-existing PRs as **superseded by [new PR #]** if they
-      don't auto-close.
-- [ ] Locally:
-      ```bash
+- [ ] ```bash
       git switch main && git pull
-      git branch -D $BRANCH
+      gh pr list --state open --base main   # expect: empty
+      git log --oneline -3                  # expect: recent merged PRs
+      ./gradlew :server:test                # expect: green
       ```
 
 ---
@@ -176,23 +135,30 @@ once main moves past their tips).
 
 ---
 
-## 5 · DO firewall — lock to Cloudflare only
+## 5 · Origin lockdown — verify the token gate
 
-- [ ] Get Cloudflare's published IP ranges:
+*(App Platform has **no** IP firewall — DO Cloud Firewalls are
+Droplet-only and "Trusted Sources" is a managed-database feature. The
+direct `ondigitalocean.app` URL stays reachable by design; the
+application-level `CF-Origin-Token` gate is the lockdown.)*
+
+- [ ] Direct DO URL on a real endpoint → rejected:
       ```bash
-      curl -s https://www.cloudflare.com/ips-v4 > /tmp/cf-v4.txt
-      curl -s https://www.cloudflare.com/ips-v6 > /tmp/cf-v6.txt
-      cat /tmp/cf-v4.txt /tmp/cf-v6.txt
+      curl -s -o /dev/null -w '%{http_code}\n' \
+        "$DO_DIRECT_URL/api/v1/stops/200060/departures-proto"
+      # expect: 403  (if 200: CF_ORIGIN_TOKEN unset/empty on DO — fix now)
       ```
-- [ ] DO App Platform: Settings → Trusted Sources → add each CIDR.
-      *(DO Apps doesn't expose a full firewall like Droplets; "Trusted
-      Sources" is the platform-level equivalent. Without it, the
-      `ondigitalocean.app` URL is reachable but `CF-Origin-Token` is
-      still enforced application-side.)*
-- [ ] Re-test direct DO URL → should now fail at network level:
+- [ ] Same endpoint via Cloudflare → allowed:
       ```bash
-      curl --max-time 5 -s -o /dev/null -w '%{http_code}\n' $DO_DIRECT_URL/health
-      # expect: timeout / connection refused
+      curl -s -o /dev/null -w '%{http_code}\n' \
+        "https://bff.krail.app/api/v1/stops/200060/departures-proto"
+      # expect: 200  (Transform Rule injects the token)
+      ```
+- [ ] Dev passthrough dead in prod:
+      ```bash
+      curl -s -o /dev/null -w '%{http_code}\n' \
+        "https://bff.krail.app/internal/passthrough?url=https://api.transport.nsw.gov.au/v1/tp/trip"
+      # expect: 404  (BFF_DEV_PASSTHROUGH must be false/unset)
       ```
 
 ---
