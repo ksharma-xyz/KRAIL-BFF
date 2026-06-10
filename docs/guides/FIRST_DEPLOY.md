@@ -245,6 +245,19 @@ doesn't block the merge button. Fix: repo → Settings → Rules → `main`
 job. After that, broken code physically cannot reach `main` (and
 therefore cannot deploy).
 
+**Why no prod/release branch (decided 2026-06-11):** release branches
+exist for mobile because app releases are irreversible — store review,
+slow user updates, no binary recall. A stateless server has the
+opposite properties: a bad merge is reverted and live again in ~5 min,
+the health check refuses broken containers, and `bff_kill_switch`
+makes even that invisible to users. Trunk-based (`main` = prod) is the
+correct model here; a prod branch would only add merge ceremony.
+Optionally `git tag vX.Y.Z` notable releases for traceability — a
+label, not a gate. Revisit only if deploys gain real risk (a database
+with migrations, multiple contributors); the escape hatch then is
+`deploy_on_push: false` + manual `doctl apps create-deployment`, not a
+branch model.
+
 Per-change routine once that's set:
 
 1. Branch, commit, push, open PR. Wait for green checks.
