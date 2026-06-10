@@ -43,6 +43,33 @@
       min/latest app version; content edited in krail-config; RC keeps
       kill switches ([ROADMAP §2b](docs/reference/ROADMAP.md)).
 
+## Live trip tracking (the unshipped headline feature)
+
+> Full design: [TRACKING_DESIGN.md](docs/reference/TRACKING_DESIGN.md).
+> Order matters; O-items are research, T-items are BFF code, A-items are app code.
+
+- [ ] **O1–O5 research spikes** — TfNSW extension proto fields
+      (PassLoad / TfnswVehicleDescriptor) + public-feed availability;
+      bus vehiclepos feed inventory; trip_id normalization from ~20
+      captured real pairs; NSW key has realtime products enabled;
+      `/.well-known/` serving on GitHub Pages (`.nojekyll`).
+- [ ] **T0** — `track.proto` into krail-api-proto (schema in design
+      doc §4); vendor GTFS-R + TfNSW extension protos in BFF; capture
+      golden feed fixtures for tests.
+- [ ] **T1** — `POST /api/v1/track/snapshot`: FeedCache (15–30 s TTL,
+      single-flight), VehicleMatcher port, TripUpdate stop progress,
+      fleet-from-trip_id, train-level occupancy. Trains/metro/light
+      rail/ferry.
+- [ ] **T2** — per-carriage occupancy + live fleet descriptor (after O1).
+- [ ] **T3** — buses (after O2) + carriage-layout dataset via GitHub
+      Actions (`reaches_platform`).
+- [ ] **A1 (app)** — TrackTripViewModel/TripPoller → BFF endpoint
+      behind `bff_use_for_track`; later delete client-side GTFS-R code.
+- [ ] **A2 (app + website)** — share-link v2 payload (realtimeTripId,
+      serviceDate, stop ids/names, version field) + migrate deep links
+      to `krail.app/trip` (assetlinks.json + apple-app-site-association
+      on KRAIL-WEBSITE).
+
 ## Later
 
 - [ ] **NSW key endgame** — `MIN_APP_VERSION` force-update pass, then
