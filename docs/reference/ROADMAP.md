@@ -34,11 +34,11 @@ Until phase 3 the extractable key is an **accepted, time-boxed risk**:
 it's a free-tier transit-data key, so the blast radius is quota abuse
 against NSW, not user data.
 
-Note: the app still calls `/v1/tp/stop_finder` NSW-direct and the BFF
-has no equivalent endpoint yet. Either add a BFF stop-finder route
-before phase 3, or confirm the app's local stops search fully replaces
-it (per the locked design, stops search stays local — verify nothing
-else uses stop_finder before killing the key).
+Note: `stopFinder()` in the app's `TripPlanningService` is **dead
+code** — declared but never called from production code (verified
+2026-06-11; local stops search replaced it). No BFF stop-finder route
+is needed. Delete the dead service method + models from the app as
+part of phase 3 cleanup so it can't be resurrected accidentally.
 
 ---
 
@@ -46,9 +46,30 @@ else uses stop_finder before killing the key).
 
 **Today:** the app bundles `NSW_STOPS.pb` (2.2 MB, v59) and
 `NSW_BUSES_ROUTES.pb` (2.5 MB, v32) as compose resources; versions are
-constants in `SandookPreferences` and bumping them requires an app
+constants in `SandookPreferences`. The refresh pipeline is: GitHub
+Actions in the `krail-config` repo regenerates the datasets and opens a
+**PR against the app repo**, which only takes effect after a full store
 release. The BFF already has `/v1/data/stops/manifest` (302 → GitHub
 Releases asset) and a weekly `stops-dataset.yml` build workflow.
+
+**Target (decided 2026-06-11):** data updates stop flowing through app
+releases entirely. Generation stays on **GitHub Actions** (free — no
+server cron); distribution moves to BFF APIs:
+
+```
+GitHub Actions (weekly)                 App (on startup, throttled)
+  build NSW_STOPS.pb vN ──► GitHub        GET /v1/data/stops/manifest
+  build ROUTES.pb     vM    Releases  ◄── version > stored version?
+                                          └─ yes → download .pb → verify
+                                             checksum → NswStopsManager
+                                             import → store new version
+```
+
+The manifest response (or a cheap `HEAD`-able version header/ETag)
+carries `{version, url, sha256, byteSize}` per dataset — the app
+compares against `KEY_NSW_STOPS_VERSION` / `KEY_NSW_BUS_ROUTES_VERSION`
+and fetches only on change. The krail-config→app-PR pipeline retires
+once this is at 100%.
 
 **Design (locked):** stops **search stays local** in the app — the BFF
 only distributes versioned datasets. The BFF stays a thin redirecting
@@ -127,8 +148,8 @@ stateless design).
 - **Dual origin token** (`CF_ORIGIN_TOKEN_PRIMARY`/`_SECONDARY`):
   removes the ~30 s rotation mismatch window. Low priority; rotate
   during low traffic until then.
-- **Stop-finder endpoint**: needed (or explicitly ruled out) before the
-  key endgame phase 3 — see §1.
+- **Delete dead `stopFinder()` code in the app** during key-endgame
+  cleanup — see §1.
 - **Metrics visibility**: Dropwizard metrics currently land in logs
   every 10 s. Cheap first step: a `grep`-able weekly review per
   FIRST_DEPLOY.md §7. A dashboard is a nice-to-have, not a need.

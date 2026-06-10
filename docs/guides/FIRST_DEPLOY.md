@@ -25,7 +25,7 @@
 1. **DigitalOcean account** — sign up, add billing.
    Immediately set billing alerts: console → Billing → Notifications →
    alerts at **US$5** and **US$8**. DO never auto-stops on overspend;
-   alerts are your tripwire (see §8 for why you're still bounded).
+   alerts are your tripwire (see §9 for why you're still bounded).
 2. **`doctl` CLI**:
    ```bash
    brew install doctl
@@ -213,7 +213,51 @@ All boxes ticked = you are live.
 
 ---
 
-## 8 · Cost: why you're bounded without a hard cap
+## 8 · Making changes after deploy (CI/CD — mostly already wired)
+
+The pipeline for every future change is already in place; this is the
+loop you'll live in:
+
+```
+branch → push → PR → CI (pr.yml: build + tests; CodeQL) → merge to main
+   → DigitalOcean auto-builds + deploys (deploy_on_push: true)
+   → health check gates the swap → smoke /health
+```
+
+What exists today (verified 2026-06-11):
+
+- **`pr.yml`** — builds + runs `:server:test` on every PR to `main`
+  and on pushes to `main`.
+- **CodeQL** (PRs + weekly) and **Dependabot** (CVE alerts).
+- **GitHub ruleset on `main`** — PR required, linear history, no
+  force-push, no deletion.
+- **DO auto-deploy** — `.do/app.yaml` has `deploy_on_push: true`; any
+  merge to `main` rebuilds the Docker image and rolls it out. The app's
+  health check must pass before the new container takes traffic, so a
+  completely broken build never replaces a working one.
+- **Dataset pipeline** — `stops-dataset.yml` regenerates datasets on
+  GitHub Actions; `proto-bump.yml` PRs proto submodule updates.
+
+**One gap to close (2 min, GitHub UI):** the `main` ruleset requires a
+PR but does **not** require status checks to pass — a red CI run
+doesn't block the merge button. Fix: repo → Settings → Rules → `main`
+→ add **Require status checks to pass** → select the `pr.yml` build
+job. After that, broken code physically cannot reach `main` (and
+therefore cannot deploy).
+
+Per-change routine once that's set:
+
+1. Branch, commit, push, open PR. Wait for green checks.
+2. Merge (linear history enforced — use rebase/squash, not merge
+   commits).
+3. Watch DO → Apps → Activity until the deployment goes **Active**
+   (~5 min), then `curl -s https://bff.krail.app/health`.
+4. If something regresses: re-deploy the previous commit by reverting
+   the PR on `main` (auto-deploys again), or use the rollback ladder in
+   `DEPLOY_CHECKLIST.template.md` §9 (`bff_kill_switch` RC flag is the
+   instant, zero-risk option once the app integrates).
+
+## 9 · Cost: why you're bounded without a hard cap
 
 DigitalOcean cannot enforce a spending cap. You are still safe because
 **nothing in this setup can scale itself**:
