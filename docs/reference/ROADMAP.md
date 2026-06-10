@@ -9,8 +9,9 @@ Ordered by recommended sequence:
 
 1. [NSW key endgame](#1--nsw-api-key-endgame) — the security goal
 2. [Dataset distribution](#2--stops--bus-routes-dataset-distribution) — stops/bus-routes via manifest
-3. [Push notifications](#3--push-notifications-fcm-over-sns) — FCM
-4. [Smaller items](#4--smaller-items)
+3. [Response caching](#2a--response-caching--how-the-nsw-quota-scales) — the NSW-quota scale unlock
+4. [Push notifications](#3--push-notifications-fcm-over-sns) — FCM
+5. [Smaller items](#4--smaller-items)
 
 ---
 
@@ -96,6 +97,37 @@ Remaining work:
 Payoff: stop/route data updates decouple from app releases (today a
 data refresh = full store release), and the app binary can eventually
 shrink if the bundled baseline is refreshed less often.
+
+---
+
+## 2a · Response caching — how the NSW quota scales
+
+**Facts (2026-06-11):** NSW key quota = **50,000 calls/day, 5 req/s**.
+Current app traffic ≈ **1,500 calls/week (~215/day)** — 0.4% of quota.
+`NSW_DAILY_BUDGET` is set to 10,000 (20% of quota) as a self-imposed
+safety margin; raise it toward 50k only when real traffic justifies.
+
+Today (app → NSW direct) every user request costs one quota call, so
+the ceiling is ~50k user requests/day. **The BFF changes the math:**
+many users asking the same question can be served by one upstream
+call. That — not bigger infra — is the scaling plan:
+
+| Data | TTL | Effect |
+|---|---|---|
+| GTFS-RT feeds (`/v1|v2/gtfs/*`) | 15–30 s in-memory per feed | One NSW fetch serves *every* user in that window. Upstream cost becomes constant (~3–6k/day max) regardless of user count. |
+| Departures per stop | 15–30 s keyed by stop ID | Popular stops (Central, Town Hall) collapse to ~2–4 calls/min each. |
+| Car park facilities | 60 s | Effectively free. |
+| Trip plans | skip (origin/dest/time combinations rarely repeat) | Stays ~1:1 — but it's the minority of traffic. |
+
+Implementation: small in-memory TTL cache in `NswClient` (or a Ktor
+route-level cache) + `Cache-Control` response headers so Cloudflare's
+edge caches the cacheable GETs too (then repeated requests don't even
+reach DO). No Redis, no new infra, no new cost.
+
+With caching, realistic capacity on the single free NSW key is
+**hundreds of thousands of user requests/day**; the binding constraint
+becomes trip-plan volume only. If that ever nears the quota, NSW Open
+Data offers higher tiers on request — ask, don't re-architect.
 
 ---
 

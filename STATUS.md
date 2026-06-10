@@ -33,8 +33,10 @@ You are one (guided) deploy away from production.
 4. **Endgame** — delete the in-app NSW API key at the NSW portal. That is
    the security goal of this whole project.
 5. **Future work** (push notifications via FCM, dataset distribution,
-   key-rotation details) — see
+   response caching, key-rotation details) — see
    [`docs/reference/ROADMAP.md`](docs/reference/ROADMAP.md).
+
+Full ordered queue with checkboxes: [`TODO.md`](TODO.md).
 
 ---
 
