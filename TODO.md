@@ -38,6 +38,10 @@
 - [ ] **Dataset distribution APIs** — stops + bus routes via manifest;
       retires the krail-config → app-PR pipeline
       ([ROADMAP §2](docs/reference/ROADMAP.md)).
+- [ ] **App-start bootstrap endpoint** — `GET /api/v1/app/bootstrap`:
+      one edge-cached call returning dataset versions, festivals,
+      min/latest app version; content edited in krail-config; RC keeps
+      kill switches ([ROADMAP §2b](docs/reference/ROADMAP.md)).
 
 ## Later
 

@@ -10,8 +10,9 @@ Ordered by recommended sequence:
 1. [NSW key endgame](#1--nsw-api-key-endgame) — the security goal
 2. [Dataset distribution](#2--stops--bus-routes-dataset-distribution) — stops/bus-routes via manifest
 3. [Response caching](#2a--response-caching--how-the-nsw-quota-scales) — the NSW-quota scale unlock
-4. [Push notifications](#3--push-notifications-fcm-over-sns) — FCM
-5. [Smaller items](#4--smaller-items)
+4. [App-start bootstrap](#2b--app-start-bootstrap-endpoint) — one launch call: festivals, dataset versions, app versions
+5. [Push notifications](#3--push-notifications-fcm-over-sns) — FCM
+6. [Smaller items](#4--smaller-items)
 
 ---
 
@@ -128,6 +129,61 @@ With caching, realistic capacity on the single free NSW key is
 **hundreds of thousands of user requests/day**; the binding constraint
 becomes trip-plan volume only. If that ever nears the quota, NSW Open
 Data offers higher tiers on request — ask, don't re-architect.
+
+---
+
+## 2b · App-start bootstrap endpoint
+
+**Idea (owner, 2026-06-11):** one BFF call at app launch that returns
+everything the app needs to "wake up", replacing several Remote Config
+JSON blobs over time. First consumer: **festivals** (RC flag
+`FESTIVALS` → `FestivalData {confirmedDates[], variableDates[]}`,
+used by `FestivalManager.emojiForDate()` for the timetable-loading
+emoji).
+
+**Design — `GET /api/v1/app/bootstrap`:**
+
+```jsonc
+{
+  "schemaVersion": 1,
+  "serverTime": "2026-06-11T09:00:00Z",     // clock-skew checks
+  "minAppVersion": "1.5.0",                  // mirrors version gate
+  "latestAppVersion": { "android": "1.9.0", "ios": "1.9.0" },
+  "datasets": {                              // §2 manifest, inlined
+    "nswStops":  { "version": 60, "url": "…", "sha256": "…", "bytes": 2310000 },
+    "nswRoutes": { "version": 33, "url": "…", "sha256": "…", "bytes": 2580000 }
+  },
+  "festivals": { "confirmedDates": [...], "variableDates": [...] },
+  "infoTiles": [ ... ]                       // later phase, optional
+}
+```
+
+Key decisions:
+
+- **Identical response for every user** → `Cache-Control: public,
+  max-age=300` → Cloudflare serves it from edge. Origin + NSW cost:
+  ~zero regardless of user count. No per-user logic, ever (keeps it
+  cacheable and PII-free).
+- **Content lives in `krail-config` repo** (where festivals/tiles are
+  edited today): a JSON file; the BFF fetches the raw file on a 5-min
+  in-memory TTL (or it's baked into the Docker image at deploy — start
+  with the fetch, it means config edits need no BFF deploy, matching
+  today's RC editing workflow).
+- **Firebase RC keeps the kill switches.** `bff_kill_switch` and the
+  `bff_use_for_*` flags must work when the BFF is *down* — they can
+  never live behind a BFF endpoint. Bootstrap replaces *content* blobs
+  (festivals, tiles, dataset versions), not *routing* flags.
+- **App behaviour:** fetch on launch (non-blocking, throttled ≤1/15min),
+  cache last good response in Sandook, fall back to bundled/RC defaults
+  when offline or on error — same resilience pattern festivals already
+  have via `RemoteConfigDefaults`.
+- Add a `bff_use_for_bootstrap` RC flag like every other migration;
+  cohort rollout per the adoption guide.
+
+Phasing: **1)** datasets + festivals + versions (small, all sources
+exist) → **2)** info tiles → **3)** retire the corresponding RC flags
+after 2 stable weeks each. Discover/park-ride blobs can follow the
+same pattern later if worthwhile.
 
 ---
 
