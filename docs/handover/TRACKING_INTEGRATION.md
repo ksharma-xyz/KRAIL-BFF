@@ -1,7 +1,7 @@
 # Tracking integration — handover for the KRAIL app
 
-> How the app consumes `POST /api/v1/track/snapshot` (T1, live-verified
-> against real NSW feeds 2026-06-12). Contract: `track.proto` in
+> How the app consumes `POST /api/v1/track/snapshot` (T1 + T1.5, each
+> live-verified against real NSW feeds). Contract: `track.proto` in
 > krail-api-proto (pushed). Design rationale:
 > [`docs/reference/TRACKING_DESIGN.md`](../reference/TRACKING_DESIGN.md).
 > Try it interactively first: `./scripts/dev.sh up` →
@@ -38,8 +38,11 @@ X-Krail-Version: <version>             (when the gate is enabled)
 | `service_date` | YYYYMMDD **Sydney time** for the day the trip runs |
 | `planned_departure_utc` | leg planned departure (ISO-8601) — enables NOT_STARTED before the trip enters the feeds |
 
-`include_geometry`: send `true` on the first poll only (geometry ships
-in T1.5; harmless now).
+`include_geometry`: send `true` on the **first poll only**. That
+response carries, per leg, `geometry` (encoded polyline for the map)
+and per-stop `latitude`/`longitude` pins. Steady-state polls leave it
+false and get neither — cache the first-poll geometry client-side for
+the life of the tracked trip.
 
 ## Poll loop contract
 
@@ -90,13 +93,21 @@ in T1.5; harmless now).
    this). If every stop is `SEGMENT_UNSPECIFIED` the endpoint ids
    didn't match the trip's sequence — render all stops normally.
    `state` drives the glyphs; `estimated_epoch_sec` when present, else
-   planned time from the app's own trip data. `stop_name` is EMPTY in
-   T1 — resolve names from the app's local stops DB by `stop_id`
-   (T1.5 adds server-side names; the local DB matters most for
-   BEFORE/AFTER stops, which the trip response never names).
+   planned time from the app's own trip data. `stop_name` is
+   **server-resolved on every poll** (T1.5): the BFF's platform-level
+   directory names train platform ids ("Central Station Platform 16")
+   the app's local stops DB doesn't have. Render it when non-empty;
+   fall back to the local DB only when it's blank (directory gap).
    `expected_occupancy` ships in a later phase; render only for
    CURRENT/UPCOMING stops when it arrives.
-5. **Delay:** `has_delay == true` → show `delay_seconds` (negative =
+5. **Map line (first poll):** `geometry.encoded_polyline` is a Google
+   polyline (precision 5) of the vehicle's full run. `source` tells
+   you what you're drawing: `GTFS_SHAPES` = real track geometry
+   (normal case), `STOP_STRAIGHT_LINES` = honest fallback connecting
+   the stop pins (dataset miss — draw it dashed if you like). Absent
+   `geometry` with `include_geometry:true` = not even stop coordinates
+   were known; map shows the vehicle marker only.
+6. **Delay:** `has_delay == true` → show `delay_seconds` (negative =
    early). Don't invent a delay when `has_delay` is false.
 
 ## App-side work checklist (phase A1)
@@ -105,7 +116,9 @@ in T1.5; harmless now).
       `bff_use_for_track` RC flag (kill-switch compatible).
 - [ ] Build `TrackRequest` from `TimeTableState.JourneyCardInfo.Leg`
       (the legs already carry `tripId`/`transportationId`).
-- [ ] Stop-name lookup by stop_id from the local stops DB.
+- [ ] Stop-name fallback by stop_id from the local stops DB (server
+      `stop_name` wins when non-empty).
+- [ ] Decode + cache the first-poll `geometry` polyline for the map.
 - [ ] **Fix the app's vendored `gtfs-realtime.proto`** (while it still
       exists): `TripDescriptor.direction_id` is declared `string` but
       the spec says `uint32` — metro feeds populate it and will crash
@@ -122,10 +135,12 @@ Current `TripDeepLink` payloads ("v1") carry only `transportationId` +
 `krail.app/trip` after the DNS migration. The dashboard's share-link
 simulator decodes both shapes today and flags v1 as untrackable.
 
-## Known T1 limitations (by design, tracked in TODO)
+## Known limitations (by design, tracked in TODO)
 
-- `stop_name` empty; `geometry` absent → T1.5 (shapes + stops datasets).
 - `expected_occupancy` absent → trip-context enrichment phase.
+- Bus legs: geometry falls back to `STOP_STRAIGHT_LINES` (no bus
+  shapes dataset yet — 10–50× larger, folds in with T3 carriage
+  layouts); names come from the search dataset (bus stops are in it).
 - Coaches (product class 7): always `NO_REALTIME` (no public feed).
 - Sydney Trains `at_or_next_stop_id` carries a location string, not a
   stop id (feed quirk) — don't join on it for trains.

@@ -110,6 +110,12 @@ Follow checklist §3; the sequence with gap-fills:
    - `STOPS_MANIFEST_URL` / `ROUTES_MANIFEST_URL` — leave **unset** for
      v1; the manifest endpoints return 404 until you ship dataset
      distribution (see [ROADMAP.md](../reference/ROADMAP.md)).
+   - `TRACK_DATASET_MANIFEST_URL` — already in `.do/app.yaml`, points
+     at the latest stops-dataset release. Needs that release to carry
+     `track_manifest.json`: run the workflow once after T1.5 lands
+     (Actions → Build Stops Dataset → Run workflow). Until then
+     tracking degrades gracefully (search-dataset stop names,
+     straight-line map fallback).
 4. Watch the first build in the Activity tab (~5 min), then:
    ```bash
    doctl apps get $DO_APP_ID --format DefaultIngress --no-header

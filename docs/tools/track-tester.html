@@ -336,8 +336,17 @@ function vehicleIcon(pc, bearing, stale) {
 }
 
 /* ─── trip context + picker ─────────────────────────────────────────── */
-let ctx = { stopMeta:{}, planned:{}, legCoords:{} };
+let ctx = { stopMeta:{}, planned:{}, legCoords:{}, bffGeometry:{} };
 let pickedLegs = [];
+let firstPoll = true;   // first poll sends include_geometry:true (contract)
+
+// Google polyline algorithm, precision 5 — decodes LegGeometry.encoded_polyline.
+function decodePolyline(str) {
+  const pts = []; let i = 0, lat = 0, lon = 0;
+  const next = () => { let r = 0, s = 0, b; do { b = str.charCodeAt(i++) - 63; r |= (b & 0x1f) << s; s += 5; } while (b >= 0x20); return (r & 1) ? ~(r >> 1) : r >> 1; };
+  while (i < str.length) { lat += next(); lon += next(); pts.push([lat/1e5, lon/1e5]); }
+  return pts;
+}
 const cleanId = id => (id||'').replace(/[^A-Za-z0-9:]/g,'').slice(0,40);
 
 function harvestLegContext(leg, ref) {
@@ -428,7 +437,9 @@ function drawRoute() {
   const all = [];
   pickedLegs.forEach(leg => {
     const mc = modeOf(leg.product_class).c;
-    const coords = ctx.legCoords[leg.leg_ref];
+    // BFF geometry (first-poll contract: GTFS shapes or straight-line
+    // fallback) wins; Trip Planner leg coords are the pre-poll preview.
+    const coords = ctx.bffGeometry[leg.leg_ref]?.coords || ctx.legCoords[leg.leg_ref];
     if (coords) {
       // white casing under the colored line — classic transit-map styling,
       // keeps the route readable over any dark-tile detail
@@ -458,7 +469,8 @@ $('decodeBtn').onclick = () => {
       origin_stop_id: l.originStopId||'', destination_stop_id: l.destinationStopId||'',
       service_date: l.serviceDate||today(), planned_departure_utc: l.plannedDepartureUtc||'', _label:'shared' }));
     pickedLegs = legs.filter(l => l.realtime_trip_id);
-    ctx = { stopMeta:{}, planned:{}, legCoords:{} };
+    ctx = { stopMeta:{}, planned:{}, legCoords:{}, bffGeometry:{} };
+    firstPoll = true;
     if (!pickedLegs.length) { $('shareInfo').textContent = 'v1 payload — no realtimeTripId, not trackable (needs v2)'; return; }
     activeLeg = 0; fitted = false; startLoop();
   } catch (e) { $('shareInfo').textContent = `decode failed: ${e.message}`; }
@@ -477,7 +489,8 @@ function resetTracking() {
   lastResp = null;
   activeLeg = 0;
   fitted = false;
-  ctx = { stopMeta:{}, planned:{}, legCoords:{} };
+  ctx = { stopMeta:{}, planned:{}, legCoords:{}, bffGeometry:{} };
+  firstPoll = true;
   $('legtabs').innerHTML = '';
   $('timeline').innerHTML = '';
   $('hero').innerHTML = '<div class="empty-live">switching trip…</div>';
@@ -486,9 +499,22 @@ function resetTracking() {
 async function poll() {
   const rec = await apiCall('track/snapshot', '→ GTFS-R feeds (cached)', `${base()}/api/v1/track/snapshot`, {
     method:'POST', headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
-    body: JSON.stringify({ legs: pickedLegs.map(({_label, ...l}) => l), include_geometry:false }),
+    body: JSON.stringify({ legs: pickedLegs.map(({_label, ...l}) => l), include_geometry:firstPoll }),
   }, pickedLegs.map(l => l.realtime_trip_id).join(' + '));
-  if (rec.status === 200) { lastResp = rec.body; render(); return rec.body.suggested_poll_seconds || 30; }
+  if (rec.status === 200) {
+    lastResp = rec.body;
+    let redraw = false;
+    (rec.body.legs || []).forEach(leg => {
+      if (leg.geometry?.encoded_polyline) {
+        ctx.bffGeometry[leg.leg_ref] = { coords: decodePolyline(leg.geometry.encoded_polyline), source: leg.geometry.source };
+        redraw = true;
+      }
+    });
+    firstPoll = false;
+    if (redraw) drawRoute();
+    render();
+    return rec.body.suggested_poll_seconds || 30;
+  }
   return 30;
 }
 async function loopStep() {
@@ -597,6 +623,7 @@ function render() {
     ['stops', (leg.stops||[]).length > 0, `${(leg.stops||[]).length}`],
     ['segments', segTagged > 0, segTagged > 0 ? `${segTagged} tagged` : 'unmatched'],
     ['delay', leg.delay_seconds !== undefined, leg.delay_seconds !== undefined ? `${leg.delay_seconds}s` : 'omitted'],
+    ['geometry', !!ctx.bffGeometry[leg.leg_ref], ctx.bffGeometry[leg.leg_ref] ? ctx.bffGeometry[leg.leg_ref].source : 'first poll only'],
   ];
   $('contract').innerHTML = `<span class="cf" style="border:none;padding-left:0">→ app receives:</span>` +
     fields.map(([n, on, v]) => `<span class="cf ${on?'on':''}"><b>${n}</b> ${v}</span>`).join('');

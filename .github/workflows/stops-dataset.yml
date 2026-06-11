@@ -83,10 +83,20 @@ jobs:
             -PreleaseUrl=https://github.com/${{ github.repository }}/releases/download/stops-${{ steps.ver.outputs.version }}/stops.pb \
             --no-daemon
 
+      - name: Build tracking datasets (platform directory + shapes)
+        run: |
+          ./gradlew :server:buildTrackDataset \
+            -PgtfsDir=server/build/gtfs \
+            -PoutDir=server/build/dist/track \
+            -Pversion=${{ steps.ver.outputs.version }} \
+            -PreleaseUrlBase=https://github.com/${{ github.repository }}/releases/download/stops-${{ steps.ver.outputs.version }} \
+            --no-daemon
+
       - name: Inspect output
         run: |
-          ls -la server/build/dist
+          ls -la server/build/dist server/build/dist/track
           cat server/build/dist/manifest.json
+          cat server/build/dist/track/track_manifest.json
           echo "Dataset size: $(stat -c%s server/build/dist/stops.pb 2>/dev/null || stat -f%z server/build/dist/stops.pb) bytes"
 
       - name: Publish GitHub Release
@@ -99,4 +109,6 @@ jobs:
             --title "Stops dataset $tag" \
             --notes "Generated $(date -u +'%Y-%m-%d %H:%M UTC') from NSW Open Data GTFS." \
             server/build/dist/stops.pb \
-            server/build/dist/manifest.json
+            server/build/dist/manifest.json \
+            server/build/dist/track/*.pb \
+            server/build/dist/track/track_manifest.json

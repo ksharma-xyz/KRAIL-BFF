@@ -2,6 +2,7 @@ package app.krail.bff.track
 
 import app.krail.bff.client.nsw.NswClient
 import app.krail.bff.proto.FleetInfo
+import app.krail.bff.proto.LegGeometry
 import app.krail.bff.proto.LegTracking
 import app.krail.bff.proto.OccupancyInfo
 import app.krail.bff.proto.StopProgress
@@ -30,6 +31,7 @@ class TrackService(
     private val nsw: NswClient,
     private val metrics: MetricRegistry,
     private val stops: StopDirectory = StopDirectory(),
+    private val datasets: TrackDatasetStore = TrackDatasetStore(),
     private val feedCache: FeedCache = FeedCache(),
     private val stopMemory: TripStopMemory = TripStopMemory(),
     private val vehicleposTtlMillis: Long = 15_000,
@@ -45,7 +47,7 @@ class TrackService(
         val now = clock()
         val legs = request.legs.map { leg ->
             try {
-                resolveLeg(leg, now)
+                resolveLeg(leg, now, request.include_geometry)
             } catch (e: Throwable) {
                 // Defensive backstop — resolveLeg handles expected failures
                 // itself; anything escaping is a bug, not a user error.
@@ -61,7 +63,7 @@ class TrackService(
         )
     }
 
-    private suspend fun resolveLeg(leg: TrackRequest.TrackLeg, now: Instant): LegTracking {
+    private suspend fun resolveLeg(leg: TrackRequest.TrackLeg, now: Instant, includeGeometry: Boolean): LegTracking {
         // Expiry: trip ids are scoped to a service day (Sydney time).
         val serviceDate = runCatching { LocalDate.parse(leg.service_date, serviceDateFormat) }.getOrNull()
         if (serviceDate != null && serviceDate.isBefore(LocalDate.now(sydney).minusDays(1))) {
@@ -137,7 +139,7 @@ class TrackService(
         }
         metrics.counter("track.match.exact").inc()
 
-        val stops = buildStopTimeline(tripUpdate, vehicle, now, tripKey = "$tripId@${leg.service_date}")
+        val stops = buildStopTimeline(tripUpdate, vehicle, now, tripKey = "$tripId@${leg.service_date}", includeGeometry)
             .annotateSegments(leg.origin_stop_id, leg.destination_stop_id)
 
         // The USER's journey ends at their destination, not the vehicle's
@@ -184,7 +186,50 @@ class TrackService(
             stops = stops,
             delay_seconds = delay ?: 0,
             has_delay = delay != null,
+            geometry = if (includeGeometry) buildGeometry(feeds, tripId, stops) else null,
         )
+    }
+
+    /**
+     * Map line for the leg, first poll only. Preferred: the weekly shapes
+     * dataset keyed by trip_id (real track geometry). Fallback: straight
+     * lines through the known stop coordinates — honest, never fabricated.
+     * `track.geometry.straight_lines` is the shape-miss metric: sustained
+     * non-zero means the dataset lags the timetable, regenerate it.
+     */
+    private suspend fun buildGeometry(
+        feeds: List<FeedRegistry.FeedRef>,
+        tripId: String,
+        stops: List<StopProgress>,
+    ): LegGeometry? {
+        for (ref in feeds) {
+            val polyline = datasets.polyline(ref.feed, tripId) ?: continue
+            metrics.counter("track.geometry.shapes").inc()
+            return LegGeometry(encoded_polyline = polyline, source = LegGeometry.Source.GTFS_SHAPES)
+        }
+        val points = stops
+            .filter { it.latitude != 0.0 || it.longitude != 0.0 }
+            .map { PolylineCodec.Point(it.latitude, it.longitude) }
+        if (points.size >= 2) {
+            metrics.counter("track.geometry.straight_lines").inc()
+            return LegGeometry(
+                encoded_polyline = PolylineCodec.encode(points),
+                source = LegGeometry.Source.STOP_STRAIGHT_LINES,
+            )
+        }
+        metrics.counter("track.geometry.none").inc()
+        return null
+    }
+
+    /**
+     * Platform-aware stop lookup: the tracking directory (T1.5 dataset,
+     * carries train platform ids) wins; the bundled search dataset (parents
+     * + bus stops) is the fallback.
+     */
+    private suspend fun resolveStop(stopId: String): StopDirectory.Stop? {
+        if (stopId.isEmpty()) return null
+        datasets.stop(stopId)?.let { return StopDirectory.Stop(it.name, it.lat, it.lon) }
+        return stops.find(stopId)
     }
 
     private fun findVehicle(feed: FeedMessage, tripId: String): VehiclePosition? =
@@ -276,11 +321,12 @@ class TrackService(
     private fun mapOccupancy(gtfsValue: Int): OccupancyInfo.Level =
         OccupancyInfo.Level.fromValue(gtfsValue + 1) ?: OccupancyInfo.Level.LEVEL_UNSPECIFIED
 
-    private fun buildStopTimeline(
+    private suspend fun buildStopTimeline(
         tripUpdate: TripUpdate?,
         vehicle: VehiclePosition?,
         now: Instant,
         tripKey: String,
+        includeGeometry: Boolean,
     ): List<StopProgress> {
         val updates = tripUpdate?.stop_time_update ?: return emptyList()
         if (updates.isEmpty()) return emptyList()
@@ -304,14 +350,15 @@ class TrackService(
             },
         )
         val passed = trimmed.map { remembered ->
-            val known = stops.find(remembered.stopId)
+            val known = resolveStop(remembered.stopId)
             StopProgress(
                 stop_id = remembered.stopId,
                 stop_name = known?.name ?: "",
                 estimated_epoch_sec = remembered.lastEstimatedEpochSec,
                 state = StopProgress.State.DEPARTED,
-                latitude = known?.lat ?: 0.0,
-                longitude = known?.lon ?: 0.0,
+                // Coordinates only travel with geometry (contract: first poll).
+                latitude = if (includeGeometry) known?.lat ?: 0.0 else 0.0,
+                longitude = if (includeGeometry) known?.lon ?: 0.0 else 0.0,
             )
         }
 
@@ -333,14 +380,14 @@ class TrackService(
             }
 
             val stopId = stu.stop_id ?: ""
-            val known = stops.find(stopId)
+            val known = resolveStop(stopId)
             StopProgress(
                 stop_id = stopId,
                 stop_name = known?.name ?: "",
                 estimated_epoch_sec = estimated,
                 state = state,
-                latitude = known?.lat ?: 0.0,
-                longitude = known?.lon ?: 0.0,
+                latitude = if (includeGeometry) known?.lat ?: 0.0 else 0.0,
+                longitude = if (includeGeometry) known?.lon ?: 0.0 else 0.0,
             )
         }
     }

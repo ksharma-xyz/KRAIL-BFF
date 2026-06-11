@@ -6,10 +6,16 @@ import app.krail.bff.proto.LegTracking
 import app.krail.bff.proto.OccupancyInfo
 import app.krail.bff.proto.StopProgress
 import app.krail.bff.proto.TrackRequest
+import app.krail.bff.proto.LegGeometry
+import app.krail.bff.track.TrackDatasetStore
 import app.krail.bff.track.TrackService
+import app.krail.bff.trackdata.ShapesDataset
+import app.krail.bff.trackdata.TrackStop
+import app.krail.bff.trackdata.TrackStopsDataset
 import com.codahale.metrics.MetricRegistry
 import com.google.transit.realtime.FeedMessage
 import kotlinx.coroutines.runBlocking
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -92,11 +98,13 @@ class TrackServiceTest {
 
     private fun fakeNsw(failFeeds: Boolean = false) = FakeNsw(::fixture, failFeeds)
 
-    private fun service(nsw: NswClient = fakeNsw()) = TrackService(
-        nsw = nsw,
-        metrics = MetricRegistry(),
-        clock = { captureInstant },
-    )
+    private fun service(nsw: NswClient = fakeNsw(), datasets: TrackDatasetStore = TrackDatasetStore(null, null)) =
+        TrackService(
+            nsw = nsw,
+            metrics = MetricRegistry(),
+            datasets = datasets,
+            clock = { captureInstant },
+        )
 
     private fun leg(tripId: String, productClass: Int = 1, serviceDate: String = captureServiceDate) =
         TrackRequest.TrackLeg(
@@ -306,6 +314,73 @@ class TrackServiceTest {
         assertEquals(fullIds, second.stops.map { it.stop_id }, "snapshot must remain the complete run")
         assertEquals(StopProgress.State.DEPARTED, second.stops[0].state)
         assertEquals(StopProgress.State.DEPARTED, second.stops[1].state)
+    }
+
+    /** Stop ids of the live trip, from the captured TripUpdates fixture. */
+    private val liveTripStopIds: List<String> by lazy {
+        val tu = FeedMessage.ADAPTER.decode(fixture("tripupdates_sydneytrains.pb"))
+        tu.entity.first { it.trip_update?.trip?.trip_id == liveTripId }
+            .trip_update!!.stop_time_update.mapNotNull { it.stop_id }
+    }
+
+    /** T1.5 datasets on disk: platform names for the trip's stops (+ a shape when [withShape]). */
+    private fun datasetDir(withShape: Boolean): TrackDatasetStore {
+        val dir = File.createTempFile("trackds", "").apply { delete(); mkdirs() }
+        File(dir, "track_stops.pb").writeBytes(
+            TrackStopsDataset(
+                version = "test",
+                stops = liveTripStopIds.mapIndexed { i, id ->
+                    TrackStop(stop_id = id, name = "Platform $i", lat = -33.8 - i * 0.01, lon = 151.2 + i * 0.01)
+                },
+            ).encode(),
+        )
+        if (withShape) {
+            File(dir, "shapes_sydneytrains.pb").writeBytes(
+                ShapesDataset(
+                    version = "test",
+                    feed = "sydneytrains",
+                    shapes = mapOf("shape-1" to "encoded-test-polyline"),
+                    trip_index = mapOf(liveTripId to "shape-1"),
+                ).encode(),
+            )
+        }
+        return TrackDatasetStore(localDir = dir.absolutePath, manifestUrl = null)
+    }
+
+    @Test
+    fun `first poll with geometry gets the shapes polyline and platform names`() = runBlocking {
+        val tracked = service(datasets = datasetDir(withShape = true))
+            .snapshot(TrackRequest(legs = listOf(leg(liveTripId)), include_geometry = true))
+            .legs.single()
+
+        val geometry = assertNotNull(tracked.geometry)
+        assertEquals(LegGeometry.Source.GTFS_SHAPES, geometry.source)
+        assertEquals("encoded-test-polyline", geometry.encoded_polyline)
+        // T1.5 directory names train PLATFORM ids the search dataset lacks.
+        assertTrue(tracked.stops.all { it.stop_name.isNotBlank() }, "every stop named")
+        assertTrue(tracked.stops.all { it.latitude != 0.0 && it.longitude != 0.0 }, "pins ship with geometry")
+    }
+
+    @Test
+    fun `shape miss falls back to straight lines through stop coordinates`() = runBlocking {
+        val tracked = service(datasets = datasetDir(withShape = false))
+            .snapshot(TrackRequest(legs = listOf(leg(liveTripId)), include_geometry = true))
+            .legs.single()
+
+        val geometry = assertNotNull(tracked.geometry, "fallback must still draw a line")
+        assertEquals(LegGeometry.Source.STOP_STRAIGHT_LINES, geometry.source)
+        assertTrue(geometry.encoded_polyline.isNotBlank())
+    }
+
+    @Test
+    fun `steady-state poll carries no geometry and no coordinates`() = runBlocking {
+        val tracked = service(datasets = datasetDir(withShape = true))
+            .snapshot(TrackRequest(legs = listOf(leg(liveTripId)))) // include_geometry defaults false
+            .legs.single()
+
+        assertEquals(null, tracked.geometry)
+        assertTrue(tracked.stops.all { it.latitude == 0.0 && it.longitude == 0.0 })
+        assertTrue(tracked.stops.all { it.stop_name.isNotBlank() }, "names still ship every poll")
     }
 
     @Test

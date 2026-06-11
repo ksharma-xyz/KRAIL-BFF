@@ -72,13 +72,25 @@
       during soak: UTC display bug, full-run vs segment tagging,
       passed-stop trimming (server trip memory), end-of-journey
       semantics, trip-switch ghosts, earlier/later paging.
-- [ ] **T1.5 (IN PROGRESS)** — tracking-grade stop directory + shapes join. The
-      bundled search dataset resolves parents + bus stops only;
-      GTFS-R reports PLATFORM ids for trains, and platform→parent
-      mapping lives in GTFS `stops.txt` (`parent_station`). Build a
-      platform-level directory (id, name, parent, lat/lon) + shapes
-      polylines in the existing GitHub Actions dataset job; BFF then
-      names every stop and ships first-poll geometry (design §7a).
+- [x] **T1.5** (2026-06-13, live-verified) — tracking-grade stop
+      directory + shapes join. `stops-dataset.yml` now also builds
+      `track_stops.pb` (platform-level: id, name, parent, lat/lon —
+      names train PLATFORM ids the search dataset lacks) and per-mode
+      `shapes_<mode>.pb` (shape_id→polyline + trip_id index, deduped;
+      sydneytrains ≈ 2.9 MB). BFF `TrackDatasetStore` loads them
+      lazily from `TRACK_DATASET_DIR` (dev) or
+      `TRACK_DATASET_MANIFEST_URL` (prod, sha256-verified, 6-h
+      manifest recheck → weekly hot-swap). Tracking now serves
+      first-poll `LegGeometry` (GTFS_SHAPES; STOP_STRAIGHT_LINES
+      fallback + `track.geometry.straight_lines` miss metric) and
+      gates stop coordinates on `include_geometry`. Bus shapes stay
+      T3. **Post-merge: run the stops-dataset workflow once** so the
+      release carries the track artifacts prod points at.
+- [ ] **T1.6 `expected_occupancy`** — the one deferred T1 field:
+      best-effort Trip Planner `stopSequence[].properties.occupancy`
+      enrichment, validated against the locked trip_id, cached per
+      (trip_id, service_date) (design §3a). Small; can ride along
+      with any later tracking pass.
 - [x] **T1 handover doc** —
       [docs/handover/TRACKING_INTEGRATION.md](docs/handover/TRACKING_INTEGRATION.md)
       (includes the app-side `direction_id` proto bug found while

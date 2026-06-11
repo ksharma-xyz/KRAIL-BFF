@@ -406,7 +406,12 @@ Changes needed:
 | **A1** (app) | Point `TrackTripViewModel`/`TripPoller` at the BFF endpoint behind `bff_use_for_track` RC flag; delete client-side GTFS-R matcher after 100% + grace | T1 |
 | **A2** (app) | Deep link v2 payload + krail.app domain migration + well-known files on website | DNS move |
 
-## 7a. Shapes dataset pipeline (T1.5) — how the map line is built
+## 7a. Tracking dataset pipeline (T1.5) — stop names + the map line
+
+> Status: **built and live-verified** (`BuildTrackDataset.kt` +
+> `buildTrackDataset` Gradle task; BFF side is `TrackDatasetStore`,
+> configured via `TRACK_DATASET_DIR` (dev) or
+> `TRACK_DATASET_MANIFEST_URL` (prod, sha256-verified)).
 
 Same pattern, same workflow, near-zero new moving parts:
 `stops-dataset.yml` **already downloads the per-mode NSW GTFS bundles**
@@ -419,6 +424,9 @@ stops-dataset.yml (existing weekly job)
   fetch GTFS bundles (already happens)
     ├─ stops.txt    → stops.pb        (existing)
     ├─ routes/trips → routes .pb      (existing)
+    ├─ NEW: stops.txt → track_stops.pb (platform directory: raw GTFS
+    │       ids incl. location_type 0 platforms + parent links — names
+    │       the train platform ids the search dataset lacks)
     └─ NEW: trips.txt + shapes.txt → shapes_<mode>.pb
             │
             │ 1. trips.txt: trip_id → shape_id        (many→one)
@@ -428,6 +436,7 @@ stops-dataset.yml (existing weekly job)
             │                    trip_index[trip_id→shape_id]}
             ▼
   publish to the same GitHub Release alongside stops.pb + manifest
+  (+ track_manifest.json listing the track artifacts with sha256s)
 ```
 
 Design points:

@@ -68,3 +68,10 @@ services:
       - key: BFF_RATE_LIMIT_BURST
         scope: RUN_TIME
         value: "100"
+      # Tracking datasets (platform stop names + map polylines). Points at
+      # the weekly stops-dataset release; fetched lazily, sha256-verified,
+      # hot-swapped in memory. Unset/wrong = tracking still works, stops
+      # fall back to the search dataset and maps to straight lines.
+      - key: TRACK_DATASET_MANIFEST_URL
+        scope: RUN_TIME
+        value: "https://github.com/ksharma-xyz/KRAIL-BFF/releases/latest/download/track_manifest.json"

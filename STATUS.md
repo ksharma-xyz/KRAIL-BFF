@@ -23,9 +23,18 @@ type flowing, and a control-room browser dashboard
 (`docs/tools/track-tester.html`) with API inspector. App-side
 contract: [`docs/handover/TRACKING_INTEGRATION.md`](docs/handover/TRACKING_INTEGRATION.md).
 
+**T1.5 is built and live-verified**: the stops-dataset job now also
+emits a platform-level stop directory (`track_stops.pb` — names train
+platform ids like "Sydenham Station Platform 5") and per-mode
+`shapes_<mode>.pb` polylines; the BFF loads them lazily from the
+release manifest (sha256-verified, weekly hot-swap) and serves
+first-poll `LegGeometry` (GTFS_SHAPES, straight-line fallback) with
+coordinates gated on `include_geometry`. One post-merge action: run
+the stops-dataset workflow once so the release contains the track
+artifacts.
+
 Workflow is direct-to-main, no PRs (test locally before pushing).
-**Now: T1.5** (platform-level stop names + map polylines via the
-dataset job), **then deploy** — spec and runbook ready.
+**Now: deploy** — spec and runbook ready.
 
 ---
 
