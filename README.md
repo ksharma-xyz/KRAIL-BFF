@@ -9,12 +9,15 @@ Backend-for-Frontend service for the KRAIL mobile app, providing trip planning a
 ### Quick Links
 
 - 🗺️ **[PLAN.md](PLAN.md)** - Master plan: what to work on, in what order (start here)
+- 📋 **[TODO.md](TODO.md)** - The ordered work queue
 - 🚨 **[Emergency Runbook](docs/guides/EMERGENCY.md)** - Something's wrong in production: exact steps
-- 🚀 **[Local Development Guide](docs/LOCAL_DEVELOPMENT.md)** - Get started with local development
-- 🔐 **[Configuration Guide](docs/CONFIGURATION.md)** - Managing API keys and secrets
-- 🧪 **[Testing Quick Start](docs/TESTING_QUICK_START.md)** - Quick API testing guide
+- 🚀 **[Local Development Guide](docs/guides/LOCAL_DEVELOPMENT.md)** - Get started with local development
+- 🔐 **[Configuration Guide](docs/reference/CONFIGURATION.md)** - Managing API keys and secrets
+- 🧪 **[Testing Guide](docs/guides/TESTING.md)** - Quick API testing guide
 - 🐛 **[Debugging Guide](docs/guides/DEBUGGING.md)** - Troubleshooting and debugging
-- 📐 **[Modernization Plan](docs/reference/MODERNIZATION_PLAN.md)** - Project plan and migration roadmap
+- 🛰 **[Tracking Design](docs/reference/TRACKING_DESIGN.md)** - Live trip tracking architecture (as built)
+- 📱 **[Tracking Integration](docs/handover/TRACKING_INTEGRATION.md)** - The app-side contract
+- 🔭 **[Roadmap](docs/reference/ROADMAP.md)** - What comes after deploy
 
 ## ⚡ Quick Start
 
@@ -86,9 +89,7 @@ If you see: `CLEARTEXT communication to 10.0.2.2 not permitted by network securi
     ...>
 ```
 
-**See full guide:** [ANDROID_NETWORK_SECURITY_FIX.md](ANDROID_NETWORK_SECURITY_FIX.md)
-
-**Detailed troubleshooting:** [DEBUGGING_RESULTS.md](DEBUGGING_RESULTS.md)
+**Detailed troubleshooting:** [docs/guides/DEBUGGING.md](docs/guides/DEBUGGING.md)
 
 ## 🏗️ Project Structure
 

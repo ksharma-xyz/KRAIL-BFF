@@ -3,7 +3,7 @@
 > Where we are, what's blocking, what to do next. Refresh by running
 > `gh pr list --state open` + `git log main --oneline -5`.
 
-Last refresh: **2026-06-11**.
+Last refresh: **2026-06-13**.
 
 ---
 
@@ -13,13 +13,19 @@ Last refresh: **2026-06-11**.
 
 ## TL;DR
 
-**Live tracking T1 is built and live-verified** (2026-06-12): the
-track.proto contract, `POST /api/v1/track/snapshot` joining GTFS-R
-feeds server-side, and a browser test dashboard
-(`docs/tools/track-tester.html`). Workflow is now direct-to-main, no
-PRs. **Next: soak the tracker in the browser, then deploy.**
+**Live tracking T1 is built, soaked on real trips, and hardened**
+(2026-06-12/13): track.proto contract (with journey-segment tags),
+`POST /api/v1/track/snapshot` joining GTFS-R feeds server-side with
+per-trip stop memory (complete snapshots even after NSW trims passed
+stops), user-relative end-of-journey semantics (ENDED at *your*
+destination, vehicle omitted), per-carriage occupancy + live fleet
+type flowing, and a control-room browser dashboard
+(`docs/tools/track-tester.html`) with API inspector. App-side
+contract: [`docs/handover/TRACKING_INTEGRATION.md`](docs/handover/TRACKING_INTEGRATION.md).
 
-The deploy itself is still pending — spec and runbook ready.
+Workflow is direct-to-main, no PRs (test locally before pushing).
+**Now: T1.5** (platform-level stop names + map polylines via the
+dataset job), **then deploy** — spec and runbook ready.
 
 ---
 

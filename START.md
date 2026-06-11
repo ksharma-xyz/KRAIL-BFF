@@ -1,10 +1,15 @@
-# START — local end-to-end test before merging anything
+# START — local app ↔ BFF end-to-end test
+
+> **Note (2026-06-13):** written pre-merge ("zero PRs merged" framing
+> is outdated — everything is on `main` now). The session entry point
+> is [PLAN.md](PLAN.md). **This checklist becomes useful again at
+> phase A1/F** — wiring the real KRAIL app build to a local BFF before
+> the cohort rollout. The steps below still apply then.
 
 > The goal: prove the BFF works end-to-end with the **KRAIL app on your
-> machine**, with zero PRs merged and nothing deployed. Once a real
-> request from a real Android/iOS build hits your local BFF and renders
-> a trip in the app UI, you have de-risked the whole stack and can
-> commit to merging + deploying.
+> machine**, with nothing deployed. Once a real request from a real
+> Android/iOS build hits your local BFF and renders a trip in the app
+> UI, you have de-risked the whole stack.
 
 Tick boxes as you go. Don't skip steps — each one rules out a different
 class of "why doesn't it work." If a step fails, the line below it tells

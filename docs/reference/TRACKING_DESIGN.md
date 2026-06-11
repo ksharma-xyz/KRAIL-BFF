@@ -1,5 +1,32 @@
 # Live Trip Tracking — BFF design
 
+> **AS-BUILT NOTE (2026-06-13).** T1 is implemented and soak-tested on
+> live NSW feeds. The authoritative contract is
+> `krail-api-proto/proto/api/track.proto` (the §4 sketch below is the
+> original design); the app-facing behaviour contract is
+> [`docs/handover/TRACKING_INTEGRATION.md`](../handover/TRACKING_INTEGRATION.md).
+> Deltas discovered/added during build + soak:
+>
+> - **Journey segment tags** instead of server-side slicing —
+>   `StopProgress.segment` (BEFORE_JOURNEY/JOURNEY/AFTER_JOURNEY);
+>   full run always returned, client chooses rendering.
+> - **Server-side per-trip stop memory** (`TripStopMemory`) — NSW
+>   trims passed stops from TripUpdates; the BFF re-attaches
+>   remembered ones as DEPARTED so every poll is a complete snapshot
+>   (mid-trip share-link joins included).
+> - **User-relative ENDED** — destination behind the vehicle (matched,
+>   or inferred from both endpoints trimmed + departure >10 min past,
+>   or trip vanished + departure >3 h past) ⇒ ENDED with
+>   vehicle/occupancy omitted.
+> - **Stop names partially server-side already** — bundled search
+>   dataset resolves parents + bus stops; rail PLATFORM ids await the
+>   T1.5 platform directory (this doc's §7a job).
+> - Feed facts: buses are ONE consolidated v1 feed (T3 collapsed into
+>   T1); sydneytrains omit bearing/speed; metro is the richest feed
+>   (carriage labels, bearing, full extension data).
+> - `has_delay`/`has_bearing`/`has_speed` presence flags added for
+>   proto3 zero-value ambiguity.
+
 > Design for the realtime tracking feature set: live vehicle location,
 > per-carriage occupancy, fleet type (Waratah/Tangara/…), stop-by-stop
 > progress, and share-a-trip deep links. Supersedes the app-side

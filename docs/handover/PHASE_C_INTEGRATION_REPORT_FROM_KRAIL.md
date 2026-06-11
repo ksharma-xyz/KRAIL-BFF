@@ -1,5 +1,11 @@
 # KRAIL → BFF · Phase C integration report (proto consumers)
 
+> **📜 HISTORICAL (kept as the record of Phase C).** Snapshot of the
+> app-side integration state at proto v0.3.0. For current app
+> integration work see
+> [TRACKING_INTEGRATION.md](TRACKING_INTEGRATION.md) and
+> [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md).
+
 > Audience: KRAIL-BFF team. From: KRAIL app side. Drop into
 > `KRAIL-BFF/docs/handover/` as the symmetric counterpart to your
 > `MIGRATION_GUIDE.md` Phase C.

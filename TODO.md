@@ -6,9 +6,9 @@
 
 ## Now (before/at first deploy)
 
-- [ ] **GitHub ruleset gap** (2 min): repo → Settings → Rules → `main`
-      → add **Require status checks to pass** → select the `pr.yml`
-      build job. Until then red CI doesn't block merging.
+- [x] ~~GitHub ruleset gap~~ — moot since the no-PR/direct-push
+      workflow (2026-06-12); `pr.yml` still runs on every main push as
+      a post-hoc signal. Run `./gradlew :server:test` before pushing.
 - [ ] **Mint BFF-only NSW API key** at
       <https://opendata.transport.nsw.gov.au/> → password manager.
       Blocking ([audit F1](docs/reference/SECURITY_AUDIT_2026-06.md)).
@@ -16,8 +16,7 @@
       switch; GitHub Pages site keeps working unchanged
       ([FIRST_DEPLOY §2](docs/guides/FIRST_DEPLOY.md)). Hosting does
       NOT move — only who answers DNS.
-- [ ] **Review + merge the `docs/predeploy-audit-and-roadmap` branch**
-      (this one) so the deploy docs are on `main`.
+- [x] Docs branch merged to `main` and pushed (2026-06-12).
 - [ ] **Deploy** — work through
       [FIRST_DEPLOY.md](docs/guides/FIRST_DEPLOY.md) top to bottom
       (DO app, secrets, Cloudflare, smoke suite).
@@ -69,10 +68,11 @@
       loop obeying suggested_poll_seconds, Leaflet map with staleness
       greying, status pills, car strip, timeline, share-link
       simulator.
-- [ ] **SOAK (you, now)** — `./scripts/dev.sh up` →
-      http://localhost:8000/track-tester.html → track real trains for
-      a few days. Satisfaction gates app work.
-- [ ] **T1.5** — tracking-grade stop directory + shapes join. The
+- [x] **SOAK** — done 2026-06-12/13; live issues found and fixed
+      during soak: UTC display bug, full-run vs segment tagging,
+      passed-stop trimming (server trip memory), end-of-journey
+      semantics, trip-switch ghosts, earlier/later paging.
+- [ ] **T1.5 (IN PROGRESS)** — tracking-grade stop directory + shapes join. The
       bundled search dataset resolves parents + bus stops only;
       GTFS-R reports PLATFORM ids for trains, and platform→parent
       mapping lives in GTFS `stops.txt` (`parent_station`). Build a
@@ -83,9 +83,11 @@
       [docs/handover/TRACKING_INTEGRATION.md](docs/handover/TRACKING_INTEGRATION.md)
       (includes the app-side `direction_id` proto bug found while
       vendoring — fix in app before metro tracking).
-- [ ] **T2** — per-carriage occupancy + live fleet descriptor (after O1).
-- [ ] **T3** — buses (after O2) + carriage-layout dataset via GitHub
-      Actions (`reaches_platform`).
+- [x] **T2** — shipped inside T1 (PassLoad per-carriage occupancy +
+      live fleet descriptor both flow).
+- [x] **T3 (buses)** — shipped inside T1 (single consolidated v1 bus
+      feed). Remaining T3 scope — carriage-layout dataset
+      (`reaches_platform`) — folds into the dataset job with T1.5.
 - [ ] **A1 (app)** — TrackTripViewModel/TripPoller → BFF endpoint
       behind `bff_use_for_track`; later delete client-side GTFS-R code.
 - [ ] **A2 (app + website)** — share-link v2 payload (realtimeTripId,

@@ -1,5 +1,13 @@
 # KRAIL-BFF Modernization Plan (Indie Edition)
 
+> **📜 HISTORICAL (kept for context).** This was the original project
+> plan; the work it describes is built — including the "deferred"
+> server-side live tracking, which shipped 2026-06. Current truth:
+> [PLAN.md](../../PLAN.md) (sequence), [TODO.md](../../TODO.md)
+> (queue), [STATUS.md](../../STATUS.md) (state),
+> [ROADMAP.md](ROADMAP.md) (future). Other docs cite sections here
+> for rationale — that's why it stays.
+
 > Right-sized for an indie developer: ~400 MAU on KRAIL, BFF open to all users with rate-limited abuse protection (no login, no per-user gating), tiny budget, **public repo**.
 
 This plan deliberately defers everything that would be premature at this scale — Redis, multi-AZ, Aurora, server-side live tracking, GTFS pipeline rewrites — until traffic actually demands them. The current BFF is not stale; it's just unfinished. The job is to *finish it small and safe*, not rewrite it.

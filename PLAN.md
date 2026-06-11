@@ -30,11 +30,13 @@
 ## 1. The sequence (your chosen order)
 
 ```
-NOW                                  LOCAL ONLY — nothing deployed, zero risk
- ├─ A. Land the docs branch on main
- ├─ B. Build tracking: T0 → T1 + T1-dash      (./scripts/dev.sh up, local NSW key)
- ├─ C. Soak in the browser dashboard           (days; real trains)
- ├─ D. Write docs/handover/TRACKING_INTEGRATION.md   (when satisfied)
+DONE 2026-06-12/13                   LOCAL ONLY — nothing deployed, zero risk
+ ├─ A. ✅ Docs branch on main (pushed; no-PR direct-push workflow)
+ ├─ B. ✅ Tracking built: T0 → T1 + dashboard (incl. T2/T3-bus scope)
+ ├─ C. ✅ Soaked on real trips; 6 live issues found + fixed
+ ├─ D. ✅ docs/handover/TRACKING_INTEGRATION.md written
+NOW
+ ├─ B2. T1.5 — platform stop names + shapes polylines (dataset job)
 THEN
  ├─ E. Deploy                                  (FIRST_DEPLOY.md, ~2 evenings)
  └─ F. App integration (A1/A2) + cohort rollout

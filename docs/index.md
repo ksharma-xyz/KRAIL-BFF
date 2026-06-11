@@ -43,6 +43,8 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 | [Local Development]({% link guides/LOCAL_DEVELOPMENT.md %}) | Setup and run locally |
 | [Testing]({% link guides/TESTING.md %}) | Testing guide |
 | [Debugging]({% link guides/DEBUGGING.md %}) | Troubleshooting |
+| [First Deploy]({% link guides/FIRST_DEPLOY.md %}) | First-ever production deploy, step by step |
+| [Emergency Runbook]({% link guides/EMERGENCY.md %}) | Production incidents: exact steps |
 
 ---
 
