@@ -7,6 +7,10 @@ Last refresh: **2026-06-11**.
 
 ---
 
+> **Start here instead: [PLAN.md](PLAN.md)** — the master sequence
+> (build tracking locally → dashboard soak → handover → deploy),
+> doc map, cost bounds, and open-source hygiene rules.
+
 ## TL;DR
 
 **All code is merged.** `main` is at PR #72; `gh pr list --state open`
