@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KRAIL BFF · Track Tester</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root {
+  --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#e6edf3; --dim:#8b949e;
+  --accent:#58a6ff; --accent-soft:#1f6feb55; --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 -apple-system,system-ui,sans-serif; }
+header { display:flex; gap:16px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--border); background:var(--panel); position:sticky; top:0; z-index:1000;}
+header h1 { font-size:15px; margin:0; }
+header a { color:var(--accent); font-size:12px; text-decoration:none; }
+label { font-size:12px; color:var(--dim); display:flex; gap:6px; align-items:center; }
+input { background:var(--bg); border:1px solid var(--border); color:var(--fg); border-radius:6px; padding:5px 8px; font:12px var(--mono); }
+button { background:var(--accent-soft); border:1px solid var(--accent); color:var(--fg); border-radius:6px; padding:5px 12px; cursor:pointer; font-size:12px; }
+button:disabled { opacity:.4; cursor:default; }
+button.danger { border-color:var(--bad); background:#f8514922; }
+.wrap { display:grid; grid-template-columns: 380px 1fr; gap:0; height:calc(100vh - 49px); }
+.side { border-right:1px solid var(--border); overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:12px; }
+.main { display:grid; grid-template-rows: 1fr 280px; }
+#map { width:100%; height:100%; background:#0a0d12; }
+.bottom { border-top:1px solid var(--border); overflow:auto; display:grid; grid-template-columns:1fr 1fr; }
+.panel { border:1px solid var(--border); border-radius:8px; background:var(--panel); padding:10px; }
+.panel h2 { font-size:12px; margin:0 0 8px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; }
+.row { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; align-items:end; }
+.journey { border:1px solid var(--border); border-radius:6px; padding:8px; margin-bottom:6px; cursor:pointer; font-size:12px; }
+.journey:hover { border-color:var(--accent); }
+.journey .legs { color:var(--dim); font-family:var(--mono); font-size:11px; }
+.status-pill { display:inline-block; padding:1px 8px; border-radius:10px; font:11px var(--mono); border:1px solid var(--border); }
+.st-TRACKING { color:var(--ok); border-color:var(--ok); }
+.st-NOT_STARTED { color:var(--accent); border-color:var(--accent); }
+.st-NO_REALTIME,.st-ENDED { color:var(--warn); border-color:var(--warn); }
+.st-EXPIRED,.st-UPSTREAM_UNAVAILABLE { color:var(--bad); border-color:var(--bad); }
+.timeline { font:12px var(--mono); padding:8px 12px; overflow-y:auto; }
+.tl-stop { display:flex; gap:8px; align-items:baseline; padding:2px 0; }
+.tl-dot { width:10px; text-align:center; }
+.tl-DEPARTED { color:var(--dim); }
+.tl-CURRENT { color:var(--ok); font-weight:700; }
+.tl-UPCOMING { color:var(--fg); }
+.tl-SKIPPED { color:var(--bad); text-decoration:line-through; }
+.cars { display:flex; gap:3px; margin:6px 0; }
+.car { width:26px; height:16px; border-radius:3px; border:1px solid var(--border); font:9px var(--mono); display:flex; align-items:center; justify-content:center; }
+.lv-1,.lv-2 { background:#1a7f37; } .lv-3,.lv-4 { background:#9e6a03; } .lv-5,.lv-6 { background:#b62324; } .lv-7,.lv-0 { background:#30363d; }
+pre { margin:0; padding:8px 12px; font:11px var(--mono); color:var(--dim); overflow:auto; }
+.log { font:11px var(--mono); color:var(--dim); max-height:140px; overflow-y:auto; }
+.log .err { color:var(--bad); }
+.meta { font:11px var(--mono); color:var(--dim); }
+.fleet-badge { display:inline-block; background:var(--accent-soft); border:1px solid var(--accent); border-radius:4px; padding:1px 8px; font:11px var(--mono); margin-right:6px; }
+.stale { color:var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛰 KRAIL BFF · Track Tester</h1>
+  <label>Base URL <input id="baseUrl" value="http://localhost:8080" size="22"></label>
+  <span class="meta" id="pollMeta">idle</span>
+  <a href="api-tester.html">← API tester</a>
+</header>
+
+<div class="wrap">
+  <div class="side">
+    <div class="panel">
+      <h2>1 · Pick a trip (origin → destination stop id)</h2>
+      <div class="row">
+        <label>From <input id="origin" value="200060" size="9"></label>
+        <label>To <input id="dest" value="2135110" size="9"></label>
+        <button id="findBtn">Find trips</button>
+      </div>
+      <div id="journeys"></div>
+    </div>
+
+    <div class="panel">
+      <h2>1b · Or paste a share link / payload</h2>
+      <div class="row">
+        <input id="shareLink" placeholder="https://krail.app/trip?d=… or raw d= payload" style="flex:1">
+        <button id="decodeBtn">Decode</button>
+      </div>
+      <div id="shareInfo" class="meta"></div>
+    </div>
+
+    <div class="panel">
+      <h2>2 · Poll loop</h2>
+      <div class="row">
+        <button id="startBtn" disabled>▶ Start tracking</button>
+        <button id="stopBtn" class="danger" disabled>■ Stop</button>
+        <button id="onceBtn" disabled>Poll once</button>
+      </div>
+      <div class="log" id="log"></div>
+    </div>
+
+    <div class="panel">
+      <h2>3 · Legs</h2>
+      <div id="legPanels" class="timeline" style="padding:0"></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div id="map"></div>
+    <div class="bottom">
+      <div class="timeline" id="timeline"><span class="meta">stop timeline appears here</span></div>
+      <pre id="raw">raw JSON appears here</pre>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const base = () => ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
+const today = () => new Date().toLocaleDateString('sv-SE', {timeZone:'Australia/Sydney'}).replaceAll('-','');
+const log = (msg, err) => {
+  const el = document.createElement('div');
+  if (err) el.className = 'err';
+  el.textContent = `${new Date().toTimeString().slice(0,8)} ${msg}`;
+  $('log').prepend(el);
+};
+
+// ---- map -------------------------------------------------------------
+const map = L.map('map').setView([-33.87, 151.207], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap', maxZoom: 19,
+}).addTo(map);
+let markers = {};
+
+function vehicleIcon(bearing, stale) {
+  const rot = bearing == null ? 0 : bearing;
+  const arrow = bearing == null ? '●' : '▲';
+  const color = stale ? '#8b949e' : '#58a6ff';
+  return L.divIcon({
+    className: '', iconSize: [24,24],
+    html: `<div style="font-size:20px;color:${color};transform:rotate(${rot}deg);text-shadow:0 0 4px #000">${arrow}</div>`,
+  });
+}
+
+// ---- trip picker ------------------------------------------------------
+let pickedLegs = [];
+
+$('findBtn').onclick = async () => {
+  $('journeys').innerHTML = '<span class="meta">searching…</span>';
+  try {
+    const url = `${base()}/v1/tp/trip?outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&depArrMacro=dep`
+      + `&type_origin=any&name_origin=${encodeURIComponent($('origin').value.trim())}`
+      + `&type_destination=any&name_destination=${encodeURIComponent($('dest').value.trim())}`
+      + `&calcNumberOfTrips=5&TfNSWTR=true&version=10.2.1.42`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`trip ${r.status}`);
+    const d = await r.json();
+    renderJourneys(d.journeys || []);
+  } catch (e) { $('journeys').innerHTML = `<span class="err meta">${e.message}</span>`; log(e.message, true); }
+};
+
+function renderJourneys(journeys) {
+  $('journeys').innerHTML = '';
+  journeys.forEach((j) => {
+    const legs = (j.legs || []).filter(l => l.transportation?.properties?.RealtimeTripId);
+    if (!legs.length) return;
+    const div = document.createElement('div');
+    div.className = 'journey';
+    const dep = legs[0]?.origin?.departureTimeEstimated || legs[0]?.origin?.departureTimePlanned || '';
+    div.innerHTML = `<div>${dep.slice(11,16)} dep · ${legs.length} transit leg(s)</div>`
+      + `<div class="legs">${legs.map(l => `${l.transportation?.disassembledName || l.transportation?.number || '?'} [${l.transportation?.properties?.RealtimeTripId}]`).join(' → ')}</div>`;
+    div.onclick = () => {
+      pickedLegs = legs.map((l, i) => ({
+        leg_ref: `leg-${i+1}`,
+        realtime_trip_id: l.transportation.properties.RealtimeTripId,
+        transportation_id: l.transportation.id || '',
+        product_class: l.transportation.product?.class || 0,
+        origin_stop_id: (l.origin?.id || '').slice(0,40).replace(/[^A-Za-z0-9:]/g,''),
+        destination_stop_id: (l.destination?.id || '').slice(0,40).replace(/[^A-Za-z0-9:]/g,''),
+        service_date: today(),
+        planned_departure_utc: l.origin?.departureTimePlanned || '',
+      }));
+      document.querySelectorAll('.journey').forEach(x => x.style.borderColor = 'var(--border)');
+      div.style.borderColor = 'var(--ok)';
+      $('startBtn').disabled = $('onceBtn').disabled = false;
+      log(`picked ${pickedLegs.length} leg(s): ${pickedLegs.map(l=>l.realtime_trip_id).join(', ')}`);
+    };
+    $('journeys').appendChild(div);
+  });
+  if (!$('journeys').children.length) $('journeys').innerHTML = '<span class="meta">no realtime-trackable journeys found</span>';
+}
+
+// ---- share link simulator ----------------------------------------------
+$('decodeBtn').onclick = () => {
+  try {
+    let raw = $('shareLink').value.trim();
+    const m = raw.match(/[?&]d=([^&]+)/);
+    if (m) raw = m[1];
+    const json = JSON.parse(atob(raw.replace(/-/g,'+').replace(/_/g,'/')));
+    $('shareInfo').textContent = JSON.stringify(json);
+    const legs = (json.legs || []).map((l, i) => ({
+      leg_ref: `share-${i+1}`,
+      realtime_trip_id: l.realtimeTripId || l.realtime_trip_id || '',
+      transportation_id: l.transportationId || '',
+      product_class: l.productClass || l.product_class || 0,
+      origin_stop_id: l.originStopId || '',
+      destination_stop_id: l.destinationStopId || '',
+      service_date: l.serviceDate || today(),
+      planned_departure_utc: l.plannedDepartureUtc || '',
+    }));
+    if (legs.some(l => !l.realtime_trip_id)) {
+      log('share payload is v1 (no realtimeTripId) — tracking needs the v2 payload', true);
+    }
+    pickedLegs = legs.filter(l => l.realtime_trip_id);
+    $('startBtn').disabled = $('onceBtn').disabled = pickedLegs.length === 0;
+    log(`decoded share payload: ${legs.length} leg(s), ${pickedLegs.length} trackable`);
+  } catch (e) { $('shareInfo').textContent = `decode failed: ${e.message}`; }
+};
+
+// ---- poll loop ----------------------------------------------------------
+let timer = null, countdown = null, nextAt = 0;
+
+async function poll() {
+  const t0 = performance.now();
+  try {
+    const r = await fetch(`${base()}/api/v1/track/snapshot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ legs: pickedLegs, include_geometry: false }),
+    });
+    const ms = Math.round(performance.now() - t0);
+    const body = await r.json();
+    if (!r.ok) throw new Error(`${r.status} ${JSON.stringify(body.error || body)}`);
+    log(`poll ok · ${ms}ms · ${body.legs.map(l => l.status).join(', ')}`);
+    render(body);
+    return body.suggested_poll_seconds || 30;
+  } catch (e) { log(`poll failed: ${e.message}`, true); return 30; }
+}
+
+async function loopOnce() {
+  const wait = await poll();
+  nextAt = Date.now() + wait * 1000;
+  timer = setTimeout(loopOnce, wait * 1000);
+}
+
+$('startBtn').onclick = () => {
+  stopLoop(); loopOnce();
+  $('stopBtn').disabled = false; $('startBtn').disabled = true;
+  countdown = setInterval(() => {
+    const s = Math.max(0, Math.round((nextAt - Date.now()) / 1000));
+    $('pollMeta').textContent = `tracking · next poll in ${s}s`;
+  }, 500);
+};
+function stopLoop() {
+  clearTimeout(timer); clearInterval(countdown); timer = countdown = null;
+  $('pollMeta').textContent = 'idle';
+  $('stopBtn').disabled = true; $('startBtn').disabled = pickedLegs.length === 0;
+}
+$('stopBtn').onclick = stopLoop;
+$('onceBtn').onclick = poll;
+
+// ---- render --------------------------------------------------------------
+const LV_NUM = {LEVEL_UNSPECIFIED:0,EMPTY:1,MANY_SEATS_AVAILABLE:2,FEW_SEATS_AVAILABLE:3,STANDING_ROOM_ONLY:4,CRUSHED_STANDING_ROOM_ONLY:5,FULL:6,NOT_ACCEPTING_PASSENGERS:7};
+
+function render(resp) {
+  $('raw').textContent = JSON.stringify(resp, null, 1);
+  const now = resp.fetched_at_epoch_sec;
+  $('legPanels').innerHTML = '';
+  $('timeline').innerHTML = '';
+  const bounds = [];
+
+  resp.legs.forEach(leg => {
+    const div = document.createElement('div');
+    div.style.padding = '8px 10px';
+    let html = `<div><b>${leg.leg_ref}</b> <span class="status-pill st-${leg.status}">${leg.status}</span></div>`;
+    if (leg.fleet) {
+      html += `<div style="margin-top:4px"><span class="fleet-badge">${leg.fleet.display_name}${leg.fleet.car_count ? ' · ' + leg.fleet.car_count + ' cars' : ''}</span><span class="meta">${leg.fleet.source}</span></div>`;
+    }
+    if (leg.delay_seconds !== undefined) {
+      const d = leg.delay_seconds;
+      html += `<div class="meta">delay: <span style="color:${d > 120 ? 'var(--bad)' : d > 0 ? 'var(--warn)' : 'var(--ok)'}">${d >= 0 ? '+' : ''}${d}s</span></div>`;
+    }
+    if (leg.occupancy?.cars?.length) {
+      html += `<div class="cars">` + leg.occupancy.cars.map(c =>
+        `<div class="car lv-${LV_NUM[c.level] ?? 0}" title="${c.label || ''} ${c.level}">${c.label?.slice(0,3) || c.sequence}</div>`).join('') + `</div>`;
+    } else if (leg.occupancy?.overall && leg.occupancy.overall !== 'LEVEL_UNSPECIFIED') {
+      html += `<div class="meta">occupancy: ${leg.occupancy.overall}</div>`;
+    }
+    if (leg.vehicle) {
+      const age = now - leg.vehicle.measured_at_epoch_sec;
+      const stale = age > 90;
+      html += `<div class="meta ${stale ? 'stale' : ''}">📍 ${leg.vehicle.latitude.toFixed(5)}, ${leg.vehicle.longitude.toFixed(5)} · seen ${age}s ago${stale ? ' (STALE)' : ''}${leg.vehicle.speed_mps !== undefined ? ' · ' + Math.round(leg.vehicle.speed_mps * 3.6) + ' km/h' : ''}</div>`;
+      const key = leg.leg_ref;
+      const pos = [leg.vehicle.latitude, leg.vehicle.longitude];
+      bounds.push(pos);
+      if (!markers[key]) markers[key] = L.marker(pos).addTo(map);
+      markers[key].setLatLng(pos).setIcon(vehicleIcon(leg.vehicle.bearing_degrees, stale));
+      markers[key].bindTooltip(`${leg.leg_ref} · ${leg.fleet?.display_name || ''}`);
+    }
+    div.innerHTML = html;
+    $('legPanels').appendChild(div);
+
+    // timeline (first leg with stops wins the bottom panel; others summarized)
+    if (leg.stops?.length && !$('timeline').children.length) {
+      const head = document.createElement('div');
+      head.innerHTML = `<b>${leg.leg_ref}</b> — ${leg.stops.length} stops`;
+      $('timeline').appendChild(head);
+      leg.stops.forEach(s => {
+        const el = document.createElement('div');
+        el.className = `tl-stop tl-${s.state}`;
+        const t = s.estimated_epoch_sec ? new Date(s.estimated_epoch_sec * 1000).toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit',timeZone:'Australia/Sydney'}) : '--:--';
+        const dot = s.state === 'CURRENT' ? '►' : s.state === 'DEPARTED' ? '✓' : s.state === 'SKIPPED' ? '✗' : '○';
+        el.innerHTML = `<span class="tl-dot">${dot}</span><span style="width:48px">${t}</span><span>${s.stop_name || s.stop_id}</span>`;
+        $('timeline').appendChild(el);
+      });
+    }
+  });
+  if (bounds.length) map.fitBounds(bounds, { maxZoom: 14, padding: [40,40] });
+}
+</script>
+</body>
+</html>
