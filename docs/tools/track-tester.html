@@ -2,152 +2,249 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>KRAIL · Live Track Tester</title>
+<title>KRAIL · Track Control</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* KRAIL app design language (taj theme, dark):
-   surface #1C1B1A · onSurface #FCF6F1 · softLabel #B0B0B0 · past #2C2B2A
-   deviationEarly #00B219 · deviationLate #FF2B2B · alert #F4B400
-   mode colors: train #F6891F metro #009B77 bus #00B5EF lightrail #E4022D
-                ferry #5AB031 coach #742282 */
+/* ─── KRAIL taj dark + transit-signage type ─────────────────────────── */
 :root {
-  --bg:#121110; --surface:#1C1B1A; --surface2:#2C2B2A; --border:#3a3836;
-  --fg:#FCF6F1; --soft:#B0B0B0; --dim:#8F8F8F;
+  --bg:#141312; --surface:#1C1B1A; --surface2:#262422; --surface3:#2C2B2A;
+  --border:#34322f; --fg:#FCF6F1; --soft:#B0B0B0; --dim:#7d7a76;
   --early:#00B219; --late:#FF2B2B; --alert:#F4B400;
-  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --train:#F6891F; --metro:#009B77; --bus:#00B5EF; --lr:#E4022D; --ferry:#5AB031; --coach:#742282;
+  --disp:'Barlow Condensed',sans-serif; --body:'Archivo',sans-serif; --mono:'IBM Plex Mono',monospace;
 }
 * { box-sizing:border-box; }
-body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 -apple-system,system-ui,sans-serif; }
-header { display:flex; gap:16px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--border); background:var(--surface); position:sticky; top:0; z-index:1000;}
-header h1 { font-size:15px; margin:0; white-space:nowrap; }
-header a { color:var(--soft); font-size:12px; text-decoration:none; margin-left:auto; }
-label { font-size:12px; color:var(--soft); display:flex; gap:6px; align-items:center; }
-input { background:var(--bg); border:1px solid var(--border); color:var(--fg); border-radius:8px; padding:5px 8px; font:12px var(--mono); }
-button { background:var(--surface2); border:1px solid var(--border); color:var(--fg); border-radius:10px; padding:6px 14px; cursor:pointer; font-size:13px; font-weight:700; }
-button.primary { background:#F6891F; border-color:#F6891F; color:#fff; }
-button:disabled { opacity:.35; cursor:default; }
-button.danger { border-color:var(--late); color:var(--late); background:transparent; }
-.wrap { display:grid; grid-template-columns: 370px 1fr; height:calc(100vh - 49px); }
-.side { border-right:1px solid var(--border); overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:12px; }
-.main { display:grid; grid-template-rows: minmax(0,1fr) minmax(0,48%); }
-#map { width:100%; height:100%; background:#0a0d12; }
-.bottom { border-top:1px solid var(--border); display:grid; grid-template-columns: 1fr 320px; min-height:0; }
-.panel { border-radius:12px; background:var(--surface); padding:12px; }
-.panel h2 { font-size:11px; margin:0 0 8px; color:var(--dim); text-transform:uppercase; letter-spacing:.6px; }
-.row { display:flex; gap:8px; margin-bottom:6px; flex-wrap:wrap; align-items:end; }
+html,body { height:100%; }
+body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 var(--body); overflow:hidden;
+  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, #f6891f0d, transparent),
+                    repeating-linear-gradient(0deg, transparent 0 2px, #ffffff02 2px 4px); }
 
-/* journey cards — mirrors JourneyCard collapsed state */
-.journey { border-radius:12px; background:var(--surface2); padding:12px; margin-bottom:8px; cursor:pointer; border:2px solid transparent; }
-.journey:hover { border-color:var(--soft); }
+/* ─── app bar ───────────────────────────────────────────────────────── */
+.bar { display:flex; align-items:center; gap:14px; height:54px; padding:0 16px;
+  background:var(--surface); border-bottom:1px solid var(--border); }
+.brand { font:800 22px/1 var(--disp); letter-spacing:.5px; display:flex; align-items:center; gap:10px; }
+.brand .dotpulse { width:10px; height:10px; border-radius:50%; background:var(--dim); }
+.brand .dotpulse.live { background:var(--early); box-shadow:0 0 0 0 #00b21966; animation:pulse 2s infinite; }
+@keyframes pulse { 70% { box-shadow:0 0 0 9px transparent; } }
+.bar label { font:500 11px var(--mono); color:var(--dim); display:flex; gap:6px; align-items:center; }
+.bar input { background:var(--bg); border:1px solid var(--border); color:var(--fg); border-radius:8px; padding:5px 8px; font:12px var(--mono); width:185px;}
+.spacer { flex:1; }
+.ring { width:34px; height:34px; border-radius:50%; display:grid; place-items:center;
+  background:conic-gradient(var(--train) calc(var(--p,0)*1%), var(--surface3) 0); position:relative; }
+.ring::after { content:''; position:absolute; inset:4px; border-radius:50%; background:var(--surface); }
+.ring span { position:relative; z-index:1; font:600 11px var(--mono); }
+.iconbtn { background:var(--surface2); border:1px solid var(--border); color:var(--soft); border-radius:9px;
+  padding:6px 14px; cursor:pointer; font:600 13px var(--body); }
+.iconbtn:hover { color:var(--fg); border-color:var(--soft); }
+.iconbtn.stop { color:var(--late); border-color:#ff2b2b55; }
+.iconbtn[disabled] { opacity:.35; pointer-events:none; }
+
+/* ─── layout ────────────────────────────────────────────────────────── */
+.app { display:grid; grid-template-columns: 360px 1fr 400px; grid-template-rows: 1fr auto;
+  height:calc(100vh - 54px); }
+.rail { grid-row:1/3; border-right:1px solid var(--border); overflow-y:auto; padding:14px;
+  display:flex; flex-direction:column; gap:14px; background:linear-gradient(180deg,var(--surface) 0,transparent 220px); }
+.mapwrap { position:relative; min-height:0; }
+#map { position:absolute; inset:0; background:#0c0b0a; }
+.live-pane { grid-row:1/3; border-left:1px solid var(--border); display:flex; flex-direction:column;
+  min-height:0; background:var(--surface); }
+
+/* ─── section titles ────────────────────────────────────────────────── */
+h2.sec { font:700 13px var(--disp); letter-spacing:2.5px; text-transform:uppercase; color:var(--dim);
+  margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+h2.sec::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* ─── journey cards ─────────────────────────────────────────────────── */
+.row { display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin-bottom:10px;}
+.row input { background:var(--bg); border:1px solid var(--border); color:var(--fg); border-radius:8px;
+  padding:7px 9px; font:13px var(--mono); width:96px; }
+.row label { font:500 10px var(--mono); color:var(--dim); display:flex; flex-direction:column; gap:4px; }
+.btn { background:var(--train); border:none; color:#fff; border-radius:9px; padding:8px 18px;
+  cursor:pointer; font:800 14px var(--disp); letter-spacing:1px; text-transform:uppercase; }
+.btn:hover { filter:brightness(1.15); }
+.journey { border-radius:14px; background:var(--surface2); padding:12px 14px; margin-bottom:10px;
+  cursor:pointer; border:2px solid transparent; transition:transform .12s, border-color .12s; position:relative; overflow:hidden;}
+.journey:hover { border-color:var(--soft); transform:translateY(-1px); }
 .journey.picked { border-color:var(--early); }
+.journey.picked::before { content:'● TRACKING'; position:absolute; top:10px; right:12px;
+  font:700 10px var(--mono); color:var(--early); letter-spacing:1px; animation:blink 1.6s infinite; }
+@keyframes blink { 50% { opacity:.35; } }
 .journey .times { display:flex; align-items:baseline; gap:8px; }
-.journey .dep { font-size:17px; font-weight:800; }
-.journey .arr { color:var(--soft); }
-.journey .dur { margin-left:auto; color:var(--soft); font-size:12px; }
+.journey .dep { font:800 26px/1 var(--disp); }
+.journey .arr { color:var(--soft); font:600 16px var(--disp); }
+.journey .dur { margin-left:auto; color:var(--dim); font:500 11px var(--mono); }
+.journey.picked .dur { margin-right:74px; }
 .journey .modes { display:flex; gap:6px; margin-top:8px; align-items:center; flex-wrap:wrap; }
-.journey .route { color:var(--dim); font-size:12px; margin-top:4px; }
+.journey .route { color:var(--dim); font-size:11.5px; margin-top:4px; }
+.hint { font:500 11px var(--mono); color:var(--dim); }
+.click-hint { text-align:center; padding:4px; color:var(--dim); font:600 11px var(--mono); letter-spacing:1px;}
 
-/* mode icon — single letter in colored circle, white text (TransportModeIcon) */
-.mi { display:inline-flex; width:22px; height:22px; border-radius:50%; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:800; flex:none; }
-/* line badge — rounded pill, mode bg, white text (TransportModeBadge) */
-.badge { display:inline-block; border-radius:6px; padding:1px 8px; color:#fff; font-size:12px; font-weight:800; }
+.mi { display:inline-flex; width:22px; height:22px; border-radius:50%; align-items:center;
+  justify-content:center; color:#fff; font:800 12px var(--body); flex:none; }
+.lbadge { display:inline-block; border-radius:6px; padding:1px 8px; color:#fff; font:800 13px var(--disp); letter-spacing:.5px;}
 
-/* NOW card */
-.nowcard { padding:14px 16px; border-bottom:1px solid var(--border); background:var(--surface); }
-.nowcard .headline { font-size:19px; font-weight:800; display:flex; align-items:center; gap:10px; }
-.nowcard .sub { color:var(--soft); font-size:13px; margin-top:3px; }
-.chip { display:inline-block; padding:2px 10px; border-radius:12px; font-size:12px; font-weight:700; margin:0 8px 4px 0; border:1px solid var(--border); color:var(--soft); }
+/* ─── NOW hero ──────────────────────────────────────────────────────── */
+.hero { padding:18px 18px 14px; border-bottom:1px solid var(--border); position:relative; overflow:hidden;}
+.hero::before { content:''; position:absolute; inset:0; background:
+  linear-gradient(135deg, color-mix(in srgb, var(--mode,#555) 16%, transparent), transparent 55%); pointer-events:none; }
+.hero .headline { font:800 30px/1.05 var(--disp); display:flex; gap:12px; align-items:center; }
+.hero .headline .mi { width:34px; height:34px; font-size:17px; }
+.hero .sub { color:var(--soft); font:600 16px var(--disp); margin-top:4px; letter-spacing:.3px;}
+.chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.chip { padding:3px 12px; border-radius:14px; font:600 12px var(--mono); border:1px solid var(--border); color:var(--soft); }
 .chip.early { color:#fff; background:var(--early); border-color:var(--early); }
 .chip.late { color:#fff; background:var(--late); border-color:var(--late); }
-.chip.alert { color:#1C1B1A; background:var(--alert); border-color:var(--alert); }
+.chip.mode { color:var(--mode); border-color:var(--mode); font-weight:700;}
+.chip.stale { color:#fff; background:var(--late); border-color:var(--late); animation:blink 1s infinite;}
 
-/* timeline — LegView style: mode-colored connector + dots */
-.tlwrap { overflow-y:auto; min-height:0; background:var(--bg); }
-.timeline { padding:10px 0 24px; }
-.tl-stop { display:grid; grid-template-columns: 62px 30px 1fr auto; align-items:center; padding:4px 14px 4px 8px; }
-.tl-stop .t { font:12px var(--mono); color:var(--soft); text-align:right; padding-right:4px;}
-.tl-stop .name { font-weight:600; font-size:13px; }
-.tl-stop .sid { font:10px var(--mono); color:var(--dim); margin-left:6px; font-weight:400; }
-.tl-stop .delta { font:11px var(--mono); padding-left:8px; }
-.tl-dot { width:30px; height:100%; min-height:26px; position:relative; }
-.tl-dot::before { content:''; position:absolute; left:50%; top:-6px; bottom:-6px; width:3px; background:var(--mode,#555); transform:translateX(-50%); }
+/* occupancy hero block */
+.occ { margin-top:14px; position:relative; }
+.occ .occ-title { font:700 11px var(--disp); letter-spacing:2px; color:var(--dim); text-transform:uppercase; margin-bottom:6px;}
+.cars { display:flex; gap:4px; align-items:flex-end; }
+.car { flex:1; max-width:54px; height:30px; border-radius:6px 6px 3px 3px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; color:#fff; font:600 9px var(--mono); background:var(--surface3);
+  border-bottom:3px solid var(--border); transition:height .3s; }
+.car small { opacity:.8; font-size:8px; }
+.lv-1,.lv-2 { background:#15803d; border-bottom-color:#22c55e; }
+.lv-3,.lv-4 { background:#a16207; border-bottom-color:#eab308; }
+.lv-5,.lv-6 { background:#b91c1c; border-bottom-color:#ef4444; }
+.occ-legend { display:flex; gap:12px; margin-top:6px; font:500 10px var(--mono); color:var(--dim); }
+.occ-legend i { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:4px;}
+.occ-overall { font:700 18px var(--disp); }
+
+/* ─── leg tabs + timeline ───────────────────────────────────────────── */
+.legtabs { display:flex; gap:6px; padding:10px 14px 0; flex-wrap:wrap; }
+.legtab { font:700 13px var(--disp); letter-spacing:.5px; padding:4px 14px; border-radius:16px; cursor:pointer;
+  color:var(--soft); background:var(--surface2); display:inline-flex; gap:7px; align-items:center; border:1px solid transparent;}
+.legtab.active { color:#fff; background:var(--mode,#555); }
+.legtab .st { font:500 9px var(--mono); opacity:.85; }
+.tlwrap { overflow-y:auto; min-height:0; flex:1; }
+.timeline { padding:12px 0 28px; }
+.tl-stop { display:grid; grid-template-columns: 58px 32px 1fr auto; align-items:center; padding:5px 16px 5px 8px; }
+.tl-stop .t { font:500 12px var(--mono); color:var(--soft); text-align:right; padding-right:2px;}
+.tl-stop .name { font:600 14px var(--body); }
+.tl-stop .sid { font:400 9px var(--mono); color:var(--dim); margin-left:6px; }
+.tl-stop .delta { font:600 11px var(--mono); padding-left:10px; }
+.tl-dot { width:32px; height:100%; min-height:28px; position:relative; }
+.tl-dot::before { content:''; position:absolute; left:50%; top:-8px; bottom:-8px; width:4px;
+  background:var(--mode,#555); transform:translateX(-50%); border-radius:2px;}
 .tl-first .tl-dot::before { top:50%; } .tl-last .tl-dot::before { bottom:50%; }
-.tl-dot i { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:12px; height:12px; border-radius:50%; background:var(--bg); border:3px solid var(--mode,#555); }
-.tl-DEPARTED { opacity:.45; } .tl-DEPARTED .tl-dot i { background:var(--mode); }
-.tl-CURRENT { background:color-mix(in srgb, var(--mode) 18%, transparent); }
-.tl-CURRENT .name { font-size:15px; font-weight:800; }
-.tl-CURRENT .tl-dot i { width:16px; height:16px; background:#fff; }
+.tl-dot i { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:12px; height:12px;
+  border-radius:50%; background:var(--bg); border:3px solid var(--mode,#555); }
+.tl-DEPARTED { opacity:.4; } .tl-DEPARTED .tl-dot i { background:var(--mode); }
+.tl-CURRENT { background:color-mix(in srgb, var(--mode) 16%, transparent); border-left:3px solid var(--mode);}
+.tl-CURRENT .name { font:800 17px var(--disp); letter-spacing:.3px; }
+.tl-CURRENT .tl-dot i { width:17px; height:17px; background:#fff; box-shadow:0 0 10px var(--mode); }
 .tl-SKIPPED .name { text-decoration:line-through; color:var(--late); }
-.tl-first .name, .tl-last .name { font-size:14px; font-weight:800; }
+.tl-first .name,.tl-last .name { font:800 15px var(--disp); }
 .late-d { color:var(--late); } .early-d,.ontime-d { color:var(--early); }
+.empty-live { padding:40px 24px; color:var(--dim); text-align:center; font:600 16px var(--disp); letter-spacing:.5px;}
 
-.cars { display:flex; gap:3px; margin:8px 0 2px; }
-.car { width:30px; height:18px; border-radius:4px; font:9px var(--mono); display:flex; align-items:center; justify-content:center; color:#fff; background:var(--surface2); }
-.lv-1,.lv-2 { background:#1a7f37; } .lv-3,.lv-4 { background:#9e6a03; } .lv-5,.lv-6 { background:#b62324; } .lv-7 { background:#555; }
+/* ─── inspector drawer ──────────────────────────────────────────────── */
+.drawer { grid-column:2/3; border-top:1px solid var(--border); background:var(--surface); max-height:42vh;
+  display:flex; flex-direction:column; min-height:0; }
+.drawer.closed .dbody { display:none; }
+.dhead { display:flex; align-items:center; gap:14px; padding:7px 14px; cursor:pointer; user-select:none;}
+.dhead h3 { margin:0; font:700 13px var(--disp); letter-spacing:2.5px; text-transform:uppercase; color:var(--soft); }
+.dhead .caret { transition:transform .2s; color:var(--dim);} .drawer.closed .caret { transform:rotate(180deg); }
+/* poll history strip */
+.pollhist { display:flex; gap:3px; align-items:flex-end; height:26px; margin-left:auto; }
+.ph { width:7px; min-height:5px; border-radius:2px 2px 0 0; background:var(--early); cursor:pointer; opacity:.85;}
+.ph:hover { opacity:1; outline:1px solid #fff5; }
+.ph.fail { background:var(--late); }
+.ph.sel { outline:2px solid var(--fg); }
+.dbody { overflow:auto; min-height:0; }
+table.api { width:100%; border-collapse:collapse; font:12px var(--mono); }
+table.api th { text-align:left; font:700 10px var(--disp); letter-spacing:1.5px; color:var(--dim);
+  text-transform:uppercase; padding:6px 12px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--surface);}
+table.api td { padding:6px 12px; border-bottom:1px solid #ffffff0a; vertical-align:top; white-space:nowrap; }
+table.api tr:hover td { background:#ffffff06; }
+table.api tr.sel td { background:color-mix(in srgb, var(--train) 12%, transparent); }
+.t-bff { color:var(--train); font-weight:600; }
+.t-status-ok { color:var(--early); } .t-status-bad { color:var(--late); }
+.latbar { display:inline-block; height:8px; border-radius:4px; background:var(--train); vertical-align:middle; margin-right:6px;}
+.params { color:var(--dim); max-width:420px; overflow:hidden; text-overflow:ellipsis; }
+.detail { padding:10px 14px; border-top:1px dashed var(--border); font:11px var(--mono); color:var(--soft);
+  white-space:pre-wrap; word-break:break-all; display:none; }
+.detail.open { display:block; }
 
-.rawwrap { border-left:1px solid var(--border); display:flex; flex-direction:column; min-height:0;}
-.rawwrap h2 { font-size:11px; color:var(--dim); margin:8px 12px 4px; text-transform:uppercase;}
-pre { margin:0; padding:0 12px 12px; font:11px var(--mono); color:var(--dim); overflow:auto; flex:1; }
-.log { font:11px var(--mono); color:var(--dim); max-height:110px; overflow-y:auto; }
-.log .err { color:var(--late); }
-.meta { font:11px var(--mono); color:var(--dim); }
-.legtabs { display:flex; gap:6px; padding:8px 12px 0; flex-wrap:wrap; background:var(--bg);}
-.legtab { font-size:12px; padding:3px 12px; border-radius:14px; cursor:pointer; color:var(--soft); background:var(--surface); display:inline-flex; gap:6px; align-items:center;}
-.legtab.active { color:#fff; background:var(--mode,#555); font-weight:700; }
+/* share sim */
+details.share { margin-top:auto; }
+details.share summary { cursor:pointer; font:700 12px var(--disp); letter-spacing:2px; color:var(--dim); text-transform:uppercase;}
+details.share .row input { width:100%; }
+
+::-webkit-scrollbar { width:9px; height:9px; } ::-webkit-scrollbar-thumb { background:var(--surface3); border-radius:5px; }
+.leaflet-container { font:11px var(--mono); }
 </style>
 </head>
 <body>
-<header>
-  <h1>🛰 KRAIL · Live Track Tester</h1>
-  <label>BFF <input id="baseUrl" value="http://localhost:8080" size="20"></label>
-  <span class="meta" id="pollMeta">idle</span>
-  <a href="api-tester.html">← API tester</a>
-</header>
 
-<div class="wrap">
-  <div class="side">
-    <div class="panel">
-      <h2>1 · Find a trip</h2>
-      <div class="row">
-        <label>From <input id="origin" value="200060" size="8"></label>
-        <label>To <input id="dest" value="2135110" size="8"></label>
-        <button id="findBtn" class="primary">Find</button>
-      </div>
-      <div id="journeys" class="meta">Central → Ashfield prefilled.</div>
-    </div>
+<div class="bar">
+  <div class="brand"><span class="dotpulse" id="liveDot"></span> KRAIL <span style="color:var(--dim);font-weight:600">TRACK CONTROL</span></div>
+  <label>BFF <input id="baseUrl" value="http://localhost:8080"></label>
+  <div class="spacer"></div>
+  <div class="ring" id="ring" title="next poll"><span id="ringTxt">—</span></div>
+  <button class="iconbtn" id="onceBtn" disabled>Poll once</button>
+  <button class="iconbtn stop" id="stopBtn" disabled>■ Stop</button>
+  <a class="iconbtn" href="api-tester.html" style="text-decoration:none">API tester</a>
+</div>
 
-    <div class="panel">
-      <h2>2 · Track</h2>
+<div class="app">
+  <!-- left rail -->
+  <div class="rail">
+    <div>
+      <h2 class="sec">Find a trip</h2>
       <div class="row">
-        <button id="startBtn" class="primary" disabled>▶ Start</button>
-        <button id="stopBtn" class="danger" disabled>■ Stop</button>
-        <button id="onceBtn" disabled>Poll once</button>
+        <label>FROM<input id="origin" value="200060"></label>
+        <label>TO<input id="dest" value="2135110"></label>
+        <button class="btn" id="findBtn">Find</button>
       </div>
-      <div class="log" id="log"></div>
+      <div class="hint">stop IDs · Central → Ashfield prefilled</div>
     </div>
-
-    <div class="panel">
-      <h2>Share-link simulator</h2>
-      <div class="row">
-        <input id="shareLink" placeholder="krail.app/trip?d=… or payload" style="flex:1">
-        <button id="decodeBtn">Decode</button>
+    <div style="flex:1">
+      <h2 class="sec">Journeys</h2>
+      <div class="click-hint" id="clickHint" style="display:none">▼ CLICK A CARD TO START TRACKING ▼</div>
+      <div id="journeys" class="hint">search to list trackable journeys</div>
+    </div>
+    <details class="share">
+      <summary>Share-link simulator</summary>
+      <div class="row" style="margin-top:8px">
+        <input id="shareLink" placeholder="krail.app/trip?d=…">
+        <button class="iconbtn" id="decodeBtn">Decode + track</button>
       </div>
-      <div id="shareInfo" class="meta"></div>
-    </div>
+      <div id="shareInfo" class="hint"></div>
+    </details>
   </div>
 
-  <div class="main">
-    <div id="map"></div>
-    <div class="bottom">
-      <div style="display:flex;flex-direction:column;min-height:0">
-        <div class="nowcard" id="nowcard">
-          <div class="headline" style="color:var(--dim);font-size:14px;font-weight:400">Pick a journey and press Start — live status appears here.</div>
-        </div>
-        <div class="legtabs" id="legtabs"></div>
-        <div class="tlwrap"><div class="timeline" id="timeline"></div></div>
-      </div>
-      <div class="rawwrap"><h2>Raw response</h2><pre id="raw"></pre></div>
+  <!-- map -->
+  <div class="mapwrap"><div id="map"></div></div>
+
+  <!-- live pane -->
+  <div class="live-pane">
+    <div class="hero" id="hero">
+      <div class="empty-live">No active tracking<br><span style="font:500 12px var(--mono);color:var(--dim)">find a trip, then click its card</span></div>
+    </div>
+    <div class="legtabs" id="legtabs"></div>
+    <div class="tlwrap"><div class="timeline" id="timeline"></div></div>
+  </div>
+
+  <!-- inspector drawer -->
+  <div class="drawer closed" id="drawer">
+    <div class="dhead" id="dhead">
+      <h3>API Inspector</h3>
+      <span class="hint" id="apiCount">0 requests</span>
+      <div class="pollhist" id="pollhist" title="poll history — height = latency, red = failed"></div>
+      <span class="caret">▾</span>
+    </div>
+    <div class="dbody">
+      <table class="api">
+        <thead><tr><th>time</th><th>call</th><th>route</th><th>status</th><th>latency</th><th>params</th></tr></thead>
+        <tbody id="apiRows"></tbody>
+      </table>
+      <div class="detail" id="apiDetail"></div>
     </div>
   </div>
 </div>
@@ -158,118 +255,137 @@ pre { margin:0; padding:0 12px 12px; font:11px var(--mono); color:var(--dim); ov
 const $ = id => document.getElementById(id);
 const base = () => ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
 const today = () => new Date().toLocaleDateString('sv-SE', {timeZone:'Australia/Sydney'}).replaceAll('-','');
-const fmtT = epoch => epoch ? new Date(epoch * 1000).toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit',timeZone:'Australia/Sydney'}) : '—';
-const log = (msg, err) => {
-  const el = document.createElement('div');
-  if (err) el.className = 'err';
-  el.textContent = `${new Date().toTimeString().slice(0,8)} ${msg}`;
-  $('log').prepend(el);
-};
+const fmtT = e => e ? new Date(e*1000).toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',timeZone:'Australia/Sydney'}) : '—';
 
-// KRAIL transport mode palette (core/transport/TransportMode.kt)
 const MODE = {
-  1:{ c:'#F6891F', letter:'T', name:'Train' },
-  2:{ c:'#009B77', letter:'M', name:'Metro' },
-  4:{ c:'#E4022D', letter:'L', name:'Light Rail' },
-  5:{ c:'#00B5EF', letter:'B', name:'Bus' },
-  7:{ c:'#742282', letter:'C', name:'Coach' },
-  9:{ c:'#5AB031', letter:'F', name:'Ferry' },
-  11:{ c:'#00B5EF', letter:'B', name:'School Bus' },
+  1:{c:'#F6891F',letter:'T',name:'Train'}, 2:{c:'#009B77',letter:'M',name:'Metro'},
+  4:{c:'#E4022D',letter:'L',name:'Light Rail'}, 5:{c:'#00B5EF',letter:'B',name:'Bus'},
+  7:{c:'#742282',letter:'C',name:'Coach'}, 9:{c:'#5AB031',letter:'F',name:'Ferry'},
+  11:{c:'#00B5EF',letter:'B',name:'School Bus'},
 };
-const modeOf = pc => MODE[pc] || { c:'#777', letter:'?', name:'?' };
-const miHtml = pc => { const m = modeOf(pc); return `<span class="mi" style="background:${m.c}">${m.letter}</span>`; };
-// Per app convention: buses get a line-number badge, rail modes show icon only.
-const badgeHtml = (pc, line) => (pc === 5 || pc === 11) && line
-  ? `<span class="badge" style="background:${modeOf(pc).c}">${line}</span>` : '';
+const modeOf = pc => MODE[pc] || {c:'#777',letter:'?',name:'?'};
+const miHtml = (pc, sz) => { const m = modeOf(pc); return `<span class="mi" style="background:${m.c}${sz?`;width:${sz}px;height:${sz}px;font-size:${sz*.5}px`:''}">${m.letter}</span>`; };
+const badgeHtml = (pc, line) => (pc===5||pc===11)&&line ? `<span class="lbadge" style="background:${modeOf(pc).c}">${line}</span>` : '';
 
-// ---- map ------------------------------------------------------------
-const map = L.map('map').setView([-33.87, 151.207], 12);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap', maxZoom:19 }).addTo(map);
+/* ─── API inspector ──────────────────────────────────────────────────── */
+const apiLog = []; let selApi = -1;
+async function apiCall(label, upstream, url, opts, paramsPreview) {
+  const t0 = performance.now();
+  const rec = { ts:new Date(), label, upstream, url, params: paramsPreview, status:0, ms:0, body:null, isPoll: label==='track/snapshot' };
+  try {
+    const r = await fetch(url, opts);
+    rec.ms = Math.round(performance.now()-t0);
+    rec.status = r.status;
+    rec.body = await r.json();
+    return rec;
+  } catch (e) {
+    rec.ms = Math.round(performance.now()-t0); rec.status = -1; rec.body = { error:String(e) };
+    return rec;
+  } finally {
+    apiLog.unshift(rec); if (apiLog.length > 120) apiLog.pop();
+    renderApi();
+  }
+}
+function renderApi() {
+  $('apiCount').textContent = `${apiLog.length} requests`;
+  const maxMs = Math.max(200, ...apiLog.slice(0,40).map(r => r.ms));
+  // poll history strip (latest 40, oldest left)
+  $('pollhist').innerHTML = apiLog.slice(0,40).reverse().map((r,iRev) => {
+    const i = apiLog.length >= 40 ? 39-iRev : apiLog.slice(0,40).length-1-iRev;
+    return `<div class="ph ${r.status>=200&&r.status<300?'':'fail'} ${i===selApi?'sel':''}" style="height:${Math.max(5, r.ms/maxMs*26)}px" data-i="${i}" title="${r.label} · ${r.status} · ${r.ms}ms"></div>`;
+  }).join('');
+  document.querySelectorAll('.ph').forEach(el => el.onclick = ev => { ev.stopPropagation(); selectApi(+el.dataset.i); $('drawer').classList.remove('closed'); });
+  $('apiRows').innerHTML = apiLog.map((r,i) =>
+    `<tr class="${i===selApi?'sel':''}" data-i="${i}">
+      <td>${r.ts.toTimeString().slice(0,8)}</td>
+      <td class="t-bff">BFF · ${r.label}</td>
+      <td style="color:var(--dim)">${r.upstream}</td>
+      <td class="${r.status>=200&&r.status<300?'t-status-ok':'t-status-bad'}">${r.status===-1?'ERR':r.status}</td>
+      <td><span class="latbar" style="width:${Math.min(80, r.ms/maxMs*80)}px"></span>${r.ms}ms</td>
+      <td class="params">${r.params}</td>
+    </tr>`).join('');
+  document.querySelectorAll('#apiRows tr').forEach(el => el.onclick = () => selectApi(+el.dataset.i));
+}
+function selectApi(i) {
+  selApi = i; renderApi();
+  const r = apiLog[i]; if (!r) return;
+  $('apiDetail').className = 'detail open';
+  $('apiDetail').textContent = `${r.url}\n\n${JSON.stringify(r.body, null, 1).slice(0, 4000)}`;
+}
+$('dhead').onclick = () => $('drawer').classList.toggle('closed');
+
+/* ─── map ────────────────────────────────────────────────────────────── */
+const map = L.map('map', { zoomControl:false }).setView([-33.87, 151.207], 12);
+L.control.zoom({ position:'bottomright' }).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  { attribution:'© OpenStreetMap © CARTO', maxZoom:19 }).addTo(map);
 let vehicleMarkers = {}, routeLayers = [], stopLayer = null, fitted = false;
-
 function vehicleIcon(pc, bearing, stale) {
   const m = modeOf(pc);
-  const color = stale ? '#8F8F8F' : m.c;
-  const rot = bearing != null ? `transform:rotate(${bearing}deg);` : '';
-  return L.divIcon({ className:'', iconSize:[28,28],
-    html:`<div style="width:26px;height:26px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 0 8px ${color};color:#fff;font:800 13px sans-serif;display:flex;align-items:center;justify-content:center;${rot}">${m.letter}</div>` });
+  const color = stale ? '#7d7a76' : m.c;
+  return L.divIcon({ className:'', iconSize:[30,30],
+    html:`<div style="width:28px;height:28px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 0 12px ${color}cc;color:#fff;font:800 14px Archivo,sans-serif;display:flex;align-items:center;justify-content:center;${bearing!=null?`transform:rotate(${bearing}deg);`:''}">${m.letter}</div>` });
 }
 
-// ---- trip context ------------------------------------------------------
+/* ─── trip context + picker ─────────────────────────────────────────── */
 let ctx = { stopMeta:{}, planned:{}, legCoords:{} };
 let pickedLegs = [];
-const cleanId = id => (id || '').replace(/[^A-Za-z0-9:]/g,'').slice(0,40);
+const cleanId = id => (id||'').replace(/[^A-Za-z0-9:]/g,'').slice(0,40);
 
-function harvestLegContext(leg, legRef) {
-  ctx.planned[legRef] = {};
-  (leg.stopSequence || []).forEach(s => {
-    const id = cleanId(s.id);
-    if (!id) return;
-    if (!ctx.stopMeta[id]) ctx.stopMeta[id] = { name: s.disassembledName || s.name || '', lat: s.coord?.[0], lon: s.coord?.[1] };
+function harvestLegContext(leg, ref) {
+  ctx.planned[ref] = {};
+  (leg.stopSequence||[]).forEach(s => {
+    const id = cleanId(s.id); if (!id) return;
+    if (!ctx.stopMeta[id]) ctx.stopMeta[id] = { name: s.disassembledName || s.name || '', lat:s.coord?.[0], lon:s.coord?.[1] };
     const pt = s.departureTimePlanned || s.arrivalTimePlanned;
-    if (pt) ctx.planned[legRef][id] = Math.floor(Date.parse(pt) / 1000);
+    if (pt) ctx.planned[ref][id] = Math.floor(Date.parse(pt)/1000);
   });
-  if (Array.isArray(leg.coords) && leg.coords.length > 1) ctx.legCoords[legRef] = leg.coords;
+  if (Array.isArray(leg.coords) && leg.coords.length > 1) ctx.legCoords[ref] = leg.coords;
 }
 
-// ---- trip picker ------------------------------------------------------
 $('findBtn').onclick = async () => {
-  $('journeys').innerHTML = '<span class="meta">searching…</span>';
-  try {
-    const url = `${base()}/v1/tp/trip?outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&depArrMacro=dep`
-      + `&type_origin=any&name_origin=${encodeURIComponent($('origin').value.trim())}`
-      + `&type_destination=any&name_destination=${encodeURIComponent($('dest').value.trim())}`
-      + `&calcNumberOfTrips=5&TfNSWTR=true&version=10.2.1.42`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`trip ${r.status}`);
-    renderJourneys((await r.json()).journeys || []);
-  } catch (e) { $('journeys').innerHTML = `<span class="meta" style="color:var(--late)">${e.message}</span>`; log(e.message, true); }
+  $('journeys').innerHTML = '<span class="hint">searching…</span>';
+  const q = `outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&depArrMacro=dep&type_origin=any`
+    + `&name_origin=${encodeURIComponent($('origin').value.trim())}&type_destination=any`
+    + `&name_destination=${encodeURIComponent($('dest').value.trim())}&calcNumberOfTrips=5&TfNSWTR=true&version=10.2.1.42`;
+  const rec = await apiCall('trip search', '→ NSW /v1/tp/trip', `${base()}/v1/tp/trip?${q}`, undefined,
+    `origin=${$('origin').value} dest=${$('dest').value}`);
+  if (rec.status !== 200) { $('journeys').innerHTML = `<span class="hint" style="color:var(--late)">trip search failed (${rec.status})</span>`; return; }
+  renderJourneys(rec.body.journeys || []);
 };
 
 function renderJourneys(journeys) {
-  $('journeys').innerHTML = '';
+  $('journeys').innerHTML = ''; $('clickHint').style.display = 'block';
   journeys.forEach(j => {
-    const legs = (j.legs || []).filter(l => l.transportation?.properties?.RealtimeTripId);
+    const legs = (j.legs||[]).filter(l => l.transportation?.properties?.RealtimeTripId);
     if (!legs.length) return;
     const div = document.createElement('div');
     div.className = 'journey';
     const dep = legs[0]?.origin?.departureTimeEstimated || legs[0]?.origin?.departureTimePlanned || '';
     const arr = legs.at(-1)?.destination?.arrivalTimeEstimated || legs.at(-1)?.destination?.arrivalTimePlanned || '';
-    const durMin = dep && arr ? Math.round((Date.parse(arr) - Date.parse(dep)) / 60000) : null;
+    const durMin = dep && arr ? Math.round((Date.parse(arr)-Date.parse(dep))/60000) : null;
     div.innerHTML =
-      `<div class="times"><span class="dep">${dep.slice(11,16)}</span><span class="arr">→ ${arr.slice(11,16)}</span>${durMin ? `<span class="dur">🕐 ${durMin} min</span>` : ''}</div>` +
-      `<div class="modes">${legs.map(l => {
-        const pc = l.transportation.product?.class;
-        const line = l.transportation?.disassembledName || l.transportation?.number || '';
-        return miHtml(pc) + (badgeHtml(pc, line) || `<span style="color:var(--soft);font-size:12px;font-weight:700">${line}</span>`);
-      }).join('<span style="color:var(--dim)">›</span>')}</div>` +
-      `<div class="route">${legs.map(l => (l.origin?.disassembledName || '').split(',')[0]).filter(Boolean).join(' → ')}</div>`;
+      `<div class="times"><span class="dep">${dep.slice(11,16)}</span><span class="arr">→ ${arr.slice(11,16)}</span>${durMin?`<span class="dur">${durMin} min</span>`:''}</div>`+
+      `<div class="modes">${legs.map(l => { const pc=l.transportation.product?.class; const line=l.transportation?.disassembledName||l.transportation?.number||'';
+        return miHtml(pc) + (badgeHtml(pc,line) || `<span style="color:var(--soft);font:700 13px var(--disp)">${line}</span>`); }).join('<span style="color:var(--dim)">›</span>')}</div>`+
+      `<div class="route">${legs.map(l => (l.origin?.disassembledName||'').split(',')[0]).filter(Boolean).join(' → ')}</div>`;
     div.onclick = () => {
       ctx = { stopMeta:{}, planned:{}, legCoords:{} };
-      pickedLegs = legs.map((l, i) => {
-        const ref = `leg-${i+1}`;
-        harvestLegContext(l, ref);
-        return {
-          leg_ref: ref,
-          realtime_trip_id: l.transportation.properties.RealtimeTripId,
-          transportation_id: l.transportation.id || '',
-          product_class: l.transportation.product?.class || 0,
-          origin_stop_id: cleanId(l.origin?.id),
-          destination_stop_id: cleanId(l.destination?.id),
-          service_date: today(),
-          planned_departure_utc: l.origin?.departureTimePlanned || '',
-          _label: l.transportation?.disassembledName || l.transportation?.number || '',
-        };
-      });
+      pickedLegs = legs.map((l,i) => { const ref = `leg-${i+1}`; harvestLegContext(l, ref); return {
+        leg_ref: ref, realtime_trip_id: l.transportation.properties.RealtimeTripId,
+        transportation_id: l.transportation.id || '', product_class: l.transportation.product?.class || 0,
+        origin_stop_id: cleanId(l.origin?.id), destination_stop_id: cleanId(l.destination?.id),
+        service_date: today(), planned_departure_utc: l.origin?.departureTimePlanned || '',
+        _label: l.transportation?.disassembledName || l.transportation?.number || '' }; });
       document.querySelectorAll('.journey').forEach(x => x.classList.remove('picked'));
       div.classList.add('picked');
-      $('startBtn').disabled = $('onceBtn').disabled = false;
+      activeLeg = 0; fitted = false;
       drawRoute();
-      log(`picked: ${pickedLegs.map(l => l.realtime_trip_id).join(' + ')}`);
+      startLoop();           // ← click = track. No second step.
     };
     $('journeys').appendChild(div);
   });
-  if (!$('journeys').children.length) $('journeys').innerHTML = '<span class="meta">no trackable journeys found</span>';
+  if (!$('journeys').children.length) { $('journeys').innerHTML = '<span class="hint">no trackable journeys found</span>'; $('clickHint').style.display='none'; }
 }
 
 function drawRoute() {
@@ -281,183 +397,178 @@ function drawRoute() {
     const mc = modeOf(leg.product_class).c;
     const coords = ctx.legCoords[leg.leg_ref];
     if (coords) {
-      routeLayers.push(L.polyline(coords, { color: mc, weight:5, opacity:.75 }).addTo(map));
+      // white casing under the colored line — classic transit-map styling,
+      // keeps the route readable over any dark-tile detail
+      routeLayers.push(L.polyline(coords, { color:'#ffffff', weight:13, opacity:.55 }).addTo(map));
+      routeLayers.push(L.polyline(coords, { color:mc, weight:8, opacity:1 }).addTo(map));
       all.push(...coords);
     }
-    Object.keys(ctx.planned[leg.leg_ref] || {}).forEach(id => {
+    Object.keys(ctx.planned[leg.leg_ref]||{}).forEach(id => {
       const m = ctx.stopMeta[id];
-      if (m?.lat) {
-        L.circleMarker([m.lat, m.lon], { radius:4, color:'#fff', fillColor: mc, fillOpacity:1, weight:2 })
-          .bindTooltip(m.name || id).addTo(stopLayer);
-        all.push([m.lat, m.lon]);
-      }
+      if (m?.lat) { L.circleMarker([m.lat,m.lon],{radius:5,color:'#fff',fillColor:mc,fillOpacity:1,weight:2.5}).bindTooltip(m.name||id).addTo(stopLayer); all.push([m.lat,m.lon]); }
     });
   });
-  if (all.length) { map.fitBounds(all, { padding:[30,30] }); fitted = true; }
+  if (all.length) { map.fitBounds(all, { padding:[40,40] }); fitted = true; }
 }
 
-// ---- share link simulator ----------------------------------------------
+/* ─── share sim ─────────────────────────────────────────────────────── */
 $('decodeBtn').onclick = () => {
   try {
     let raw = $('shareLink').value.trim();
-    const m = raw.match(/[?&]d=([^&]+)/);
-    if (m) raw = m[1];
+    const m = raw.match(/[?&]d=([^&]+)/); if (m) raw = m[1];
     const json = JSON.parse(atob(raw.replace(/-/g,'+').replace(/_/g,'/')));
-    $('shareInfo').textContent = JSON.stringify(json);
-    const legs = (json.legs || []).map((l, i) => ({
-      leg_ref: `share-${i+1}`,
-      realtime_trip_id: l.realtimeTripId || l.realtime_trip_id || '',
-      transportation_id: l.transportationId || '',
-      product_class: l.productClass || l.product_class || 0,
-      origin_stop_id: l.originStopId || '', destination_stop_id: l.destinationStopId || '',
-      service_date: l.serviceDate || today(),
-      planned_departure_utc: l.plannedDepartureUtc || '',
-      _label: 'shared',
-    }));
-    if (legs.some(l => !l.realtime_trip_id)) log('v1 payload (no realtimeTripId) — not trackable; needs v2', true);
+    $('shareInfo').textContent = JSON.stringify(json).slice(0,200);
+    const legs = (json.legs||[]).map((l,i) => ({
+      leg_ref:`share-${i+1}`, realtime_trip_id: l.realtimeTripId||l.realtime_trip_id||'',
+      transportation_id: l.transportationId||'', product_class: l.productClass||l.product_class||0,
+      origin_stop_id: l.originStopId||'', destination_stop_id: l.destinationStopId||'',
+      service_date: l.serviceDate||today(), planned_departure_utc: l.plannedDepartureUtc||'', _label:'shared' }));
     pickedLegs = legs.filter(l => l.realtime_trip_id);
     ctx = { stopMeta:{}, planned:{}, legCoords:{} };
-    $('startBtn').disabled = $('onceBtn').disabled = pickedLegs.length === 0;
-    log(`share payload: ${legs.length} leg(s), ${pickedLegs.length} trackable`);
+    if (!pickedLegs.length) { $('shareInfo').textContent = 'v1 payload — no realtimeTripId, not trackable (needs v2)'; return; }
+    activeLeg = 0; fitted = false; startLoop();
   } catch (e) { $('shareInfo').textContent = `decode failed: ${e.message}`; }
 };
 
-// ---- poll loop ----------------------------------------------------------
-let timer = null, countdown = null, nextAt = 0, lastResp = null, activeLeg = 0;
+/* ─── poll loop ─────────────────────────────────────────────────────── */
+let timer=null, rafTimer=null, nextAt=0, waitMs=30000, lastResp=null, activeLeg=0;
 
 async function poll() {
-  const t0 = performance.now();
-  try {
-    const r = await fetch(`${base()}/api/v1/track/snapshot`, {
-      method:'POST', headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
-      body: JSON.stringify({ legs: pickedLegs.map(({_label, ...l}) => l), include_geometry:false }),
-    });
-    const ms = Math.round(performance.now() - t0);
-    const body = await r.json();
-    if (!r.ok) throw new Error(`${r.status} ${JSON.stringify(body.error || body)}`);
-    log(`poll ${ms}ms · ${body.legs.map(l => l.status).join(', ')}`);
-    lastResp = body;
-    render();
-    return body.suggested_poll_seconds || 30;
-  } catch (e) { log(`poll failed: ${e.message}`, true); return 30; }
+  const rec = await apiCall('track/snapshot', '→ GTFS-R feeds (cached)', `${base()}/api/v1/track/snapshot`, {
+    method:'POST', headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+    body: JSON.stringify({ legs: pickedLegs.map(({_label, ...l}) => l), include_geometry:false }),
+  }, pickedLegs.map(l => l.realtime_trip_id).join(' + '));
+  if (rec.status === 200) { lastResp = rec.body; render(); return rec.body.suggested_poll_seconds || 30; }
+  return 30;
 }
-async function loopOnce() {
+async function loopStep() {
   const wait = await poll();
-  nextAt = Date.now() + wait * 1000;
-  timer = setTimeout(loopOnce, wait * 1000);
+  waitMs = wait*1000; nextAt = Date.now()+waitMs;
+  timer = setTimeout(loopStep, waitMs);
 }
-$('startBtn').onclick = () => {
-  stopLoop(); loopOnce();
-  $('stopBtn').disabled = false; $('startBtn').disabled = true;
-  countdown = setInterval(() => {
-    $('pollMeta').textContent = `tracking · next poll ${Math.max(0, Math.round((nextAt - Date.now())/1000))}s`;
-  }, 500);
-};
-function stopLoop() {
-  clearTimeout(timer); clearInterval(countdown); timer = countdown = null;
-  $('pollMeta').textContent = 'idle';
-  $('stopBtn').disabled = true; $('startBtn').disabled = pickedLegs.length === 0;
+function startLoop() {
+  stopLoop(false); loopStep();
+  $('liveDot').classList.add('live');
+  $('stopBtn').disabled = $('onceBtn').disabled = false;
+  cancelAnimationFrame(rafTimer);
+  (function tick() {
+    const left = Math.max(0, nextAt-Date.now());
+    $('ring').style.setProperty('--p', 100 - left/waitMs*100);
+    $('ringTxt').textContent = Math.ceil(left/1000);
+    rafTimer = requestAnimationFrame(tick);
+  })();
 }
-$('stopBtn').onclick = stopLoop;
+function stopLoop(clearUi = true) {
+  clearTimeout(timer); cancelAnimationFrame(rafTimer); timer = null;
+  if (clearUi) {
+    $('liveDot').classList.remove('live');
+    $('ringTxt').textContent = '—'; $('ring').style.setProperty('--p', 0);
+    $('stopBtn').disabled = true;
+    document.querySelectorAll('.journey').forEach(x => x.classList.remove('picked'));
+  }
+}
+$('stopBtn').onclick = () => stopLoop();
 $('onceBtn').onclick = poll;
 
-// ---- render --------------------------------------------------------------
+/* ─── render ────────────────────────────────────────────────────────── */
 const LV_NUM = {LEVEL_UNSPECIFIED:0,EMPTY:1,MANY_SEATS_AVAILABLE:2,FEW_SEATS_AVAILABLE:3,STANDING_ROOM_ONLY:4,CRUSHED_STANDING_ROOM_ONLY:5,FULL:6,NOT_ACCEPTING_PASSENGERS:7};
-const LV_TEXT = {EMPTY:'empty',MANY_SEATS_AVAILABLE:'many seats',FEW_SEATS_AVAILABLE:'few seats',STANDING_ROOM_ONLY:'standing room',CRUSHED_STANDING_ROOM_ONLY:'crushed',FULL:'full'};
+const LV_TEXT = {EMPTY:'Empty',MANY_SEATS_AVAILABLE:'Many seats available',FEW_SEATS_AVAILABLE:'Few seats available',STANDING_ROOM_ONLY:'Standing room only',CRUSHED_STANDING_ROOM_ONLY:'Crushed standing',FULL:'Full',NOT_ACCEPTING_PASSENGERS:'Not boarding'};
 const stopName = id => ctx.stopMeta[id]?.name || id;
-const plannedFor = (leg, stopId) => ctx.planned[leg.leg_ref]?.[stopId] || 0;
-
-function delayChip(leg) {
+const plannedFor = (leg, id) => ctx.planned[leg.leg_ref]?.[id] || 0;
+const delayChip = leg => {
   if (!leg || leg.delay_seconds === undefined) return '';
-  const d = leg.delay_seconds, m = Math.round(Math.abs(d) / 60);
+  const d = leg.delay_seconds, m = Math.round(Math.abs(d)/60);
   if (d > 60)  return `<span class="chip late">${m} min late</span>`;
   if (d < -60) return `<span class="chip early">${m} min early</span>`;
   return `<span class="chip early">on time</span>`;
-}
+};
 
 function render() {
   const resp = lastResp; if (!resp) return;
-  $('raw').textContent = JSON.stringify(resp, null, 1);
   const now = resp.fetched_at_epoch_sec;
 
   $('legtabs').innerHTML = '';
-  resp.legs.forEach((leg, i) => {
+  resp.legs.forEach((leg,i) => {
     const pc = pickedLegs[i]?.product_class;
     const tab = document.createElement('span');
-    tab.className = 'legtab' + (i === activeLeg ? ' active' : '');
+    tab.className = 'legtab' + (i===activeLeg?' active':'');
     tab.style.setProperty('--mode', modeOf(pc).c);
-    tab.innerHTML = `${miHtml(pc)} ${pickedLegs[i]?._label || leg.leg_ref} · ${leg.status.replaceAll('_',' ').toLowerCase()}`;
+    tab.innerHTML = `${miHtml(pc,18)} ${pickedLegs[i]?._label || leg.leg_ref}<span class="st">${leg.status.replaceAll('_',' ')}</span>`;
     tab.onclick = () => { activeLeg = i; render(); };
     $('legtabs').appendChild(tab);
   });
-  const li = Math.min(activeLeg, resp.legs.length - 1);
-  const leg = resp.legs[li];
-  if (!leg) return;
+
+  const li = Math.min(activeLeg, resp.legs.length-1);
+  const leg = resp.legs[li]; if (!leg) return;
   const pc = pickedLegs[li]?.product_class;
   const mc = modeOf(pc).c;
+  $('hero').style.setProperty('--mode', mc);
+  $('timeline').style.setProperty('--mode', mc);
 
-  // NOW card
-  let headline = '', sub = '', chips = '';
-  const cur = leg.stops?.find(s => s.state === 'CURRENT');
-  const next = leg.stops?.find(s => s.state === 'UPCOMING');
+  // hero
+  let headline='', sub='', chips='';
+  const cur = leg.stops?.find(s => s.state==='CURRENT');
+  const next = leg.stops?.find(s => s.state==='UPCOMING');
   if (leg.status === 'TRACKING') {
-    headline = cur ? `At ${stopName(cur.stop_id)}` : next ? `Next: ${stopName(next.stop_id)}` : 'On the move';
-    if (next) sub = `${stopName(next.stop_id)} · ${fmtT(next.estimated_epoch_sec || plannedFor(leg, next.stop_id))}`;
+    headline = cur ? `At ${stopName(cur.stop_id)}` : next ? `Next · ${stopName(next.stop_id)}` : 'On the move';
+    if (next) sub = `arriving ${stopName(next.stop_id)} ${fmtT(next.estimated_epoch_sec || plannedFor(leg,next.stop_id))}`;
     chips = delayChip(leg);
-    if (leg.fleet) chips += `<span class="chip" style="border-color:${mc};color:${mc}">${leg.fleet.display_name}${leg.fleet.car_count ? ' · ' + leg.fleet.car_count + ' cars' : ''}</span>`;
+    if (leg.fleet) chips += `<span class="chip mode">${leg.fleet.display_name}${leg.fleet.car_count?` · ${leg.fleet.car_count} cars`:''}</span>`;
     if (leg.vehicle) {
       const age = now - leg.vehicle.measured_at_epoch_sec;
-      chips += `<span class="chip ${age > 90 ? 'late' : ''}">📍 ${age}s ago${age > 90 ? ' — STALE' : ''}</span>`;
-      if (leg.vehicle.speed_mps !== undefined) chips += `<span class="chip">${Math.round(leg.vehicle.speed_mps * 3.6)} km/h</span>`;
+      chips += age > 90 ? `<span class="chip stale">signal ${age}s old</span>` : `<span class="chip">📍 ${age}s ago</span>`;
+      if (leg.vehicle.speed_mps !== undefined) chips += `<span class="chip">${Math.round(leg.vehicle.speed_mps*3.6)} km/h</span>`;
     }
   } else if (leg.status === 'NOT_STARTED') {
     const first = leg.stops?.[0];
     headline = 'Not started yet';
-    sub = first ? `Departs ${stopName(first.stop_id)} at ${fmtT(first.estimated_epoch_sec || plannedFor(leg, first.stop_id))}` : '';
+    sub = first ? `departs ${stopName(first.stop_id)} ${fmtT(first.estimated_epoch_sec || plannedFor(leg,first.stop_id))}` : '';
     chips = `<span class="chip">scheduled</span>` + delayChip(leg);
   } else {
-    headline = { NO_REALTIME:'No live data for this service', ENDED:'Trip completed', EXPIRED:'Trip has ended (link expired)', UPSTREAM_UNAVAILABLE:'NSW feed unavailable — retrying' }[leg.status] || leg.status;
+    headline = { NO_REALTIME:'No live data', ENDED:'Trip completed', EXPIRED:'Trip has ended', UPSTREAM_UNAVAILABLE:'Feed unavailable — retrying' }[leg.status] || leg.status;
     chips = `<span class="chip">${leg.status.replaceAll('_',' ').toLowerCase()}</span>`;
   }
-  let carsHtml = '';
+
+  // occupancy hero
+  let occHtml = '';
   if (leg.occupancy?.cars?.length) {
-    carsHtml = `<div class="cars">` + leg.occupancy.cars.map(c =>
-      `<div class="car lv-${LV_NUM[c.level] ?? 0}" title="${LV_TEXT[c.level] || 'unknown'}">${(c.label || c.sequence).toString().slice(0,4)}</div>`).join('') + `</div>`
-      + `<div class="meta">carriage occupancy (front → back)</div>`;
+    occHtml = `<div class="occ"><div class="occ-title">Carriage occupancy · front → back</div>
+      <div class="cars">${leg.occupancy.cars.map(c =>
+        `<div class="car lv-${LV_NUM[c.level] ?? 0}" title="${LV_TEXT[c.level]||'unknown'}"><span>${c.label||c.sequence}</span>${c.quiet_carriage?'<small>quiet</small>':''}</div>`).join('')}</div>
+      <div class="occ-legend"><span><i style="background:#22c55e"></i>seats</span><span><i style="background:#eab308"></i>standing</span><span><i style="background:#ef4444"></i>full</span><span><i style="background:var(--surface3)"></i>no data</span></div></div>`;
   } else if (leg.occupancy?.overall && leg.occupancy.overall !== 'LEVEL_UNSPECIFIED') {
-    carsHtml = `<div class="meta" style="margin-top:6px">vehicle occupancy: <b style="color:var(--fg)">${LV_TEXT[leg.occupancy.overall] || leg.occupancy.overall}</b></div>`;
+    const lv = LV_NUM[leg.occupancy.overall];
+    occHtml = `<div class="occ"><div class="occ-title">Vehicle occupancy</div>
+      <div class="occ-overall" style="color:${lv<=2?'#22c55e':lv<=4?'#eab308':'#ef4444'}">${LV_TEXT[leg.occupancy.overall]}</div></div>`;
   }
-  $('nowcard').innerHTML = `<div class="headline">${miHtml(pc)} ${headline}</div>` +
-    (sub ? `<div class="sub">${sub}</div>` : '') +
-    `<div style="margin-top:8px">${chips}</div>` + carsHtml;
+
+  $('hero').innerHTML = `<div class="headline">${miHtml(pc,34)} ${headline}</div>`+
+    (sub?`<div class="sub">${sub}</div>`:'')+`<div class="chips">${chips}</div>`+occHtml;
 
   // timeline
   $('timeline').innerHTML = '';
-  $('timeline').style.setProperty('--mode', mc);
   const stops = leg.stops || [];
-  stops.forEach((s, idx) => {
+  if (!stops.length) $('timeline').innerHTML = `<div class="empty-live">no stop data for this leg</div>`;
+  stops.forEach((s,idx) => {
     const el = document.createElement('div');
-    el.className = `tl-stop tl-${s.state}` + (idx === 0 ? ' tl-first' : '') + (idx === stops.length - 1 ? ' tl-last' : '');
+    el.className = `tl-stop tl-${s.state}` + (idx===0?' tl-first':'') + (idx===stops.length-1?' tl-last':'');
     el.style.setProperty('--mode', mc);
     const planned = plannedFor(leg, s.stop_id);
     const est = s.estimated_epoch_sec || 0;
     let delta = '<span></span>';
     if (est && planned) {
-      const d = Math.round((est - planned) / 60);
-      delta = d > 0 ? `<span class="delta late-d">+${d}m</span>` : d < 0 ? `<span class="delta early-d">${d}m</span>` : `<span class="delta ontime-d">✓</span>`;
+      const d = Math.round((est-planned)/60);
+      delta = d>0?`<span class="delta late-d">+${d}m</span>`:d<0?`<span class="delta early-d">${d}m</span>`:`<span class="delta ontime-d">✓</span>`;
     }
-    el.innerHTML =
-      `<span class="t">${fmtT(est || planned)}</span>` +
-      `<span class="tl-dot"><i></i></span>` +
-      `<span class="name">${stopName(s.stop_id)}${ctx.stopMeta[s.stop_id]?.name ? `<span class="sid">${s.stop_id}</span>` : ''}</span>` +
-      delta;
+    el.innerHTML = `<span class="t">${fmtT(est||planned)}</span><span class="tl-dot"><i></i></span>`+
+      `<span class="name">${stopName(s.stop_id)}${ctx.stopMeta[s.stop_id]?.name?`<span class="sid">${s.stop_id}</span>`:''}</span>`+delta;
     $('timeline').appendChild(el);
   });
   const curEl = $('timeline').querySelector('.tl-CURRENT');
   if (curEl) curEl.scrollIntoView({ block:'center', behavior:'smooth' });
 
-  // map markers
-  resp.legs.forEach((lg, i) => {
+  // map vehicles
+  resp.legs.forEach((lg,i) => {
     if (!lg.vehicle) return;
     const pos = [lg.vehicle.latitude, lg.vehicle.longitude];
     const stale = (now - lg.vehicle.measured_at_epoch_sec) > 90;
@@ -465,7 +576,7 @@ function render() {
     if (!vehicleMarkers[key]) vehicleMarkers[key] = L.marker(pos).addTo(map);
     vehicleMarkers[key].setLatLng(pos)
       .setIcon(vehicleIcon(pickedLegs[i]?.product_class, lg.vehicle.bearing_degrees, stale))
-      .bindTooltip(`${pickedLegs[i]?._label || key} · ${lg.fleet?.display_name || ''}`);
+      .bindTooltip(`${pickedLegs[i]?._label||key} · ${lg.fleet?.display_name||''}`);
     if (!fitted) { map.setView(pos, 14); fitted = true; }
   });
 }
