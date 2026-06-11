@@ -110,6 +110,10 @@ wire {
         // resolves imports relative to this directory, so both proto/api/
         // and proto/data/ are visible without listing them individually.
         srcDir("$rootDir/krail-api-proto/proto")
+        // Server-internal protos: vendored GTFS-Realtime (proto2) + TfNSW
+        // extensions. Never exposed to the app — the public contract stays
+        // in krail-api-proto.
+        srcDir("src/main/proto")
     }
 }
 

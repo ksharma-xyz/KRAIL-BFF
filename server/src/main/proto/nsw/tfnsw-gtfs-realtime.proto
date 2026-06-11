@@ -1,0 +1,58 @@
+// TfNSW extensions to GTFS-Realtime, server-internal.
+//
+// Field numbers and shapes verified EMPIRICALLY against live NSW feeds on
+// 2026-06-12 (see server/src/test/resources/gtfsrt/ fixtures and
+// docs/reference/TRACKING_DESIGN.md §O1):
+//
+//   VehicleDescriptor ext 1007 — observed across modes:
+//     1: varint (air conditioned — 1 on metro/buses)
+//     2: varint (wheelchair accessible — 1 on metro/buses)
+//     3: string vehicle model — "Alstom Metropolis" (metro),
+//        "Volvo~VOLVOB12BLE~Volgren~CR228" (bus), "T" (sydneytrains set type)
+//     4: varint (buses only, sparse — performing prior trip)
+//     5: varint (special vehicle attributes bitmask, 0 observed)
+//
+//   VehiclePosition ext 1007 — repeated per-carriage details:
+//     1: string car label ("DTC1" on metro; absent on sydneytrains)
+//     2: varint position in consist (0-based on metro; 6 cars observed)
+//     3: varint occupancy (matches OccupancyStatus values)
+//     4: varint quiet carriage (metro 0)
+//     5: varint (toilet availability per RTTA doc; 0 observed)
+//     6: varint (luggage rack per RTTA doc; 0 observed)
+//
+// Names follow the TfNSW RTTA technical documentation. If TfNSW publishes
+// an updated .proto, reconcile field names here (numbers are the contract).
+
+syntax = "proto2";
+
+package transit_realtime;
+
+import "nsw/gtfs-realtime.proto";
+
+option java_package = "au.gov.transport.realtime";
+option java_outer_classname = "TfnswRealtime";
+
+message TfnswVehicleDescriptor {
+  optional bool air_conditioned = 1;
+  optional bool wheelchair_accessible = 2;
+  optional string vehicle_model = 3;
+  optional bool performing_prior_trip = 4;
+  optional int32 special_vehicle_attributes = 5;
+}
+
+message CarriageDescriptor {
+  optional string name = 1;
+  optional int32 position_in_consist = 2;
+  optional VehiclePosition.OccupancyStatus occupancy_status = 3;
+  optional bool quiet_carriage = 4;
+  optional bool toilet = 5;
+  optional bool luggage_rack = 6;
+}
+
+extend VehicleDescriptor {
+  optional TfnswVehicleDescriptor tfnsw_vehicle_descriptor = 1007;
+}
+
+extend VehiclePosition {
+  repeated CarriageDescriptor carriage_sequence = 1007;
+}
