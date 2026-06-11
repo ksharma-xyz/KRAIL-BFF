@@ -256,6 +256,8 @@ const $ = id => document.getElementById(id);
 const base = () => ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
 const today = () => new Date().toLocaleDateString('sv-SE', {timeZone:'Australia/Sydney'}).replaceAll('-','');
 const fmtT = e => e ? new Date(e*1000).toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',timeZone:'Australia/Sydney'}) : '—';
+// NSW ISO timestamps are UTC — never slice the raw string for display.
+const fmtIso = iso => iso ? new Date(iso).toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',timeZone:'Australia/Sydney'}) : '—';
 
 const MODE = {
   1:{c:'#F6891F',letter:'T',name:'Train'}, 2:{c:'#009B77',letter:'M',name:'Metro'},
@@ -365,7 +367,7 @@ function renderJourneys(journeys) {
     const arr = legs.at(-1)?.destination?.arrivalTimeEstimated || legs.at(-1)?.destination?.arrivalTimePlanned || '';
     const durMin = dep && arr ? Math.round((Date.parse(arr)-Date.parse(dep))/60000) : null;
     div.innerHTML =
-      `<div class="times"><span class="dep">${dep.slice(11,16)}</span><span class="arr">→ ${arr.slice(11,16)}</span>${durMin?`<span class="dur">${durMin} min</span>`:''}</div>`+
+      `<div class="times"><span class="dep">${fmtIso(dep)}</span><span class="arr">→ ${fmtIso(arr)}</span>${durMin?`<span class="dur">${durMin} min</span>`:''}</div>`+
       `<div class="modes">${legs.map(l => { const pc=l.transportation.product?.class; const line=l.transportation?.disassembledName||l.transportation?.number||'';
         return miHtml(pc) + (badgeHtml(pc,line) || `<span style="color:var(--soft);font:700 13px var(--disp)">${line}</span>`); }).join('<span style="color:var(--dim)">›</span>')}</div>`+
       `<div class="route">${legs.map(l => (l.origin?.disassembledName||'').split(',')[0]).filter(Boolean).join(' → ')}</div>`;
