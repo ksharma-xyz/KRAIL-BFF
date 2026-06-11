@@ -53,6 +53,7 @@ class TrackServiceTest {
         private val failFeeds: Boolean = false,
     ) : NswClient {
         var vehicleposFetches = 0
+        var tripUpdatesOverride: ByteArray? = null
         override suspend fun healthCheck() = true
         override suspend fun getTrip(
             originStopId: String, destinationStopId: String, depArr: String,
@@ -73,7 +74,7 @@ class TrackServiceTest {
         override suspend fun getGtfsRealtimeRaw(version: Int, feed: String): ByteArray {
             if (failFeeds) throw NswUpstreamException(503, "down", "")
             return when (feed) {
-                "sydneytrains" -> fixtures("tripupdates_sydneytrains.pb")
+                "sydneytrains" -> tripUpdatesOverride ?: fixtures("tripupdates_sydneytrains.pb")
                 else -> throw NswUpstreamException(404, "no fixture for $feed", "")
             }
         }
@@ -273,6 +274,38 @@ class TrackServiceTest {
             ),
         ))).legs.single()
         assertEquals(LegTracking.Status.ENDED, tracked.status)
+    }
+
+    @Test
+    fun `snapshot stays complete after NSW trims passed stops from the feed`() = runBlocking {
+        val nsw = fakeNsw()
+        // ttl 0 → every poll refetches, so the override takes effect.
+        val svc = TrackService(
+            nsw = nsw, metrics = MetricRegistry(),
+            vehicleposTtlMillis = 0, tripUpdatesTtlMillis = 0,
+            clock = { captureInstant },
+        )
+
+        val first = svc.snapshot(TrackRequest(legs = listOf(leg(liveTripId)))).legs.single()
+        val fullIds = first.stops.map { it.stop_id }
+        check(fullIds.size >= 3)
+
+        // Simulate NSW trimming the first two (now passed) stops.
+        val feed = FeedMessage.ADAPTER.decode(fixture("tripupdates_sydneytrains.pb"))
+        val trimmedEntities = feed.entity.map { e ->
+            if (e.trip_update?.trip?.trip_id == liveTripId) {
+                e.copy(trip_update = e.trip_update!!.copy(
+                    stop_time_update = e.trip_update!!.stop_time_update.drop(2),
+                ))
+            } else e
+        }
+        nsw.tripUpdatesOverride = FeedMessage.ADAPTER.encode(feed.copy(entity = trimmedEntities))
+
+        val second = svc.snapshot(TrackRequest(legs = listOf(leg(liveTripId)))).legs.single()
+        // Server memory re-attaches the trimmed stops as DEPARTED.
+        assertEquals(fullIds, second.stops.map { it.stop_id }, "snapshot must remain the complete run")
+        assertEquals(StopProgress.State.DEPARTED, second.stops[0].state)
+        assertEquals(StopProgress.State.DEPARTED, second.stops[1].state)
     }
 
     @Test

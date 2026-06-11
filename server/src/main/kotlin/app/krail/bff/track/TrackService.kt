@@ -31,6 +31,7 @@ class TrackService(
     private val metrics: MetricRegistry,
     private val stops: StopDirectory = StopDirectory(),
     private val feedCache: FeedCache = FeedCache(),
+    private val stopMemory: TripStopMemory = TripStopMemory(),
     private val vehicleposTtlMillis: Long = 15_000,
     private val tripUpdatesTtlMillis: Long = 30_000,
     private val suggestedPollSeconds: Int = 30,
@@ -136,7 +137,7 @@ class TrackService(
         }
         metrics.counter("track.match.exact").inc()
 
-        val stops = buildStopTimeline(tripUpdate, vehicle, now)
+        val stops = buildStopTimeline(tripUpdate, vehicle, now, tripKey = "$tripId@${leg.service_date}")
             .annotateSegments(leg.origin_stop_id, leg.destination_stop_id)
 
         // The USER's journey ends at their destination, not the vehicle's
@@ -279,6 +280,7 @@ class TrackService(
         tripUpdate: TripUpdate?,
         vehicle: VehiclePosition?,
         now: Instant,
+        tripKey: String,
     ): List<StopProgress> {
         val updates = tripUpdate?.stop_time_update ?: return emptyList()
         if (updates.isEmpty()) return emptyList()
@@ -286,7 +288,34 @@ class TrackService(
         val currentSeq = vehicle?.current_stop_sequence
         val currentStopId = vehicle?.stop_id
 
-        return updates.map { stu ->
+        // NSW trims passed stops from the feed; re-attach the ones this
+        // server has previously seen so every poll is a COMPLETE snapshot
+        // of the run — even for clients that joined mid-trip.
+        val trimmed = stopMemory.recordAndGetTrimmed(
+            tripKey,
+            updates.mapNotNull { stu ->
+                stu.stop_id?.let {
+                    TripStopMemory.RememberedStop(
+                        stopId = it,
+                        sequence = stu.stop_sequence,
+                        lastEstimatedEpochSec = stu.arrival?.time ?: stu.departure?.time ?: 0L,
+                    )
+                }
+            },
+        )
+        val passed = trimmed.map { remembered ->
+            val known = stops.find(remembered.stopId)
+            StopProgress(
+                stop_id = remembered.stopId,
+                stop_name = known?.name ?: "",
+                estimated_epoch_sec = remembered.lastEstimatedEpochSec,
+                state = StopProgress.State.DEPARTED,
+                latitude = known?.lat ?: 0.0,
+                longitude = known?.lon ?: 0.0,
+            )
+        }
+
+        return passed + updates.map { stu ->
             val estimated = stu.arrival?.time ?: stu.departure?.time ?: 0L
             val skipped = stu.schedule_relationship ==
                 TripUpdate.StopTimeUpdate.ScheduleRelationship.SKIPPED

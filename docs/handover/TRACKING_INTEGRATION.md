@@ -73,10 +73,18 @@ in T1.5; harmless now).
 3. **Fleet badge:** `fleet.display_name` ("Waratah", "OSCAR",
    "Alstom Metropolis"). `source = LIVE` reflects actual substituted
    rolling stock; `SCHEDULED` is parsed from the trip id.
-4. **Timeline:** `stops[]` is the vehicle's **full run** in running
-   order, each stop tagged with `segment`: `JOURNEY` (between the
-   requested origin and destination), `BEFORE_JOURNEY`, or
-   `AFTER_JOURNEY`. Render JOURNEY stops normally; the surrounding
+4. **Timeline:** `stops[]` is a **complete snapshot of the vehicle's
+   full run** in running order — the BFF keeps short-term per-trip
+   memory, so stops NSW has already trimmed from its feed (passed
+   stops) are re-attached as `DEPARTED`. A client joining mid-trip
+   (share link) or waking from background gets the same complete
+   timeline as one that watched from the start. Caveats: memory
+   begins when the BFF first observes the trip, and a server restart
+   clears it — so still overlay your planned stop list from the trip
+   response where available; treat the snapshot as authoritative for
+   states/times. Each stop is tagged with `segment`: `JOURNEY`
+   (between the requested origin and destination), `BEFORE_JOURNEY`,
+   or `AFTER_JOURNEY`. Render JOURNEY stops normally; the surrounding
    groups are the client's choice — recommended: collapsed
    "▸ continues to N more stops" expanders (the dashboard demonstrates
    this). If every stop is `SEGMENT_UNSPECIFIED` the endpoint ids
