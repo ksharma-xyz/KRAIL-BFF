@@ -18,6 +18,7 @@ import app.krail.bff.routes.configureGtfsRoutes
 import app.krail.bff.routes.configureInternalRoutes
 import app.krail.bff.routes.configureParkingRoutes
 import app.krail.bff.routes.configureRouting
+import app.krail.bff.routes.configureTrackRoutes
 import app.krail.bff.routes.configureTripRoutes
 import io.ktor.server.application.*
 import io.ktor.server.netty.*
@@ -44,6 +45,7 @@ fun Application.module() {
     configureDepartureRoutes()
     configureParkingRoutes()
     configureGtfsRoutes()
+    configureTrackRoutes()
     configureDataRoutes()
     configureInternalRoutes()
 }

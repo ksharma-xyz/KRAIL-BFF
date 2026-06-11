@@ -4,6 +4,7 @@ import app.krail.bff.client.nsw.NswClient
 import app.krail.bff.client.nsw.NswClientImpl
 import app.krail.bff.client.nsw.NswDailyBudget
 import app.krail.bff.config.NswConfig
+import app.krail.bff.track.TrackService
 import com.codahale.metrics.MetricRegistry
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -177,6 +178,13 @@ private fun httpClientModule() = module {
 
 private fun clientModule() = module {
     single<NswClient> { NswClientImpl(get(), get(), get(), get()) }
+    single {
+        TrackService(
+            nsw = get(),
+            metrics = get(),
+            suggestedPollSeconds = System.getenv("BFF_TRACK_POLL_SECONDS")?.toIntOrNull() ?: 30,
+        )
+    }
 }
 
 fun Application.configureDI() {

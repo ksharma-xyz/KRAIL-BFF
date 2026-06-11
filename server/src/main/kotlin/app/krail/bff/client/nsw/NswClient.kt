@@ -90,10 +90,11 @@ interface NswClient {
     suspend fun getGtfsRealtimeRaw(version: Int, feed: String): ByteArray
 
     /**
-     * GTFS-Realtime vehicle positions — `/v2/gtfs/vehiclepos/{feed}`.
-     * Returns raw protobuf bytes.
+     * GTFS-Realtime vehicle positions — `/v{version}/gtfs/vehiclepos/{feed}`.
+     * Most feeds live on v2; buses and nswtrains exist only on v1
+     * (verified against the live API 2026-06-12). Returns raw protobuf bytes.
      */
-    suspend fun getVehiclePositionsRaw(feed: String): ByteArray
+    suspend fun getVehiclePositionsRaw(feed: String, version: Int = 2): ByteArray
 }
 
 class NswClientImpl(
@@ -517,8 +518,8 @@ class NswClientImpl(
         return fetchGtfsRtBytes(path = "/v$version/gtfs/realtime/$feed", what = "realtime/$feed")
     }
 
-    override suspend fun getVehiclePositionsRaw(feed: String): ByteArray {
-        return fetchGtfsRtBytes(path = "/v2/gtfs/vehiclepos/$feed", what = "vehiclepos/$feed")
+    override suspend fun getVehiclePositionsRaw(feed: String, version: Int): ByteArray {
+        return fetchGtfsRtBytes(path = "/v$version/gtfs/vehiclepos/$feed", what = "vehiclepos/$feed")
     }
 
     private suspend fun fetchGtfsRtBytes(path: String, what: String): ByteArray {

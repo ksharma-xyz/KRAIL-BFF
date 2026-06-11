@@ -1,0 +1,276 @@
+package app.krail.bff.track
+
+import app.krail.bff.client.nsw.NswClient
+import app.krail.bff.proto.FleetInfo
+import app.krail.bff.proto.LegTracking
+import app.krail.bff.proto.OccupancyInfo
+import app.krail.bff.proto.StopProgress
+import app.krail.bff.proto.TrackRequest
+import app.krail.bff.proto.TrackResponse
+import app.krail.bff.proto.VehicleLive
+import com.codahale.metrics.MetricRegistry
+import com.google.transit.realtime.FeedMessage
+import com.google.transit.realtime.TripUpdate
+import com.google.transit.realtime.VehiclePosition
+import org.slf4j.LoggerFactory
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+/**
+ * Assembles a [TrackResponse] for the legs the client is tracking.
+ *
+ * Hard rule from TRACKING_DESIGN.md: tracking never re-plans. Everything
+ * here derives from GTFS-Realtime feeds keyed by the locked trip_id.
+ * Each leg resolves independently — one upstream failure marks that leg
+ * UPSTREAM_UNAVAILABLE, it never fails the request.
+ */
+class TrackService(
+    private val nsw: NswClient,
+    private val metrics: MetricRegistry,
+    private val feedCache: FeedCache = FeedCache(),
+    private val vehicleposTtlMillis: Long = 15_000,
+    private val tripUpdatesTtlMillis: Long = 30_000,
+    private val suggestedPollSeconds: Int = 30,
+    private val clock: () -> Instant = Instant::now,
+) {
+    private val logger = LoggerFactory.getLogger(TrackService::class.java)
+    private val sydney = ZoneId.of("Australia/Sydney")
+    private val serviceDateFormat = DateTimeFormatter.BASIC_ISO_DATE
+
+    suspend fun snapshot(request: TrackRequest): TrackResponse {
+        val now = clock()
+        val legs = request.legs.map { leg ->
+            try {
+                resolveLeg(leg, now)
+            } catch (e: Throwable) {
+                // Defensive backstop — resolveLeg handles expected failures
+                // itself; anything escaping is a bug, not a user error.
+                logger.error("track: unexpected failure resolving leg {}", leg.leg_ref, e)
+                metrics.counter("track.leg.unexpected_error").inc()
+                LegTracking(leg_ref = leg.leg_ref, status = LegTracking.Status.UPSTREAM_UNAVAILABLE)
+            }
+        }
+        return TrackResponse(
+            fetched_at_epoch_sec = now.epochSecond,
+            suggested_poll_seconds = suggestedPollSeconds,
+            legs = legs,
+        )
+    }
+
+    private suspend fun resolveLeg(leg: TrackRequest.TrackLeg, now: Instant): LegTracking {
+        // Expiry: trip ids are scoped to a service day (Sydney time).
+        val serviceDate = runCatching { LocalDate.parse(leg.service_date, serviceDateFormat) }.getOrNull()
+        if (serviceDate != null && serviceDate.isBefore(LocalDate.now(sydney).minusDays(1))) {
+            // minusDays(1): overnight services keep yesterday's service date
+            // while still running after midnight.
+            metrics.counter("track.status.expired").inc()
+            return LegTracking(leg_ref = leg.leg_ref, status = LegTracking.Status.EXPIRED)
+        }
+
+        val feeds = FeedRegistry.feedsFor(leg.product_class)
+        if (feeds.isEmpty()) {
+            metrics.counter("track.status.no_feed").inc()
+            return LegTracking(leg_ref = leg.leg_ref, status = LegTracking.Status.NO_REALTIME)
+        }
+
+        val tripId = leg.realtime_trip_id.trim()
+        var anyFeedSucceeded = false
+        var vehicle: VehiclePosition? = null
+        var tripUpdate: TripUpdate? = null
+
+        for (ref in feeds) {
+            if (vehicle == null) {
+                try {
+                    val vp = feedCache.get("vp:${ref.feed}", vehicleposTtlMillis) {
+                        nsw.getVehiclePositionsRaw(feed = ref.feed, version = ref.vehicleposVersion)
+                    }
+                    anyFeedSucceeded = true
+                    vehicle = findVehicle(vp, tripId)
+                } catch (e: Throwable) {
+                    logger.warn("track: vehiclepos fetch failed for {}: {}", ref.feed, e.message)
+                }
+            }
+            if (tripUpdate == null) {
+                try {
+                    val tu = feedCache.get("tu:${ref.feed}", tripUpdatesTtlMillis) {
+                        nsw.getGtfsRealtimeRaw(version = ref.tripUpdatesVersion, feed = ref.feed)
+                    }
+                    anyFeedSucceeded = true
+                    tripUpdate = findTripUpdate(tu, tripId)
+                } catch (e: Throwable) {
+                    logger.warn("track: tripupdates fetch failed for {}: {}", ref.feed, e.message)
+                }
+            }
+            if (vehicle != null && tripUpdate != null) break
+        }
+
+        if (vehicle == null && tripUpdate == null) {
+            // "Couldn't determine" only when every source errored; a feed
+            // that answered without our trip is a real NO_REALTIME signal.
+            return when {
+                !anyFeedSucceeded -> {
+                    metrics.counter("track.status.upstream_unavailable").inc()
+                    LegTracking(leg_ref = leg.leg_ref, status = LegTracking.Status.UPSTREAM_UNAVAILABLE)
+                }
+                isPlannedDepartureInFuture(leg, now) -> {
+                    metrics.counter("track.status.not_started").inc()
+                    LegTracking(leg_ref = leg.leg_ref, status = LegTracking.Status.NOT_STARTED)
+                }
+                else -> {
+                    metrics.counter("track.status.no_realtime").inc()
+                    LegTracking(leg_ref = leg.leg_ref, status = LegTracking.Status.NO_REALTIME)
+                }
+            }
+        }
+        metrics.counter("track.match.exact").inc()
+
+        val stops = buildStopTimeline(tripUpdate, vehicle, now)
+        val status = when {
+            vehicle != null -> LegTracking.Status.TRACKING
+            stops.isNotEmpty() && stops.all { it.state == StopProgress.State.DEPARTED } ->
+                LegTracking.Status.ENDED
+            else -> LegTracking.Status.NOT_STARTED
+        }
+        metrics.counter("track.status.${status.name.lowercase()}").inc()
+
+        val delay = latestDelaySeconds(tripUpdate)
+        return LegTracking(
+            leg_ref = leg.leg_ref,
+            status = status,
+            vehicle = vehicle?.let { mapVehicle(it) },
+            fleet = buildFleet(vehicle, tripId),
+            occupancy = buildOccupancy(vehicle),
+            stops = stops,
+            delay_seconds = delay ?: 0,
+            has_delay = delay != null,
+        )
+    }
+
+    private fun findVehicle(feed: FeedMessage, tripId: String): VehiclePosition? =
+        feed.entity.asSequence()
+            .mapNotNull { it.vehicle }
+            .firstOrNull { it.trip?.trip_id?.trim() == tripId }
+
+    private fun findTripUpdate(feed: FeedMessage, tripId: String): TripUpdate? =
+        feed.entity.asSequence()
+            .mapNotNull { it.trip_update }
+            .firstOrNull { it.trip.trip_id?.trim() == tripId }
+
+    private fun isPlannedDepartureInFuture(leg: TrackRequest.TrackLeg, now: Instant): Boolean =
+        runCatching { Instant.parse(leg.planned_departure_utc) }.getOrNull()?.isAfter(now) == true
+
+    private fun mapVehicle(vp: VehiclePosition): VehicleLive {
+        val pos = vp.position
+        return VehicleLive(
+            latitude = pos?.latitude?.toDouble() ?: 0.0,
+            longitude = pos?.longitude?.toDouble() ?: 0.0,
+            bearing_degrees = pos?.bearing ?: 0f,
+            has_bearing = pos?.bearing != null,
+            speed_mps = pos?.speed ?: 0f,
+            has_speed = pos?.speed != null,
+            measured_at_epoch_sec = vp.timestamp ?: 0L,
+            stop_relation = when (vp.current_status) {
+                VehiclePosition.VehicleStopStatus.INCOMING_AT -> VehicleLive.StopRelation.INCOMING_AT
+                VehiclePosition.VehicleStopStatus.STOPPED_AT -> VehicleLive.StopRelation.STOPPED_AT
+                VehiclePosition.VehicleStopStatus.IN_TRANSIT_TO -> VehicleLive.StopRelation.IN_TRANSIT_TO
+                null -> VehicleLive.StopRelation.STOP_RELATION_UNSPECIFIED
+            },
+            at_or_next_stop_id = vp.stop_id ?: "",
+        )
+    }
+
+    private fun buildFleet(vp: VehiclePosition?, tripId: String): FleetInfo? {
+        // Live descriptor wins — it reflects substitutions.
+        val liveModel = vp?.vehicle?.tfnsw_vehicle_descriptor?.vehicle_model?.trim()
+        if (!liveModel.isNullOrBlank()) {
+            // Trains report a bare set-type letter; other modes a full name.
+            val asSetCode = TripIdParser.displayNameForSetCode(liveModel)
+            return FleetInfo(
+                display_name = asSetCode ?: liveModel,
+                set_code = if (asSetCode != null) liveModel.uppercase() else "",
+                car_count = vp.carriage_sequence.size,
+                source = FleetInfo.Source.LIVE,
+            )
+        }
+        val parsed = TripIdParser.parse(tripId) ?: return null
+        return FleetInfo(
+            display_name = parsed.displayName,
+            set_code = parsed.setCode,
+            car_count = parsed.carCount ?: 0,
+            source = FleetInfo.Source.SCHEDULED,
+        )
+    }
+
+    private fun buildOccupancy(vp: VehiclePosition?): OccupancyInfo? {
+        if (vp == null) return null
+        val overall = vp.occupancy_status?.let { mapOccupancy(it.value) }
+            ?: OccupancyInfo.Level.LEVEL_UNSPECIFIED
+        val cars = vp.carriage_sequence
+            .sortedBy { it.position_in_consist ?: Int.MAX_VALUE }
+            .mapIndexed { index, car ->
+                OccupancyInfo.CarOccupancy(
+                    // position_in_consist is 0-based in live feeds; contract is 1-based.
+                    sequence = (car.position_in_consist ?: index) + 1,
+                    label = car.name ?: "",
+                    level = car.occupancy_status?.let { mapOccupancy(it.value) }
+                        ?: OccupancyInfo.Level.LEVEL_UNSPECIFIED,
+                    quiet_carriage = car.quiet_carriage ?: false,
+                )
+            }
+        if (cars.isEmpty() && overall == OccupancyInfo.Level.LEVEL_UNSPECIFIED) return null
+        return OccupancyInfo(overall = overall, cars = cars)
+    }
+
+    /** GTFS OccupancyStatus (0-based) → contract Level (shifted +1, 0 = unknown). */
+    private fun mapOccupancy(gtfsValue: Int): OccupancyInfo.Level =
+        OccupancyInfo.Level.fromValue(gtfsValue + 1) ?: OccupancyInfo.Level.LEVEL_UNSPECIFIED
+
+    private fun buildStopTimeline(
+        tripUpdate: TripUpdate?,
+        vehicle: VehiclePosition?,
+        now: Instant,
+    ): List<StopProgress> {
+        val updates = tripUpdate?.stop_time_update ?: return emptyList()
+        if (updates.isEmpty()) return emptyList()
+
+        val currentSeq = vehicle?.current_stop_sequence
+        val currentStopId = vehicle?.stop_id
+
+        return updates.map { stu ->
+            val estimated = stu.arrival?.time ?: stu.departure?.time ?: 0L
+            val skipped = stu.schedule_relationship ==
+                TripUpdate.StopTimeUpdate.ScheduleRelationship.SKIPPED
+
+            val state = when {
+                skipped -> StopProgress.State.SKIPPED
+                currentSeq != null && stu.stop_sequence != null -> when {
+                    stu.stop_sequence!! < currentSeq -> StopProgress.State.DEPARTED
+                    stu.stop_sequence == currentSeq -> StopProgress.State.CURRENT
+                    else -> StopProgress.State.UPCOMING
+                }
+                currentStopId != null && stu.stop_id == currentStopId -> StopProgress.State.CURRENT
+                estimated in 1 until now.epochSecond - 60 -> StopProgress.State.DEPARTED
+                else -> StopProgress.State.UPCOMING
+            }
+
+            StopProgress(
+                stop_id = stu.stop_id ?: "",
+                // Stop-name join arrives with the stops-dataset loader (T1.5).
+                // The app resolves names from its local stops DB meanwhile.
+                stop_name = "",
+                estimated_epoch_sec = estimated,
+                state = state,
+            )
+        }
+    }
+
+    private fun latestDelaySeconds(tripUpdate: TripUpdate?): Int? {
+        val updates = tripUpdate?.stop_time_update ?: return null
+        // The most recent passed/current stop's delay is the live truth;
+        // fall back to the first available delay.
+        return updates.lastOrNull { it.arrival?.delay != null || it.departure?.delay != null }
+            ?.let { it.departure?.delay ?: it.arrival?.delay }
+    }
+}

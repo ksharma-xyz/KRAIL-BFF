@@ -300,7 +300,7 @@ class ParkingBatchTest {
             throw UnsupportedOperationException("not used in batch test")
         override suspend fun getGtfsRealtimeRaw(version: Int, feed: String) =
             throw UnsupportedOperationException("not used in batch test")
-        override suspend fun getVehiclePositionsRaw(feed: String) =
+        override suspend fun getVehiclePositionsRaw(feed: String, version: Int) =
             throw UnsupportedOperationException("not used in batch test")
     }
 
