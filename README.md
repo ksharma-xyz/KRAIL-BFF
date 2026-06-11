@@ -8,6 +8,8 @@ Backend-for-Frontend service for the KRAIL mobile app, providing trip planning a
 
 ### Quick Links
 
+- 🗺️ **[PLAN.md](PLAN.md)** - Master plan: what to work on, in what order (start here)
+- 🚨 **[Emergency Runbook](docs/guides/EMERGENCY.md)** - Something's wrong in production: exact steps
 - 🚀 **[Local Development Guide](docs/LOCAL_DEVELOPMENT.md)** - Get started with local development
 - 🔐 **[Configuration Guide](docs/CONFIGURATION.md)** - Managing API keys and secrets
 - 🧪 **[Testing Quick Start](docs/TESTING_QUICK_START.md)** - Quick API testing guide
@@ -17,6 +19,10 @@ Backend-for-Frontend service for the KRAIL mobile app, providing trip planning a
 ## ⚡ Quick Start
 
 ```bash
+# 0. One-time per clone: enable the secret-guard pre-commit hook
+#    (blocks commits containing API keys / tokens / private keys)
+git config core.hooksPath .githooks
+
 # 1. Copy the configuration template
 cp local.properties.template local.properties
 

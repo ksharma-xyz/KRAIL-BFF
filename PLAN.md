@@ -18,6 +18,7 @@
 
 | Question | Doc |
 |---|---|
+| 🚨 Something's wrong in prod, what do I DO? | [docs/guides/EMERGENCY.md](docs/guides/EMERGENCY.md) |
 | What's the state right now? | [STATUS.md](STATUS.md) |
 | What's the full work queue? | [TODO.md](TODO.md) |
 | Is the code secure? what must I never do? | [docs/reference/SECURITY_AUDIT_2026-06.md](docs/reference/SECURITY_AUDIT_2026-06.md) |
@@ -113,7 +114,7 @@ only variable cost line is bandwidth (egress):
 | Volumetric DDoS on `bff.krail.app` | Dies at Cloudflare's edge (free, unmetered DDoS mitigation) — never reaches DO | ~0 |
 | Bots hammering the direct DO URL | Token gate answers 403s (~200 bytes each). Generating even 100 GB of 403 egress needs ~500M requests, and the single fixed container saturates CPU long before — it *slows down*, it cannot scale up or bill more | cents-to-few-$ |
 | Distributed botnet through Cloudflare with valid-looking requests | CF per-IP rules thin it; BFF global cap (50 rps) bounds total work; and the structural kicker: **big responses only exist when NSW returns data, and NSW calls stop at `NSW_DAILY_BUDGET` (10k/day)**. After that everything is tiny 503s. Max heavy egress ≈ 10k × ~100 KB = ~1 GB/day ≈ 30 GB/mo | single-digit $ at worst |
-| Something nobody predicted | Billing alerts at US$5/US$8 fire; `doctl apps delete` is the absolute ceiling-enforcer — spend stops the moment you run it, app users unaffected (kill switch → NSW direct) | bounded by how fast you react to the alert email |
+| Something nobody predicted | Billing alerts at US$5/US$8 fire; `doctl apps delete` is the absolute ceiling-enforcer — spend stops the moment you run it, app users unaffected (kill switch → NSW direct). Exact click-by-click steps: [EMERGENCY.md](docs/guides/EMERGENCY.md) | bounded by how fast you react to the alert email |
 
 Net: an attacker can make the BFF *unavailable* (worst case — and the
 app degrades to NSW-direct via the kill switch), but there is no
