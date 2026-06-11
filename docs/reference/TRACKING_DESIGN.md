@@ -379,6 +379,116 @@ Changes needed:
 | **A1** (app) | Point `TrackTripViewModel`/`TripPoller` at the BFF endpoint behind `bff_use_for_track` RC flag; delete client-side GTFS-R matcher after 100% + grace | T1 |
 | **A2** (app) | Deep link v2 payload + krail.app domain migration + well-known files on website | DNS move |
 
+## 7a. Shapes dataset pipeline (T1.5) — how the map line is built
+
+Same pattern, same workflow, near-zero new moving parts:
+`stops-dataset.yml` **already downloads the per-mode NSW GTFS bundles**
+— `shapes.txt` and `trips.txt` are additional files inside those same
+zips. The job grows one Gradle task; no new schedule, no new secrets,
+still A$0 (GitHub Actions free on public repos).
+
+```
+stops-dataset.yml (existing weekly job)
+  fetch GTFS bundles (already happens)
+    ├─ stops.txt    → stops.pb        (existing)
+    ├─ routes/trips → routes .pb      (existing)
+    └─ NEW: trips.txt + shapes.txt → shapes_<mode>.pb
+            │
+            │ 1. trips.txt: trip_id → shape_id        (many→one)
+            │ 2. shapes.txt: shape_id → ordered points
+            │ 3. encode each shape as a polyline string (precision 5)
+            │ 4. emit per mode: {version, shapes[shape_id→polyline],
+            │                    trip_index[trip_id→shape_id]}
+            ▼
+  publish to the same GitHub Release alongside stops.pb + manifest
+```
+
+Design points:
+
+- **Dedup is the whole trick:** thousands of trips share a handful of
+  shapes (every T1 north-bound run is one geometry). Storing shapes
+  once + a trip→shape index keeps trains/metro/ferry/light-rail to
+  low single-digit MB total.
+- **Per-mode files** (`shapes_sydneytrains.pb`, …) so the BFF loads
+  only what tracking requests touch. Bus shapes are 10–50× larger —
+  that's one reason buses are phase T3.
+- **BFF consumption:** on first tracking request for a mode, fetch the
+  dataset from GitHub Releases (manifest pattern, same as the app's
+  stops flow), hold decoded in memory, hot-swap when the weekly
+  version bumps. Trip-id lookup is then an in-memory map hit —
+  no per-request parsing, nothing touches NSW.
+- **Trip-id drift guard:** shapes data is at most a week older than
+  the realtime feed; if a live trip_id misses the index (new
+  timetable mid-week), fall back to `STOP_STRAIGHT_LINES` for that
+  trip and count a metric — sustained misses mean "regenerate now"
+  (manual `workflow_dispatch` exists already).
+
+## 7b. App handover docs (how the app team — you — gets told what changed)
+
+The repo already has the convention: `docs/handover/` (API_REFERENCE,
+MIGRATION_GUIDE, TESTING_GUIDE + fixtures) is what the KRAIL app side
+reads when integrating. Tracking follows it — **each phase that
+changes the app contract ships its handover section in the same PR as
+the code**, not after:
+
+| Phase | Handover deliverable (in `docs/handover/`) |
+|---|---|
+| T0 | `track.proto` reference: every field, the render-ready promise, payload budgets |
+| T1 | `TRACKING_INTEGRATION.md`: endpoint + headers, poll loop contract (`suggested_poll_seconds` obedience, `include_geometry` on first poll only), the degradation ladder (which fields drive which UI), `expected_occupancy` CURRENT/UPCOMING render rule, status-enum → screen-state mapping (`EXPIRED` → "trip ended" + re-plan offer), captured real response fixtures for app unit tests |
+| A1 | Checklist of app deletions: client-side GTFS-R client, vendored gtfs-realtime.proto, matcher — what goes, when (post-100% + grace) |
+| A2 | Deep-link v2 payload spec + well-known file contents + old-domain grace policy |
+
+Rule of thumb baked into the phases: **a BFF phase isn't "done" until
+its handover section exists** — same standard the original BFF v1
+endpoints held themselves to (API_REFERENCE.md, fixtures/).
+
+## 7c. Browser test dashboard first, app integration second
+
+Requirement: prove polling, matching, geometry, and occupancy in a
+browser before any app code changes. Infrastructure exists — the repo
+ships `docs/tools/api-tester.html` served by `./scripts/dev.sh up` at
+`http://localhost:8000`, already used for BFF↔NSW compare testing.
+Tracking gets a **new tab in that same dashboard** (phase
+**T1-dash**, built alongside T1, used as T1's acceptance test):
+
+1. **Dual content type on the endpoint.** Like trip planning already
+   does (JSON `/plan` + `/plan-proto`), `/api/v1/track/snapshot`
+   honours `Accept: application/json` with the exact same payload as
+   the proto. The dashboard consumes JSON — no protobuf decoding in
+   the browser; the app consumes proto. One handler, two encodings,
+   so the browser tests the *real* code path.
+2. **Trip picker** (solves "what do I track?"): enter a stop id →
+   dashboard calls the existing departures endpoint → lists imminent
+   services with their trip_ids → click one → tracking starts. No
+   hand-crafting trip ids.
+3. **Poll loop panel:** start/stop button; obeys
+   `suggested_poll_seconds` exactly as the app must; shows countdown
+   to next poll, last HTTP status, per-poll latency, and a running
+   log. This is where "does 30 s polling behave?" gets answered.
+4. **Map view:** Leaflet + OpenStreetMap tiles (free, no key, fine for
+   a localhost dev tool) — decoded polyline drawn, vehicle marker
+   moving with bearing rotation, stop pins, marker greys out when
+   `measured_at` ages past ~90 s (the staleness UX, previewed).
+5. **Trip panel:** the stop timeline exactly as the app will render
+   it — DEPARTED/CURRENT/UPCOMING states, live ETA drift,
+   `expected_occupancy` chips that hide once a stop departs (the §4
+   render rule, validated visually), fleet badge, car-occupancy strip
+   when PassLoad data exists.
+6. **Raw JSON tree** (existing dashboard component) for every
+   response, plus the leg `status` enum prominently — so
+   `NO_REALTIME`/`UPSTREAM_UNAVAILABLE` cases are visible, not
+   mysterious.
+7. **Share-link simulator:** paste a `krail.app/trip?d=` URL (or its
+   base64 payload) → dashboard decodes it and starts tracking from
+   exactly the payload a recipient's app would have. Tests the v2
+   payload + `EXPIRED` flow without two phones.
+
+Sequence: T1 endpoint and T1-dash land together → soak it in the
+browser for days/weeks of real-world trains (verify O1/O3 empirically
+on live data) → only then A1 app integration. The dashboard stays
+afterwards as the permanent debugging tool for "why does this trip
+track weirdly" reports.
+
 ## 8. Open items (confirm before T1 code)
 
 - **O1:** Exact proto field numbers/paths for `PassLoad` and

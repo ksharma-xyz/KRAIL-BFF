@@ -62,8 +62,21 @@
       per-stop expected occupancy. Trains/metro/light rail/ferry.
       Hard rule: tracking never re-plans — GTFS trip_id is the only
       source of truth (design G9).
+- [ ] **T1-dash** — tracking tab in the existing dev dashboard
+      (api-tester.html): JSON content-type on the endpoint, trip
+      picker via departures, poll-loop panel, Leaflet map with live
+      marker + polyline, stop timeline with render rules, share-link
+      simulator. Lands with T1; soak in browser before any app work
+      ([design §7c](docs/reference/TRACKING_DESIGN.md)).
 - [ ] **T1.5** — shapes.txt polyline dataset via GitHub Actions
-      (map line); `STOP_STRAIGHT_LINES` fallback until then.
+      (map line); `STOP_STRAIGHT_LINES` fallback until then
+      ([design §7a](docs/reference/TRACKING_DESIGN.md) — same weekly
+      workflow as stops, parses shapes.txt+trips.txt from the bundles
+      it already downloads).
+- [ ] **Handover docs per phase** — each BFF phase ships its
+      `docs/handover/` section (proto reference, integration guide,
+      fixtures, app-deletion checklist) in the same PR as the code
+      ([design §7b](docs/reference/TRACKING_DESIGN.md)).
 - [ ] **T2** — per-carriage occupancy + live fleet descriptor (after O1).
 - [ ] **T3** — buses (after O2) + carriage-layout dataset via GitHub
       Actions (`reaches_platform`).
