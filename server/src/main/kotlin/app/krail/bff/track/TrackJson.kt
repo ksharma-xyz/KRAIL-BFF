@@ -95,6 +95,7 @@ object TrackJson {
                     if (s.planned_epoch_sec != 0L) put("planned_epoch_sec", s.planned_epoch_sec)
                     if (s.estimated_epoch_sec != 0L) put("estimated_epoch_sec", s.estimated_epoch_sec)
                     put("state", s.state.name)
+                    put("segment", s.segment.name)
                 })
             }
         })

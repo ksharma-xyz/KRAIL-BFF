@@ -547,14 +547,21 @@ function render() {
   $('hero').innerHTML = `<div class="headline">${miHtml(pc,34)} ${headline}</div>`+
     (sub?`<div class="sub">${sub}</div>`:'')+`<div class="chips">${chips}</div>`+occHtml;
 
-  // timeline
+  // timeline — JOURNEY stops always shown; BEFORE/AFTER collapse into
+  // expandable groups (the contract returns the vehicle's full run,
+  // tagged per stop — exactly what the app will get to choose from).
   $('timeline').innerHTML = '';
   const stops = leg.stops || [];
   if (!stops.length) $('timeline').innerHTML = `<div class="empty-live">no stop data for this leg</div>`;
-  stops.forEach((s,idx) => {
+
+  const journeyIdx = stops.map((s,i) => [s.segment, i]).filter(([sg]) => sg === 'JOURNEY').map(([,i]) => i);
+  const jFirst = journeyIdx[0] ?? 0, jLast = journeyIdx.at(-1) ?? stops.length - 1;
+
+  const stopRow = (s, idx, dimmed) => {
     const el = document.createElement('div');
-    el.className = `tl-stop tl-${s.state}` + (idx===0?' tl-first':'') + (idx===stops.length-1?' tl-last':'');
+    el.className = `tl-stop tl-${s.state}` + (idx===jFirst&&!dimmed?' tl-first':'') + (idx===jLast&&!dimmed?' tl-last':'');
     el.style.setProperty('--mode', mc);
+    if (dimmed) { el.style.opacity = .45; el.style.filter = 'saturate(.4)'; }
     const planned = plannedFor(leg, s.stop_id);
     const est = s.estimated_epoch_sec || 0;
     let delta = '<span></span>';
@@ -564,8 +571,29 @@ function render() {
     }
     el.innerHTML = `<span class="t">${fmtT(est||planned)}</span><span class="tl-dot"><i></i></span>`+
       `<span class="name">${stopName(s.stop_id)}${ctx.stopMeta[s.stop_id]?.name?`<span class="sid">${s.stop_id}</span>`:''}</span>`+delta;
-    $('timeline').appendChild(el);
+    return el;
+  };
+
+  const group = (items, label) => {
+    if (!items.length) return null;
+    const det = document.createElement('details');
+    det.style.cssText = 'margin:2px 16px;';
+    det.innerHTML = `<summary style="cursor:pointer;font:700 12px var(--disp);letter-spacing:1.5px;color:var(--dim);padding:4px 0;list-style-position:inside">${label}</summary>`;
+    items.forEach(([s,i]) => det.appendChild(stopRow(s, i, true)));
+    return det;
+  };
+
+  const before = [], journey = [], after = [];
+  stops.forEach((s,i) => {
+    if (s.segment === 'BEFORE_JOURNEY') before.push([s,i]);
+    else if (s.segment === 'AFTER_JOURNEY') after.push([s,i]);
+    else journey.push([s,i]);
   });
+  const gb = group(before, `▸ ${before.length} earlier stop${before.length>1?'s':''} (before you board)`);
+  if (gb) $('timeline').appendChild(gb);
+  journey.forEach(([s,i]) => $('timeline').appendChild(stopRow(s, i, false)));
+  const ga = group(after, `▸ continues to ${after.length} more stop${after.length>1?'s':''} (after you alight)`);
+  if (ga) $('timeline').appendChild(ga);
   const curEl = $('timeline').querySelector('.tl-CURRENT');
   if (curEl) curEl.scrollIntoView({ block:'center', behavior:'smooth' });
 

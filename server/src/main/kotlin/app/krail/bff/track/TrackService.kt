@@ -127,7 +127,7 @@ class TrackService(
         metrics.counter("track.match.exact").inc()
 
         val stops = buildStopTimeline(tripUpdate, vehicle, now)
-            .sliceToJourney(leg.origin_stop_id, leg.destination_stop_id)
+            .annotateSegments(leg.origin_stop_id, leg.destination_stop_id)
         val status = when {
             vehicle != null -> LegTracking.Status.TRACKING
             stops.isNotEmpty() && stops.all { it.state == StopProgress.State.DEPARTED } ->
@@ -275,22 +275,31 @@ class TrackService(
 
     /**
      * The feed carries the vehicle's FULL run; the user boards and alights
-     * somewhere inside it. Slice to the journey segment when both endpoint
-     * stop ids match exactly (they do for trains/buses — Trip Planner leg
-     * stops use the same platform-level ids as TripUpdates). On any
-     * mismatch return the full list — wrong slicing is worse than extra
-     * stops, and a metric tracks how often the match fails.
+     * somewhere inside it. The full list is returned — clients may want
+     * "what's coming after my stop" — with each stop tagged relative to
+     * the user's journey (BEFORE/JOURNEY/AFTER) when both endpoint ids
+     * match the sequence exactly (they do for trains/buses — Trip Planner
+     * legs use the same platform-level ids as TripUpdates). On mismatch
+     * every stop stays SEGMENT_UNSPECIFIED and clients render all stops
+     * normally; a metric tracks how often that happens.
      */
-    private fun List<StopProgress>.sliceToJourney(originId: String, destinationId: String): List<StopProgress> {
+    private fun List<StopProgress>.annotateSegments(originId: String, destinationId: String): List<StopProgress> {
         if (originId.isBlank() || destinationId.isBlank()) return this
         val from = indexOfFirst { it.stop_id == originId }
         val to = indexOfLast { it.stop_id == destinationId }
-        return if (from in 0..to) {
-            metrics.counter("track.slice.matched").inc()
-            subList(from, to + 1)
-        } else {
-            metrics.counter("track.slice.unmatched").inc()
-            this
+        if (from < 0 || to < from) {
+            metrics.counter("track.segment.unmatched").inc()
+            return this
+        }
+        metrics.counter("track.segment.matched").inc()
+        return mapIndexed { i, stop ->
+            stop.copy(
+                segment = when {
+                    i < from -> StopProgress.Segment.BEFORE_JOURNEY
+                    i > to -> StopProgress.Segment.AFTER_JOURNEY
+                    else -> StopProgress.Segment.JOURNEY
+                },
+            )
         }
     }
 

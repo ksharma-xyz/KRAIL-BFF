@@ -198,27 +198,32 @@ class TrackServiceTest {
     }
 
     @Test
-    fun `timeline is sliced to the requested journey segment`() = runBlocking {
+    fun `stops are tagged relative to the requested journey segment`() = runBlocking {
         // Take a live trip's real stop ids and request a mid-trip segment.
         val tu = FeedMessage.ADAPTER.decode(fixture("tripupdates_sydneytrains.pb"))
         val fullStops = tu.entity.first { it.trip_update?.trip?.trip_id == liveTripId }
             .trip_update!!.stop_time_update.mapNotNull { it.stop_id }
-        check(fullStops.size >= 4) { "fixture trip too short for slicing test" }
+        check(fullStops.size >= 4) { "fixture trip too short for segment test" }
         val origin = fullStops[1]
         val destination = fullStops[fullStops.size - 2]
 
-        val sliced = service().snapshot(TrackRequest(legs = listOf(
+        val stops = service().snapshot(TrackRequest(legs = listOf(
             leg(liveTripId).copy(origin_stop_id = origin, destination_stop_id = destination),
         ))).legs.single().stops
-        assertEquals(origin, sliced.first().stop_id)
-        assertEquals(destination, sliced.last().stop_id)
-        assertEquals(fullStops.size - 2, sliced.size)
+        // Full run still present — clients choose what to render.
+        assertEquals(fullStops.size, stops.size)
+        assertEquals(StopProgress.Segment.BEFORE_JOURNEY, stops.first().segment)
+        assertEquals(StopProgress.Segment.AFTER_JOURNEY, stops.last().segment)
+        val journey = stops.filter { it.segment == StopProgress.Segment.JOURNEY }
+        assertEquals(origin, journey.first().stop_id)
+        assertEquals(destination, journey.last().stop_id)
+        assertEquals(fullStops.size - 2, journey.size)
 
-        // Unknown endpoints → full list, never a wrong slice.
-        val full = service().snapshot(TrackRequest(legs = listOf(
+        // Unknown endpoints → everything UNSPECIFIED, never a wrong tag.
+        val untagged = service().snapshot(TrackRequest(legs = listOf(
             leg(liveTripId).copy(origin_stop_id = "NOPE1", destination_stop_id = "NOPE2"),
         ))).legs.single().stops
-        assertEquals(fullStops.size, full.size)
+        assertTrue(untagged.all { it.segment == StopProgress.Segment.SEGMENT_UNSPECIFIED })
     }
 
     @Test

@@ -73,10 +73,19 @@ in T1.5; harmless now).
 3. **Fleet badge:** `fleet.display_name` ("Waratah", "OSCAR",
    "Alstom Metropolis"). `source = LIVE` reflects actual substituted
    rolling stock; `SCHEDULED` is parsed from the trip id.
-4. **Timeline:** `stops[]` in running order. `state` drives the glyphs;
-   `estimated_epoch_sec` when present, else planned time from the app's
-   own trip data. `stop_name` is EMPTY in T1 — resolve names from the
-   app's local stops DB by `stop_id` (T1.5 adds server-side names).
+4. **Timeline:** `stops[]` is the vehicle's **full run** in running
+   order, each stop tagged with `segment`: `JOURNEY` (between the
+   requested origin and destination), `BEFORE_JOURNEY`, or
+   `AFTER_JOURNEY`. Render JOURNEY stops normally; the surrounding
+   groups are the client's choice — recommended: collapsed
+   "▸ continues to N more stops" expanders (the dashboard demonstrates
+   this). If every stop is `SEGMENT_UNSPECIFIED` the endpoint ids
+   didn't match the trip's sequence — render all stops normally.
+   `state` drives the glyphs; `estimated_epoch_sec` when present, else
+   planned time from the app's own trip data. `stop_name` is EMPTY in
+   T1 — resolve names from the app's local stops DB by `stop_id`
+   (T1.5 adds server-side names; the local DB matters most for
+   BEFORE/AFTER stops, which the trip response never names).
    `expected_occupancy` ships in a later phase; render only for
    CURRENT/UPCOMING stops when it arrives.
 5. **Delay:** `has_delay == true` → show `delay_seconds` (negative =
