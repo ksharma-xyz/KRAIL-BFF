@@ -193,6 +193,8 @@ object JourneyListMapper {
                     service_alert_list = serviceAlerts,
                     trip_id = tripId.ifEmpty { null },
                     coords = leg.coords.toCoordList(),
+                    transportation_id = transport.id?.takeIf { it.isNotEmpty() },
+                    realtime_trip_id = transport.properties?.realtimeTripId?.takeIf { it.isNotEmpty() },
                 )
             )
         }
