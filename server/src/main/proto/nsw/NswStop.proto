@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package app.krail.kgtfs.proto;
+
+message NswStop {
+
+  /** The stop ID is a unique identifier for the stop.   */
+  string stopId = 1;
+
+  // The stop name is the name of the stop.
+  string stopName = 2;
+
+  double lat = 3;
+  double lon = 4;
+
+  // The product class is a list of transport modes that the stop is associated with.
+  repeated int32 productClass = 5;
+
+  // Indicates if this stop is a parent stop.
+  //
+  // Proto3 semantics:
+  // - Bool fields default to false in generated code.
+  // - Presence can be used to distinguish "not set" from an explicitly set value.
+  //
+  // Application logic (for this project):
+  // - Field not set (absent)       => treat as parent stop
+  // - Field explicitly set to true => parent stop
+  // - Field explicitly set to false => child stop (e.g., specific platform/stand)
+  bool isParent = 6;
+}
+
+message NswStopList {
+  repeated NswStop nswStops = 1;
+}

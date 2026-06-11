@@ -29,6 +29,7 @@ import java.time.format.DateTimeFormatter
 class TrackService(
     private val nsw: NswClient,
     private val metrics: MetricRegistry,
+    private val stops: StopDirectory = StopDirectory(),
     private val feedCache: FeedCache = FeedCache(),
     private val vehicleposTtlMillis: Long = 15_000,
     private val tripUpdatesTtlMillis: Long = 30_000,
@@ -262,13 +263,15 @@ class TrackService(
                 else -> StopProgress.State.UPCOMING
             }
 
+            val stopId = stu.stop_id ?: ""
+            val known = stops.find(stopId)
             StopProgress(
-                stop_id = stu.stop_id ?: "",
-                // Stop-name join arrives with the stops-dataset loader (T1.5).
-                // The app resolves names from its local stops DB meanwhile.
-                stop_name = "",
+                stop_id = stopId,
+                stop_name = known?.name ?: "",
                 estimated_epoch_sec = estimated,
                 state = state,
+                latitude = known?.lat ?: 0.0,
+                longitude = known?.lon ?: 0.0,
             )
         }
     }

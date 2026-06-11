@@ -72,9 +72,13 @@
 - [ ] **SOAK (you, now)** — `./scripts/dev.sh up` →
       http://localhost:8000/track-tester.html → track real trains for
       a few days. Satisfaction gates app work.
-- [ ] **T1.5** — stops+shapes dataset join: stop names + pin coords +
-      encoded polyline in first-poll response (GitHub Actions job
-      extension per design §7a).
+- [ ] **T1.5** — tracking-grade stop directory + shapes join. The
+      bundled search dataset resolves parents + bus stops only;
+      GTFS-R reports PLATFORM ids for trains, and platform→parent
+      mapping lives in GTFS `stops.txt` (`parent_station`). Build a
+      platform-level directory (id, name, parent, lat/lon) + shapes
+      polylines in the existing GitHub Actions dataset job; BFF then
+      names every stop and ships first-poll geometry (design §7a).
 - [x] **T1 handover doc** —
       [docs/handover/TRACKING_INTEGRATION.md](docs/handover/TRACKING_INTEGRATION.md)
       (includes the app-side `direction_id` proto bug found while

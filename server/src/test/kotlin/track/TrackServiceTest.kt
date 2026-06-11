@@ -121,6 +121,9 @@ class TrackServiceTest {
         assertTrue(fleet.display_name.isNotBlank())
 
         assertTrue(tracked.stops.isNotEmpty(), "trip updates exist for this trip")
+        // Note: train stops in GTFS-R are PLATFORM ids; the bundled search
+        // dataset only carries parents + bus stops, so train stop names may
+        // be empty until the T1.5 platform-level directory lands.
         // NSW trains publish delay-style updates; absolute times appear on a
         // subset of stops. Either live signal must surface.
         assertTrue(

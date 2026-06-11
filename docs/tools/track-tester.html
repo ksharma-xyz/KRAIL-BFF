@@ -372,7 +372,7 @@ function renderJourneys(journeys) {
         return miHtml(pc) + (badgeHtml(pc,line) || `<span style="color:var(--soft);font:700 13px var(--disp)">${line}</span>`); }).join('<span style="color:var(--dim)">›</span>')}</div>`+
       `<div class="route">${legs.map(l => (l.origin?.disassembledName||'').split(',')[0]).filter(Boolean).join(' → ')}</div>`;
     div.onclick = () => {
-      ctx = { stopMeta:{}, planned:{}, legCoords:{} };
+      resetTracking();
       pickedLegs = legs.map((l,i) => { const ref = `leg-${i+1}`; harvestLegContext(l, ref); return {
         leg_ref: ref, realtime_trip_id: l.transportation.properties.RealtimeTripId,
         transportation_id: l.transportation.id || '', product_class: l.transportation.product?.class || 0,
@@ -420,6 +420,7 @@ $('decodeBtn').onclick = () => {
     const m = raw.match(/[?&]d=([^&]+)/); if (m) raw = m[1];
     const json = JSON.parse(atob(raw.replace(/-/g,'+').replace(/_/g,'/')));
     $('shareInfo').textContent = JSON.stringify(json).slice(0,200);
+    resetTracking();
     const legs = (json.legs||[]).map((l,i) => ({
       leg_ref:`share-${i+1}`, realtime_trip_id: l.realtimeTripId||l.realtime_trip_id||'',
       transportation_id: l.transportationId||'', product_class: l.productClass||l.product_class||0,
@@ -434,6 +435,22 @@ $('decodeBtn').onclick = () => {
 
 /* ─── poll loop ─────────────────────────────────────────────────────── */
 let timer=null, rafTimer=null, nextAt=0, waitMs=30000, lastResp=null, activeLeg=0;
+
+// Full state reset when switching to a different journey — kills ghost
+// markers (marker keys are per-leg_ref, identical across journeys),
+// passed-stop memory, and the previous response.
+function resetTracking() {
+  Object.values(vehicleMarkers).forEach(m => map.removeLayer(m));
+  vehicleMarkers = {};
+  seenStops = {};
+  lastResp = null;
+  activeLeg = 0;
+  fitted = false;
+  ctx = { stopMeta:{}, planned:{}, legCoords:{} };
+  $('legtabs').innerHTML = '';
+  $('timeline').innerHTML = '';
+  $('hero').innerHTML = '<div class="empty-live">switching trip…</div>';
+}
 
 async function poll() {
   const rec = await apiCall('track/snapshot', '→ GTFS-R feeds (cached)', `${base()}/api/v1/track/snapshot`, {
@@ -477,6 +494,22 @@ const LV_NUM = {LEVEL_UNSPECIFIED:0,EMPTY:1,MANY_SEATS_AVAILABLE:2,FEW_SEATS_AVA
 const LV_TEXT = {EMPTY:'Empty',MANY_SEATS_AVAILABLE:'Many seats available',FEW_SEATS_AVAILABLE:'Few seats available',STANDING_ROOM_ONLY:'Standing room only',CRUSHED_STANDING_ROOM_ONLY:'Crushed standing',FULL:'Full',NOT_ACCEPTING_PASSENGERS:'Not boarding'};
 const stopName = id => ctx.stopMeta[id]?.name || id;
 const plannedFor = (leg, id) => ctx.planned[leg.leg_ref]?.[id] || 0;
+
+// Per-leg memory of every stop ever seen this tracking session.
+// New polls update matching stops in place; stops missing from the new
+// response (NSW dropped them = passed) are kept and marked DEPARTED.
+let seenStops = {};   // legRef -> array of stop objects (response shape)
+function mergeStops(legRef, fresh) {
+  const prev = seenStops[legRef];
+  if (!prev || !fresh.length) { if (fresh.length) seenStops[legRef] = fresh.slice(); return fresh; }
+  const freshIds = new Set(fresh.map(s => s.stop_id));
+  const kept = prev.filter(s => !freshIds.has(s.stop_id))
+    .map(s => ({ ...s, state: 'DEPARTED' }));
+  // Feed trims from the front, so dropped stops belong before the fresh list.
+  const merged = [...kept, ...fresh];
+  seenStops[legRef] = merged;
+  return merged;
+}
 const delayChip = leg => {
   if (!leg || leg.delay_seconds === undefined) return '';
   const d = leg.delay_seconds, m = Math.round(Math.abs(d)/60);
@@ -550,8 +583,12 @@ function render() {
   // timeline — JOURNEY stops always shown; BEFORE/AFTER collapse into
   // expandable groups (the contract returns the vehicle's full run,
   // tagged per stop — exactly what the app will get to choose from).
+  // NSW trims passed stops out of TripUpdates as the trip progresses, so
+  // merge each poll into the stops we've already seen: a stop the feed
+  // dropped stays in the list, marked DEPARTED. (The app should do the
+  // same, or overlay live data on its planned stop list.)
   $('timeline').innerHTML = '';
-  const stops = leg.stops || [];
+  const stops = mergeStops(leg.leg_ref, leg.stops || []);
   if (!stops.length) $('timeline').innerHTML = `<div class="empty-live">no stop data for this leg</div>`;
 
   const journeyIdx = stops.map((s,i) => [s.segment, i]).filter(([sg]) => sg === 'JOURNEY').map(([,i]) => i);
@@ -569,8 +606,9 @@ function render() {
       const d = Math.round((est-planned)/60);
       delta = d>0?`<span class="delta late-d">+${d}m</span>`:d<0?`<span class="delta early-d">${d}m</span>`:`<span class="delta ontime-d">✓</span>`;
     }
+    const nm = s.stop_name || stopName(s.stop_id);   // server name first (BFF stop directory)
     el.innerHTML = `<span class="t">${fmtT(est||planned)}</span><span class="tl-dot"><i></i></span>`+
-      `<span class="name">${stopName(s.stop_id)}${ctx.stopMeta[s.stop_id]?.name?`<span class="sid">${s.stop_id}</span>`:''}</span>`+delta;
+      `<span class="name">${nm}${nm!==s.stop_id?`<span class="sid">${s.stop_id}</span>`:''}</span>`+delta;
     return el;
   };
 

@@ -96,6 +96,7 @@ object TrackJson {
                     if (s.estimated_epoch_sec != 0L) put("estimated_epoch_sec", s.estimated_epoch_sec)
                     put("state", s.state.name)
                     put("segment", s.segment.name)
+                    if (s.latitude != 0.0) { put("latitude", s.latitude); put("longitude", s.longitude) }
                 })
             }
         })
