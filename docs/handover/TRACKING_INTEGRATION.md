@@ -98,8 +98,13 @@ the life of the tracked trip.
    directory names train platform ids ("Central Station Platform 16")
    the app's local stops DB doesn't have. Render it when non-empty;
    fall back to the local DB only when it's blank (directory gap).
-   `expected_occupancy` ships in a later phase; render only for
-   CURRENT/UPCOMING stops when it arrives.
+   `expected_occupancy` (T1.6) ships **once, with geometry** (first
+   poll) — cache it client-side like the polyline. Render rule: show
+   ONLY while the stop is CURRENT/UPCOMING; a forecast for a departed
+   stop is noise (live `occupancy` is the truth from then on). It is
+   best-effort Trip Planner enrichment validated against the locked
+   trip_id — absent whenever NSW has no forecast (common off-peak);
+   absence never changes structure.
 5. **Map line (first poll):** `geometry.encoded_polyline` is a Google
    polyline (precision 5) of the vehicle's full run. `source` tells
    you what you're drawing: `GTFS_SHAPES` = real track geometry
@@ -137,7 +142,9 @@ simulator decodes both shapes today and flags v1 as untrackable.
 
 ## Known limitations (by design, tracked in TODO)
 
-- `expected_occupancy` absent → trip-context enrichment phase.
+- `expected_occupancy` is best-effort: present only when NSW's Trip
+  Planner carries a forecast for the locked trip (often absent
+  off-peak). Never rendered for DEPARTED stops.
 - Bus legs: geometry falls back to `STOP_STRAIGHT_LINES` (no bus
   shapes dataset yet — 10–50× larger, folds in with T3 carriage
   layouts); names come from the search dataset (bus stops are in it).

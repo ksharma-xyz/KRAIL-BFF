@@ -2,6 +2,7 @@ package track
 
 import app.krail.bff.client.nsw.NswClient
 import app.krail.bff.client.nsw.NswUpstreamException
+import app.krail.bff.model.TripResponse
 import app.krail.bff.proto.LegTracking
 import app.krail.bff.proto.OccupancyInfo
 import app.krail.bff.proto.StopProgress
@@ -9,6 +10,7 @@ import app.krail.bff.proto.TrackRequest
 import app.krail.bff.proto.LegGeometry
 import app.krail.bff.track.TrackDatasetStore
 import app.krail.bff.track.TrackService
+import app.krail.bff.track.TripOccupancyEnricher
 import app.krail.bff.trackdata.ShapesDataset
 import app.krail.bff.trackdata.TrackStop
 import app.krail.bff.trackdata.TrackStopsDataset
@@ -60,11 +62,16 @@ class TrackServiceTest {
     ) : NswClient {
         var vehicleposFetches = 0
         var tripUpdatesOverride: ByteArray? = null
+        var tripResponse: TripResponse? = null
+        var tripCalls = 0
         override suspend fun healthCheck() = true
         override suspend fun getTrip(
             originStopId: String, destinationStopId: String, depArr: String,
             date: String?, time: String?, excludedModes: Set<Int>,
-        ) = throw UnsupportedOperationException("unused")
+        ): TripResponse {
+            tripCalls++
+            return tripResponse ?: throw UnsupportedOperationException("unused")
+        }
         override suspend fun getTripProto(
             originStopId: String, destinationStopId: String, depArr: String,
             date: String?, time: String?, excludedModes: Set<Int>,
@@ -98,13 +105,17 @@ class TrackServiceTest {
 
     private fun fakeNsw(failFeeds: Boolean = false) = FakeNsw(::fixture, failFeeds)
 
-    private fun service(nsw: NswClient = fakeNsw(), datasets: TrackDatasetStore = TrackDatasetStore(null, null)) =
-        TrackService(
-            nsw = nsw,
-            metrics = MetricRegistry(),
-            datasets = datasets,
-            clock = { captureInstant },
-        )
+    private fun service(
+        nsw: NswClient = fakeNsw(),
+        datasets: TrackDatasetStore = TrackDatasetStore(null, null),
+        enricher: TripOccupancyEnricher? = null,
+    ) = TrackService(
+        nsw = nsw,
+        metrics = MetricRegistry(),
+        datasets = datasets,
+        occupancyEnricher = enricher,
+        clock = { captureInstant },
+    )
 
     private fun leg(tripId: String, productClass: Int = 1, serviceDate: String = captureServiceDate) =
         TrackRequest.TrackLeg(
@@ -381,6 +392,77 @@ class TrackServiceTest {
         assertEquals(null, tracked.geometry)
         assertTrue(tracked.stops.all { it.latitude == 0.0 && it.longitude == 0.0 })
         assertTrue(tracked.stops.all { it.stop_name.isNotBlank() }, "names still ship every poll")
+    }
+
+    /** Trip Planner response whose leg runs [tripId] with per-stop occupancy. */
+    private fun tripResponseFor(tripId: String, occupancy: String = "MANY_SEATS") = TripResponse(
+        journeys = listOf(
+            TripResponse.Journey(
+                legs = listOf(
+                    TripResponse.Leg(
+                        transportation = TripResponse.Transportation(
+                            properties = TripResponse.TransportationProperties(realtimeTripId = tripId),
+                        ),
+                        stopSequence = liveTripStopIds.map { id ->
+                            TripResponse.StopSequence(
+                                id = id,
+                                properties = TripResponse.DestinationProperties(occupancy = occupancy),
+                            )
+                        },
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    private fun enricher(nsw: NswClient) = TripOccupancyEnricher(nsw = nsw, metrics = MetricRegistry())
+
+    @Test
+    fun `expected occupancy ships with geometry when Trip Planner confirms the locked trip`() = runBlocking {
+        val nsw = fakeNsw().apply { tripResponse = tripResponseFor(liveTripId) }
+        val svc = service(nsw = nsw, enricher = enricher(nsw))
+        val withDeparture = leg(liveTripId).copy(planned_departure_utc = captureInstant.toString())
+
+        val first = svc.snapshot(TrackRequest(legs = listOf(withDeparture), include_geometry = true)).legs.single()
+        assertTrue(
+            first.stops.all { it.expected_occupancy == OccupancyInfo.Level.MANY_SEATS_AVAILABLE },
+            "every stop carries the forecast",
+        )
+        assertEquals(1, nsw.tripCalls)
+
+        // Cached per (trip_id, service_date): a second first-poll costs nothing.
+        svc.snapshot(TrackRequest(legs = listOf(withDeparture), include_geometry = true))
+        assertEquals(1, nsw.tripCalls, "one Trip Planner call per tracked trip")
+
+        // Steady-state polls never trigger the enrichment.
+        val steady = svc.snapshot(TrackRequest(legs = listOf(withDeparture))).legs.single()
+        assertTrue(steady.stops.all { it.expected_occupancy == OccupancyInfo.Level.LEVEL_UNSPECIFIED })
+        assertEquals(1, nsw.tripCalls)
+    }
+
+    @Test
+    fun `re-planned Trip Planner response is discarded, never substituted`() = runBlocking {
+        val nsw = fakeNsw().apply { tripResponse = tripResponseFor("some-OTHER-trip") }
+        val svc = service(nsw = nsw, enricher = enricher(nsw))
+
+        val tracked = svc.snapshot(
+            TrackRequest(legs = listOf(leg(liveTripId)), include_geometry = true),
+        ).legs.single()
+        assertTrue(
+            tracked.stops.all { it.expected_occupancy == OccupancyInfo.Level.LEVEL_UNSPECIFIED },
+            "occupancy from a different trip must never leak in",
+        )
+    }
+
+    @Test
+    fun `Trip Planner failure costs nothing — tracking is unaffected`() = runBlocking {
+        val nsw = fakeNsw() // tripResponse null → getTrip throws
+        val svc = service(nsw = nsw, enricher = enricher(nsw))
+        val tracked = svc.snapshot(
+            TrackRequest(legs = listOf(leg(liveTripId)), include_geometry = true),
+        ).legs.single()
+        assertEquals(LegTracking.Status.TRACKING, tracked.status)
+        assertTrue(tracked.stops.all { it.expected_occupancy == OccupancyInfo.Level.LEVEL_UNSPECIFIED })
     }
 
     @Test

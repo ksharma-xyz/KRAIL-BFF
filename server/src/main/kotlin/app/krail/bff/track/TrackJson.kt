@@ -1,6 +1,7 @@
 package app.krail.bff.track
 
 import app.krail.bff.proto.LegTracking
+import app.krail.bff.proto.OccupancyInfo
 import app.krail.bff.proto.TrackRequest
 import app.krail.bff.proto.TrackResponse
 import kotlinx.serialization.json.JsonArray
@@ -96,6 +97,9 @@ object TrackJson {
                     if (s.estimated_epoch_sec != 0L) put("estimated_epoch_sec", s.estimated_epoch_sec)
                     put("state", s.state.name)
                     put("segment", s.segment.name)
+                    if (s.expected_occupancy != OccupancyInfo.Level.LEVEL_UNSPECIFIED) {
+                        put("expected_occupancy", s.expected_occupancy.name)
+                    }
                     if (s.latitude != 0.0) { put("latitude", s.latitude); put("longitude", s.longitude) }
                 })
             }

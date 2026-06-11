@@ -34,6 +34,7 @@ class TrackService(
     private val datasets: TrackDatasetStore = TrackDatasetStore(),
     private val feedCache: FeedCache = FeedCache(),
     private val stopMemory: TripStopMemory = TripStopMemory(),
+    private val occupancyEnricher: TripOccupancyEnricher? = null,
     private val vehicleposTtlMillis: Long = 15_000,
     private val tripUpdatesTtlMillis: Long = 30_000,
     private val suggestedPollSeconds: Int = 30,
@@ -183,11 +184,26 @@ class TrackService(
             vehicle = vehicle?.let { mapVehicle(it) },
             fleet = buildFleet(vehicle, tripId),
             occupancy = buildOccupancy(vehicle),
-            stops = stops,
+            stops = if (includeGeometry) stops.withExpectedOccupancy(leg) else stops,
             delay_seconds = delay ?: 0,
             has_delay = delay != null,
             geometry = if (includeGeometry) buildGeometry(feeds, tripId, stops) else null,
         )
+    }
+
+    /**
+     * Expected per-station occupancy (T1.6) — ships once, with geometry,
+     * like the other static-per-trip fields. Best-effort Trip Planner
+     * enrichment validated against the locked trip_id; absence costs one
+     * proto field, never structure.
+     */
+    private suspend fun List<StopProgress>.withExpectedOccupancy(leg: TrackRequest.TrackLeg): List<StopProgress> {
+        val enricher = occupancyEnricher ?: return this
+        val expected = enricher.expectedOccupancy(leg)
+        if (expected.isEmpty()) return this
+        return map { stop ->
+            expected[stop.stop_id]?.let { stop.copy(expected_occupancy = it) } ?: stop
+        }
     }
 
     /**

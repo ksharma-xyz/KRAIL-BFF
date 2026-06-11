@@ -87,11 +87,15 @@
       Bus shapes stay T3. **Post-merge: merge KRAIL-GTFS PR #353, then
       run its Build Track Datasets workflow once** so the release prod
       points at exists.
-- [ ] **T1.6 `expected_occupancy`** — the one deferred T1 field:
-      best-effort Trip Planner `stopSequence[].properties.occupancy`
-      enrichment, validated against the locked trip_id, cached per
-      (trip_id, service_date) (design §3a). Small; can ride along
-      with any later tracking pass.
+- [x] **T1.6 `expected_occupancy`** (2026-06-13) — best-effort Trip
+      Planner `stopSequence[].properties.occupancy` enrichment,
+      validated against the locked trip_id (re-planned responses
+      discarded), cached per (trip_id, service_date) with LRU + 6-h
+      TTL so each tracked trip costs ≤1 TP call against the NSW
+      budget. Ships once, with geometry; client caches and renders
+      only for CURRENT/UPCOMING. Plumbing live-verified (TP call,
+      validation, graceful absence — NSW carries no forecasts
+      off-peak; field populates on daytime services).
 - [x] **T1 handover doc** —
       [docs/handover/TRACKING_INTEGRATION.md](docs/handover/TRACKING_INTEGRATION.md)
       (includes the app-side `direction_id` proto bug found while
