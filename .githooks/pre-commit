@@ -1,0 +1,22 @@
+#!/bin/sh
+# Secret guard — blocks commits whose staged changes look like they
+# contain credentials. Enable once per clone:
+#   git config core.hooksPath .githooks
+# Bypass for a confirmed false positive:
+#   git commit --no-verify
+
+pattern='eyJ[A-Za-z0-9_-]{30,}\.eyJ|-----BEGIN [A-Z ]*PRIVATE KEY|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|dop_v1_[a-f0-9]{20,}|AIza[A-Za-z0-9_-]{30,}|apikey['\''\" ]+[A-Za-z0-9._-]{24,}|AKIA[0-9A-Z]{16}'
+
+hits=$(git diff --cached -U0 | grep -E '^\+' | grep -nE "$pattern")
+
+if [ -n "$hits" ]; then
+  echo "✗ COMMIT BLOCKED — staged changes match secret patterns:" >&2
+  echo "$hits" | head -10 >&2
+  echo "" >&2
+  echo "If this is a real secret: unstage it, move it to local.properties /" >&2
+  echo "env vars / password manager. If it's a false positive (e.g. a" >&2
+  echo "documented example token), bypass with: git commit --no-verify" >&2
+  exit 1
+fi
+
+exit 0

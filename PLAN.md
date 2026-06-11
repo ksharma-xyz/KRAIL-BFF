@@ -105,6 +105,22 @@ that. This is as close to a threshold guarantee as DO allows; the
 only true hard-cap option is a prepaid-style provider, which we
 rejected for other reasons (locked architecture).
 
+**"Even under attack?"** — walking the bot scenarios, because the
+only variable cost line is bandwidth (egress):
+
+| Attack | What happens | Bill impact |
+|---|---|---|
+| Volumetric DDoS on `bff.krail.app` | Dies at Cloudflare's edge (free, unmetered DDoS mitigation) — never reaches DO | ~0 |
+| Bots hammering the direct DO URL | Token gate answers 403s (~200 bytes each). Generating even 100 GB of 403 egress needs ~500M requests, and the single fixed container saturates CPU long before — it *slows down*, it cannot scale up or bill more | cents-to-few-$ |
+| Distributed botnet through Cloudflare with valid-looking requests | CF per-IP rules thin it; BFF global cap (50 rps) bounds total work; and the structural kicker: **big responses only exist when NSW returns data, and NSW calls stop at `NSW_DAILY_BUDGET` (10k/day)**. After that everything is tiny 503s. Max heavy egress ≈ 10k × ~100 KB = ~1 GB/day ≈ 30 GB/mo | single-digit $ at worst |
+| Something nobody predicted | Billing alerts at US$5/US$8 fire; `doctl apps delete` is the absolute ceiling-enforcer — spend stops the moment you run it, app users unaffected (kill switch → NSW direct) | bounded by how fast you react to the alert email |
+
+Net: an attacker can make the BFF *unavailable* (worst case — and the
+app degrades to NSW-direct via the kill switch), but there is no
+lever that converts attacker traffic into meaningful spend. The
+expensive resource (NSW data) is day-capped, and the compute is
+fixed-price.
+
 ## 3. No-PR workflow — what replaces the safety net
 
 | PR gave you | Replacement |
@@ -138,6 +154,25 @@ Fine to be public (don't over-hide):
 Rule of thumb: **if leaking it costs money or access, it's a secret;
 if it just explains the system, it's documentation.** When unsure run
 the audit gate's log check: nothing greppable for `apikey`/tokens.
+
+**Planning/strategy docs specifically** (the .md files we keep
+writing): committed docs in `docs/` are public the moment they're
+pushed — write them knowing that. Audited 2026-06-12: everything
+currently committed is engineering documentation, safe to publish
+(controls described are visible in the source anyway; obscurity is
+not the security boundary). For anything that *shouldn't* be public —
+personal budgets, account details, half-formed business ideas,
+incident notes — two gitignored escapes exist:
+
+- `docs/private/` — directory, never pushed
+- `*.private.md` — any file, anywhere in the repo, never pushed
+
+**Automatic guard:** `.githooks/pre-commit` scans every staged diff
+for credential patterns (JWTs, private keys, GitHub/DO/Google/AWS
+token shapes) and blocks the commit. Enabled via
+`git config core.hooksPath .githooks` — **run that once in every
+fresh clone** (hook configs don't travel with `git clone`). False
+positive? `git commit --no-verify`.
 
 ## 5. Keeping this plan honest
 

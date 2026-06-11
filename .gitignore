@@ -47,6 +47,14 @@ local.properties
 DEPLOY_CHECKLIST.md
 NOTES.md
 SCRATCH.md
+
+### Private docs — never pushed to the public repo ###
+# Anything strangers shouldn't read: half-formed plans, personal
+# budgets, account/billing details, incident notes. Public docs live
+# in docs/; private thinking lives here or in *.private.md anywhere.
+docs/private/
+*.private.md
+
 .env
 .env.*
 !.env.example
