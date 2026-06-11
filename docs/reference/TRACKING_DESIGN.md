@@ -49,6 +49,7 @@ Gaps found (each shapes this design):
 | G6 | **Bus feed fragmentation unaddressed** | Buses ship as multiple `vehiclepos` sub-feeds. Matching a bus leg may mean knowing route→feed mapping. Phase-gated: trains/metro/light rail/ferry first; buses after the feed inventory (open item O2). |
 | G7 | **No staleness/error contract** | Production-grade rule: never render fabricated freshness. Every snapshot carries `measured_at`; every leg carries an explicit `status`; the app shows "last seen 45 s ago", not a confidently wrong dot. Encoded in the proto (§4). |
 | G8 | Fleet type framed train-only | Ferries have vessel names (`vehicle.label`, e.g. "Freshwater"), buses sometimes a model. Proto carries a generic `FleetInfo` so the UI can badge any mode. |
+| G9 | **Trip Planner re-planning instability** (observed in the shipped attempt) | `/trip` is a *journey planner*, not a tracker: re-queried mid-journey it returns whatever is best *now* — e.g. a 2-leg interchange replacing the direct train the user already boarded, because that departure is in the past. **Rule: tracking never re-plans.** The trip is locked to its GTFS `trip_id` at share/track time; all tracking truth (position, stop sequence, times, geometry) comes from GTFS sources keyed by that id. Trip Planner is optional enrichment only, validated against the locked id and discarded on mismatch (§3a). |
 
 ## 3. Architecture
 
@@ -95,6 +96,49 @@ Decisions:
 - Existing raw passthrough GTFS routes stay during migration; retire
   for app use once tracking is at 100% (dashboard may keep them).
 
+## 3a. Where each field comes from (the blend)
+
+The current app tracking leans on the Trip Planner API — which is why
+it can't say "Tangara", show live position, **and why it's unreliable**
+(G9: re-querying `/trip` mid-journey re-plans and swaps the user's
+train for a different itinerary). The fix is a hard rule:
+
+> **The trip is locked to its GTFS `trip_id` when tracking starts.
+> Everything the track screen shows is derived from GTFS sources keyed
+> by that id. The Trip Planner is never called to "refresh" a tracked
+> trip.**
+
+| UI need | Source (all keyed by the locked `trip_id`) | Fetched |
+|---|---|---|
+| Live vehicle position, bearing | GTFS-R **VehiclePositions** | every poll (FeedCache) |
+| Stop timeline + live ETAs, delays, skipped stops | GTFS-R **TripUpdates** — `stop_time_updates` for *this* trip_id lists its actual stop sequence and times | every poll (FeedCache) |
+| Stop names + map-pin coordinates | **stops dataset** (already server-side) joined on the TripUpdate stop_ids | once, first poll |
+| Per-carriage occupancy *right now* | GTFS-R vehiclepos **PassLoad** ext | every poll (FeedCache) |
+| Fleet type ("Waratah") | trip_id parse + **TfnswVehicleDescriptor** ext | per poll (cheap) |
+| **Route polyline** for the map | GTFS static **`shapes.txt`** derived dataset (`trip_id → shape_id → polyline`, built weekly on GitHub Actions alongside the stops dataset) | once, first poll |
+| **Per-station expected occupancy** | *enrichment only:* Trip Planner `stopSequence[].properties.occupancy` — used **iff** the response's `RealtimeTripId` equals the locked trip_id; on mismatch (re-plan happened) it is discarded, never substituted | once per tracked trip, best-effort |
+
+Consequences:
+
+- **Tracking works from a share link with zero Trip Planner
+  dependency:** trip_id + service_date from the link → TripUpdates
+  gives the stop sequence → stops dataset names it → shapes dataset
+  draws it. The recipient sees exactly the train that was shared, even
+  if a planner would no longer suggest it.
+- The one optional Trip Planner call (expected occupancy) is
+  best-effort, cached per `(trip_id, service_date)`, validated, and
+  its absence costs only one proto field — the screen never degrades
+  structurally because a *planner* changed its mind.
+- This makes the shapes dataset (was Phase 3) a **T1 dependency** for
+  the map view; if it slips, `LegGeometry.Source.STOP_STRAIGHT_LINES`
+  (connect stop coords) keeps the map honest until it lands.
+
+**Payload discipline (the "limited info" rule):** the app gets only
+render-ready fields — no raw GTFS-R entities, no NSW JSON. Budget:
+steady-state poll ≤ ~2 KB; first response with geometry ≤ ~15 KB
+(polyline as an encoded string, not repeated doubles). If a field
+isn't rendered by the track screen or map, it doesn't go in the proto.
+
 ## 4. `track.proto` (new file in krail-api-proto)
 
 Design rules: every enum has `*_UNSPECIFIED = 0`; everything not
@@ -108,6 +152,9 @@ package krail.api.track;
 
 message TrackRequest {
   repeated TrackLeg legs = 1;        // transit legs only; ≤ 8 enforced
+  bool include_geometry = 2;         // true on FIRST poll only — polyline +
+                                     // stop coords + expected occupancy ship
+                                     // once; steady-state polls stay ~2 KB
 
   message TrackLeg {
     string leg_ref = 1;              // client correlation key, echoed back
@@ -146,6 +193,22 @@ message LegTracking {
   optional OccupancyInfo occupancy = 5;
   repeated StopProgress stops = 6;   // origin→destination timeline
   optional sint32 delay_seconds = 7; // negative = early
+  optional LegGeometry geometry = 8; // only when include_geometry was set
+}
+
+message LegGeometry {
+  // Encoded polyline (Google polyline algorithm, precision 5) of the
+  // path the vehicle travels for this leg — train line / bus route.
+  // ~10x smaller than repeated lat/lng pairs.
+  string encoded_polyline = 1;
+
+  enum Source {
+    SOURCE_UNSPECIFIED = 0;
+    TRIP_PLANNER = 1;                // leg coords from server-side trip call
+    GTFS_SHAPES = 2;                 // shapes.txt derived dataset (fallback)
+    STOP_STRAIGHT_LINES = 3;         // last resort: connect stop coords
+  }
+  Source source = 2;
 }
 
 message VehicleLive {
@@ -214,6 +277,20 @@ message StopProgress {
     SKIPPED = 4;                     // SCHEDULE_RELATIONSHIP skipped
   }
   State state = 5;
+
+  // Expected load departing this stop (Trip Planner stopSequence
+  // occupancy forecast) — answers "how full from MY station?".
+  // Distinct from OccupancyInfo, which is the vehicle's live state.
+  // UI rule: render ONLY while state is CURRENT or UPCOMING — once a
+  // stop is DEPARTED a forecast is meaningless noise; the live
+  // OccupancyInfo strip is the truth from then on. Server still sends
+  // the value (it ships once, with geometry); hiding is the client's
+  // job as states change between polls.
+  optional OccupancyInfo.Level expected_occupancy = 6;
+
+  // Map pin coordinates — populated only with include_geometry.
+  optional double latitude = 7;
+  optional double longitude = 8;
 }
 ```
 
@@ -243,6 +320,14 @@ error dialog for `NOT_STARTED`/`ENDED`.
 - **Cache hygiene:** decoded `FeedMessage` cached (decode once per
   TTL, not per request); memory cap = a few MB/feed × ~8 feeds —
   measure on basic-xxs before launch; single-flight per feed key.
+- **Trip-context cache:** first-poll context (stop names/coords from
+  the stops dataset, polyline from the shapes dataset, best-effort
+  expected occupancy) is assembled once per
+  `(realtime_trip_id, service_date)` and LRU-cached (~500 entries).
+  Only the optional occupancy enrichment touches the Trip Planner —
+  validated against the locked trip_id, discarded on mismatch (G9),
+  counted against `NSW_DAILY_BUDGET`. Its failure costs one proto
+  field; tracking never depends on it.
 - **No new PII:** request contains stop ids + trip ids only. Don't log
   request bodies; metrics are counters/timers only.
 - **Tests:** golden GTFS-R fixture files (captured real feed bytes,
@@ -287,8 +372,9 @@ Changes needed:
 | Phase | Scope | Depends on |
 |---|---|---|
 | **T0** | Land `track.proto` in krail-api-proto; vendor GTFS-R + TfNSW extension protos in BFF; capture golden fixtures; resolve O1–O3 | BFF deployed |
-| **T1** | FeedCache + `/api/v1/track/snapshot` for **trains + metro + light rail + ferry**: position, stop progress (TripUpdates), delay, fleet-from-trip_id, train-level occupancy | T0 |
+| **T1** | FeedCache + `/api/v1/track/snapshot` for **trains + metro + light rail + ferry**: position, stop progress (TripUpdates), delay, fleet-from-trip_id, train-level occupancy, first-poll geometry + per-stop expected occupancy (trip-context call) | T0 |
 | **T2** | Per-carriage occupancy (PassLoad) + live fleet (TfnswVehicleDescriptor); car strip ships behind data-presence check | T1 + O1 |
+| **T1.5** | `shapes.txt` derived dataset (`trip_id → polyline`) via GitHub Actions, joined into first-poll geometry; until it lands T1 serves `STOP_STRAIGHT_LINES` | T1 |
 | **T3** | Buses (feed inventory per O2); carriage-layout dataset via GitHub Actions (`vehicle-couplings`/`boardings` → `reaches_platform`) | T1 |
 | **A1** (app) | Point `TrackTripViewModel`/`TripPoller` at the BFF endpoint behind `bff_use_for_track` RC flag; delete client-side GTFS-R matcher after 100% + grace | T1 |
 | **A2** (app) | Deep link v2 payload + krail.app domain migration + well-known files on website | DNS move |
@@ -313,3 +399,8 @@ Changes needed:
 - **O5:** `/.well-known/` serves correctly from GitHub Pages for the
   website (`.nojekyll`), or becomes the trigger to move hosting to
   Cloudflare Pages (TODO has that as optional).
+- **O6:** Trip Planner per-stop occupancy + coords coverage — which
+  modes/lines actually populate `stopSequence[].properties.occupancy`
+  and leg `coords`, and can the trip be re-queried server-side from
+  `realtime_trip_id` + stops + departure alone (share-link case)?
+  Capture real responses to verify before T1.

@@ -58,8 +58,12 @@
       golden feed fixtures for tests.
 - [ ] **T1** — `POST /api/v1/track/snapshot`: FeedCache (15–30 s TTL,
       single-flight), VehicleMatcher port, TripUpdate stop progress,
-      fleet-from-trip_id, train-level occupancy. Trains/metro/light
-      rail/ferry.
+      fleet-from-trip_id, train-level occupancy, first-poll geometry +
+      per-stop expected occupancy. Trains/metro/light rail/ferry.
+      Hard rule: tracking never re-plans — GTFS trip_id is the only
+      source of truth (design G9).
+- [ ] **T1.5** — shapes.txt polyline dataset via GitHub Actions
+      (map line); `STOP_STRAIGHT_LINES` fallback until then.
 - [ ] **T2** — per-carriage occupancy + live fleet descriptor (after O1).
 - [ ] **T3** — buses (after O2) + carriage-layout dataset via GitHub
       Actions (`reaches_platform`).
