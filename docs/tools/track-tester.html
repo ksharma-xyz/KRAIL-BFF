@@ -345,19 +345,43 @@ function harvestLegContext(leg, ref) {
   if (Array.isArray(leg.coords) && leg.coords.length > 1) ctx.legCoords[ref] = leg.coords;
 }
 
-$('findBtn').onclick = async () => {
-  $('journeys').innerHTML = '<span class="hint">searching…</span>';
-  const q = `outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&depArrMacro=dep&type_origin=any`
+let allJourneys = [];   // accumulated across earlier/later loads, by dep time
+
+async function fetchJourneys(mode) {  // 'replace' | 'earlier' | 'later'
+  if (mode === 'replace') { allJourneys = []; $('journeys').innerHTML = '<span class="hint">searching…</span>'; }
+  let q = `outputFormat=rapidJSON&coordOutputFormat=EPSG%3A4326&depArrMacro=dep&type_origin=any`
     + `&name_origin=${encodeURIComponent($('origin').value.trim())}&type_destination=any`
     + `&name_destination=${encodeURIComponent($('dest').value.trim())}&calcNumberOfTrips=5&TfNSWTR=true&version=10.2.1.42`;
+  const depOf = j => (j.legs?.[0]?.origin?.departureTimePlanned) || '';
+  if (allJourneys.length && mode !== 'replace') {
+    const anchor = mode === 'later'
+      ? new Date(Date.parse(depOf(allJourneys.at(-1))) + 60_000)        // just after the latest
+      : new Date(Date.parse(depOf(allJourneys[0])) - 40 * 60_000);      // 40 min before the earliest
+    const syd = anchor.toLocaleString('sv-SE', { timeZone:'Australia/Sydney' }); // "YYYY-MM-DD HH:mm:ss"
+    q += `&itdDate=${syd.slice(0,10).replaceAll('-','')}&itdTime=${syd.slice(11,16).replace(':','')}`;
+  }
   const rec = await apiCall('trip search', '→ NSW /v1/tp/trip', `${base()}/v1/tp/trip?${q}`, undefined,
-    `origin=${$('origin').value} dest=${$('dest').value}`);
-  if (rec.status !== 200) { $('journeys').innerHTML = `<span class="hint" style="color:var(--late)">trip search failed (${rec.status})</span>`; return; }
-  renderJourneys(rec.body.journeys || []);
-};
+    `origin=${$('origin').value} dest=${$('dest').value}${mode!=='replace' ? ' ('+mode+')' : ''}`);
+  if (rec.status !== 200) { if (mode==='replace') $('journeys').innerHTML = `<span class="hint" style="color:var(--late)">trip search failed (${rec.status})</span>`; return; }
+  // merge + dedupe (key = first leg's trip id + departure)
+  const key = j => `${j.legs?.[0]?.transportation?.properties?.RealtimeTripId}|${depOf(j)}`;
+  const seen = new Set(allJourneys.map(key));
+  (rec.body.journeys || []).forEach(j => { if (!seen.has(key(j))) { seen.add(key(j)); allJourneys.push(j); } });
+  allJourneys.sort((a,b) => Date.parse(depOf(a)||0) - Date.parse(depOf(b)||0));
+  renderJourneys(allJourneys);
+}
+$('findBtn').onclick = () => fetchJourneys('replace');
 
 function renderJourneys(journeys) {
   $('journeys').innerHTML = ''; $('clickHint').style.display = 'block';
+  const pager = dir => {
+    const b = document.createElement('button');
+    b.className = 'iconbtn'; b.style.cssText = 'width:100%;margin:4px 0;font-size:12px';
+    b.textContent = dir === 'earlier' ? '↑ Earlier departures' : '↓ Later departures';
+    b.onclick = () => { b.textContent = 'loading…'; fetchJourneys(dir); };
+    return b;
+  };
+  if (journeys.length) $('journeys').appendChild(pager('earlier'));
   journeys.forEach(j => {
     const legs = (j.legs||[]).filter(l => l.transportation?.properties?.RealtimeTripId);
     if (!legs.length) return;
@@ -387,7 +411,8 @@ function renderJourneys(journeys) {
     };
     $('journeys').appendChild(div);
   });
-  if (!$('journeys').children.length) { $('journeys').innerHTML = '<span class="hint">no trackable journeys found</span>'; $('clickHint').style.display='none'; }
+  if ($('journeys').querySelectorAll('.journey').length) $('journeys').appendChild(pager('later'));
+  else { $('journeys').innerHTML = '<span class="hint">no trackable journeys found</span>'; $('clickHint').style.display='none'; }
 }
 
 function drawRoute() {

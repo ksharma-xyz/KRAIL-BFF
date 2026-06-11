@@ -124,7 +124,7 @@ class TrackService(
                 // "completed", not a puzzling NO_REALTIME: departure more
                 // than 3h ago (longer than any Sydney metro-area run) and
                 // the trip gone from feeds ⇒ it ran and finished.
-                isPlannedDepartureOlderThan(leg, now, hours = 3) -> {
+                isPlannedDepartureOlderThan(leg, now, seconds = 3 * 3600) -> {
                     metrics.counter("track.status.ended").inc()
                     LegTracking(leg_ref = leg.leg_ref, status = LegTracking.Status.ENDED)
                 }
@@ -140,10 +140,24 @@ class TrackService(
             .annotateSegments(leg.origin_stop_id, leg.destination_stop_id)
 
         // The USER's journey ends at their destination, not the vehicle's
-        // terminus. Destination departed (or NSW trimmed it out of the
-        // remaining-stops feed) ⇒ ENDED, even while the vehicle runs on.
-        val journeyComplete = stops.any { it.segment != StopProgress.Segment.SEGMENT_UNSPECIFIED } &&
-            stops.none { it.segment == StopProgress.Segment.JOURNEY && it.state != StopProgress.State.DEPARTED }
+        // terminus. Two ways to know it's over while the vehicle runs on:
+        //  (a) destination matched and every JOURNEY stop departed;
+        //  (b) NSW trims PASSED stops from TripUpdates, so when BOTH the
+        //      origin and destination ids are missing from the remaining
+        //      stops and departure is >10 min past, the user's segment is
+        //      behind the vehicle. (Origin still present ⇒ trip hasn't
+        //      reached the user yet — never complete.)
+        val segmentMatched = stops.any { it.segment != StopProgress.Segment.SEGMENT_UNSPECIFIED }
+        val journeyComplete = when {
+            segmentMatched ->
+                stops.none { it.segment == StopProgress.Segment.JOURNEY && it.state != StopProgress.State.DEPARTED }
+            leg.origin_stop_id.isNotBlank() && leg.destination_stop_id.isNotBlank() && stops.isNotEmpty() ->
+                stops.none { it.stop_id == leg.origin_stop_id || it.stop_id == leg.destination_stop_id } &&
+                    isPlannedDepartureOlderThan(leg, now, seconds = 10 * 60).also {
+                        if (it) metrics.counter("track.ended.by_trimmed_segment").inc()
+                    }
+            else -> false
+        }
 
         val status = when {
             journeyComplete -> LegTracking.Status.ENDED
@@ -185,9 +199,9 @@ class TrackService(
     private fun isPlannedDepartureInFuture(leg: TrackRequest.TrackLeg, now: Instant): Boolean =
         runCatching { Instant.parse(leg.planned_departure_utc) }.getOrNull()?.isAfter(now) == true
 
-    private fun isPlannedDepartureOlderThan(leg: TrackRequest.TrackLeg, now: Instant, hours: Long): Boolean =
+    private fun isPlannedDepartureOlderThan(leg: TrackRequest.TrackLeg, now: Instant, seconds: Long): Boolean =
         runCatching { Instant.parse(leg.planned_departure_utc) }.getOrNull()
-            ?.isBefore(now.minusSeconds(hours * 3600)) == true
+            ?.isBefore(now.minusSeconds(seconds)) == true
 
     private fun mapVehicle(vp: VehiclePosition): VehicleLive {
         val pos = vp.position

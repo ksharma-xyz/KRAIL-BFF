@@ -250,6 +250,22 @@ class TrackServiceTest {
     }
 
     @Test
+    fun `trip whose segment was trimmed from the feed resolves to ENDED`() = runBlocking {
+        // Live trip, but the user's origin AND destination are no longer in
+        // the remaining-stops list and departure was 30 min ago — the
+        // user's segment is behind the vehicle (NSW trims passed stops).
+        val tracked = service().snapshot(TrackRequest(legs = listOf(
+            leg(liveTripId).copy(
+                origin_stop_id = "NOPE1",
+                destination_stop_id = "NOPE2",
+                planned_departure_utc = captureInstant.minusSeconds(30 * 60).toString(),
+            ),
+        ))).legs.single()
+        assertEquals(LegTracking.Status.ENDED, tracked.status)
+        assertEquals(null, tracked.vehicle)
+    }
+
+    @Test
     fun `vanished trip with long-past departure resolves to ENDED`() = runBlocking {
         val tracked = service().snapshot(TrackRequest(legs = listOf(
             leg("999Z.0000.000.00.A.8.00000000").copy(
