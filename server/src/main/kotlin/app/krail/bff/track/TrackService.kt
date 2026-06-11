@@ -211,14 +211,20 @@ class TrackService(
             .sortedBy { it.position_in_consist ?: Int.MAX_VALUE }
             .mapIndexed { index, car ->
                 OccupancyInfo.CarOccupancy(
-                    // position_in_consist is 0-based in live feeds; contract is 1-based.
-                    sequence = (car.position_in_consist ?: index) + 1,
+                    // position_in_consist base differs by mode in live feeds
+                    // (metro 0-based, sydneytrains 1-based) — re-sequence from
+                    // sorted order so the contract is always 1..N.
+                    sequence = index + 1,
                     label = car.name ?: "",
                     level = car.occupancy_status?.let { mapOccupancy(it.value) }
                         ?: OccupancyInfo.Level.LEVEL_UNSPECIFIED,
                     quiet_carriage = car.quiet_carriage ?: false,
                 )
             }
+            // A consist with zero known levels renders as an all-grey strip —
+            // noise. Car count still reaches the UI via FleetInfo.car_count.
+            .takeIf { list -> list.any { it.level != OccupancyInfo.Level.LEVEL_UNSPECIFIED } }
+            ?: emptyList()
         if (cars.isEmpty() && overall == OccupancyInfo.Level.LEVEL_UNSPECIFIED) return null
         return OccupancyInfo(overall = overall, cars = cars)
     }
