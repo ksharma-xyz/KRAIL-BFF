@@ -23,15 +23,16 @@ type flowing, and a control-room browser dashboard
 (`docs/tools/track-tester.html`) with API inspector. App-side
 contract: [`docs/handover/TRACKING_INTEGRATION.md`](docs/handover/TRACKING_INTEGRATION.md).
 
-**T1.5 is built and live-verified**: the stops-dataset job now also
-emits a platform-level stop directory (`track_stops.pb` — names train
-platform ids like "Sydenham Station Platform 5") and per-mode
-`shapes_<mode>.pb` polylines; the BFF loads them lazily from the
-release manifest (sha256-verified, weekly hot-swap) and serves
-first-poll `LegGeometry` (GTFS_SHAPES, straight-line fallback) with
-coordinates gated on `include_geometry`. One post-merge action: run
-the stops-dataset workflow once so the release contains the track
-artifacts.
+**T1.5 is built and live-verified**: the **KRAIL-GTFS repo** builds a
+platform-level stop directory (`track_stops.pb` — names train platform
+ids like "Sydenham Station Platform 5") and per-mode `shapes_<mode>.pb`
+polylines weekly (`track-dataset.yml` → rolling `track-latest`
+release); the BFF loads them lazily from the release manifest
+(sha256-verified, weekly hot-swap) and serves first-poll `LegGeometry`
+(GTFS_SHAPES, straight-line fallback) with coordinates gated on
+`include_geometry`. All dataset CI lives in KRAIL-GTFS — the BFF has
+none. Post-merge actions: merge KRAIL-GTFS PR #353 + run its Build
+Track Datasets workflow once.
 
 Workflow is direct-to-main, no PRs (test locally before pushing).
 **Now: deploy** — spec and runbook ready.

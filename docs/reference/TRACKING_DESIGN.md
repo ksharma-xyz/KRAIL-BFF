@@ -408,26 +408,27 @@ Changes needed:
 
 ## 7a. Tracking dataset pipeline (T1.5) — stop names + the map line
 
-> Status: **built and live-verified** (`BuildTrackDataset.kt` +
-> `buildTrackDataset` Gradle task; BFF side is `TrackDatasetStore`,
-> configured via `TRACK_DATASET_DIR` (dev) or
-> `TRACK_DATASET_MANIFEST_URL` (prod, sha256-verified)).
+> Status: **built and live-verified**. The pipeline lives in the
+> **KRAIL-GTFS repo** (the dedicated data repo — builder, schema copy,
+> `track-dataset.yml` weekly workflow, docs/TrackDatasets.md). BFF side
+> is `TrackDatasetStore`, configured via `TRACK_DATASET_DIR` (dev) or
+> `TRACK_DATASET_MANIFEST_URL` (prod, sha256-verified). The dataset
+> schema is a wire contract between the two repos
+> (`server/src/main/proto/nsw/track-dataset.proto` here ↔
+> `src/main/proto/TrackDataset.proto` there).
 
-Same pattern, same workflow, near-zero new moving parts:
-`stops-dataset.yml` **already downloads the per-mode NSW GTFS bundles**
-— `shapes.txt` and `trips.txt` are additional files inside those same
-zips. The job grows one Gradle task; no new schedule, no new secrets,
-still A$0 (GitHub Actions free on public repos).
+Same pattern as the app's stops dataset, near-zero new moving parts:
+KRAIL-GTFS **already downloads the per-mode NSW GTFS bundles** —
+`shapes.txt` and `trips.txt` are additional files inside those same
+zips. No new secrets, still A$0 (GitHub Actions free on public repos).
 
 ```
-stops-dataset.yml (existing weekly job)
-  fetch GTFS bundles (already happens)
-    ├─ stops.txt    → stops.pb        (existing)
-    ├─ routes/trips → routes .pb      (existing)
-    ├─ NEW: stops.txt → track_stops.pb (platform directory: raw GTFS
-    │       ids incl. location_type 0 platforms + parent links — names
-    │       the train platform ids the search dataset lacks)
-    └─ NEW: trips.txt + shapes.txt → shapes_<mode>.pb
+KRAIL-GTFS track-dataset.yml (weekly cron + dispatch)
+  fetch GTFS bundles (sydneytrains, nswtrains, metro, lightrail, ferries)
+    ├─ stops.txt → track_stops.pb (platform directory: raw GTFS ids
+    │       incl. location_type 0 platforms + parent links — names the
+    │       train platform ids the search dataset lacks)
+    └─ trips.txt + shapes.txt → shapes_<mode>.pb
             │
             │ 1. trips.txt: trip_id → shape_id        (many→one)
             │ 2. shapes.txt: shape_id → ordered points
@@ -435,8 +436,8 @@ stops-dataset.yml (existing weekly job)
             │ 4. emit per mode: {version, shapes[shape_id→polyline],
             │                    trip_index[trip_id→shape_id]}
             ▼
-  publish to the same GitHub Release alongside stops.pb + manifest
-  (+ track_manifest.json listing the track artifacts with sha256s)
+  publish to the rolling `track-latest` GitHub Release
+  (+ track_manifest.json listing the artifacts with sha256s)
 ```
 
 Design points:

@@ -64,10 +64,12 @@ part of phase 3 cleanup so it can't be resurrected accidentally.
 **Today:** the app bundles `NSW_STOPS.pb` (2.2 MB, v59) and
 `NSW_BUSES_ROUTES.pb` (2.5 MB, v32) as compose resources; versions are
 constants in `SandookPreferences`. The refresh pipeline is: GitHub
-Actions in the `krail-config` repo regenerates the datasets and opens a
+Actions in the **KRAIL-GTFS** repo regenerates the datasets and opens a
 **PR against the app repo**, which only takes effect after a full store
 release. The BFF already has `/v1/data/stops/manifest` (302 → GitHub
-Releases asset) and a weekly `stops-dataset.yml` build workflow.
+Releases asset). Dataset CI lives in KRAIL-GTFS (decided 2026-06-13 —
+one dedicated data repo; the BFF keeps only a manual `buildStopsDataset`
+Gradle task as tooling for this section).
 
 **Target (decided 2026-06-11):** data updates stop flowing through app
 releases entirely. Generation stays on **GitHub Actions** (free — no
@@ -85,7 +87,7 @@ GitHub Actions (weekly)                 App (on startup, throttled)
 The manifest response (or a cheap `HEAD`-able version header/ETag)
 carries `{version, url, sha256, byteSize}` per dataset — the app
 compares against `KEY_NSW_STOPS_VERSION` / `KEY_NSW_BUS_ROUTES_VERSION`
-and fetches only on change. The krail-config→app-PR pipeline retires
+and fetches only on change. The KRAIL-GTFS→app-PR pipeline retires
 once this is at 100%.
 
 **Design (locked):** stops **search stays local** in the app — the BFF

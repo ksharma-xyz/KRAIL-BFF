@@ -3,7 +3,7 @@ package app.krail.bff.tools
 /**
  * Minimal RFC 4180-ish CSV parser: handles quoted fields, escaped quotes (""),
  * and optional UTF-8 BOM. Fine for GTFS shape; not a general-purpose CSV lib.
- * Shared by the dataset builder tools (BuildStopsDataset, BuildTrackDataset).
+ * Used by BuildStopsDataset (manual ROADMAP §2 tooling).
  */
 internal fun parseCsv(input: String): List<List<String>> {
     val source = if (input.isNotEmpty() && input[0] == '﻿') input.substring(1) else input

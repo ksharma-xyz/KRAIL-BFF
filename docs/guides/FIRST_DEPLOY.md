@@ -111,11 +111,11 @@ Follow checklist §3; the sequence with gap-fills:
      v1; the manifest endpoints return 404 until you ship dataset
      distribution (see [ROADMAP.md](../reference/ROADMAP.md)).
    - `TRACK_DATASET_MANIFEST_URL` — already in `.do/app.yaml`, points
-     at the latest stops-dataset release. Needs that release to carry
-     `track_manifest.json`: run the workflow once after T1.5 lands
-     (Actions → Build Stops Dataset → Run workflow). Until then
-     tracking degrades gracefully (search-dataset stop names,
-     straight-line map fallback).
+     at the **KRAIL-GTFS** repo's rolling `track-latest` release. Needs
+     that release to exist: in KRAIL-GTFS run Actions → Build Track
+     Datasets → Run workflow once. Until then tracking degrades
+     gracefully (search-dataset stop names, straight-line map
+     fallback).
 4. Watch the first build in the Activity tab (~5 min), then:
    ```bash
    doctl apps get $DO_APP_ID --format DefaultIngress --no-header
@@ -241,8 +241,9 @@ What exists today (verified 2026-06-11):
   merge to `main` rebuilds the Docker image and rolls it out. The app's
   health check must pass before the new container takes traffic, so a
   completely broken build never replaces a working one.
-- **Dataset pipeline** — `stops-dataset.yml` regenerates datasets on
-  GitHub Actions; `proto-bump.yml` PRs proto submodule updates.
+- **Dataset pipeline** — lives in the KRAIL-GTFS repo (`track-dataset.yml`
+  publishes the tracking datasets weekly); `proto-bump.yml` here PRs proto
+  submodule updates.
 
 **One gap to close (2 min, GitHub UI):** the `main` ruleset requires a
 PR but does **not** require status checks to pass — a red CI run

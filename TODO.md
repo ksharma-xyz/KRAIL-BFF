@@ -73,19 +73,20 @@
       passed-stop trimming (server trip memory), end-of-journey
       semantics, trip-switch ghosts, earlier/later paging.
 - [x] **T1.5** (2026-06-13, live-verified) — tracking-grade stop
-      directory + shapes join. `stops-dataset.yml` now also builds
-      `track_stops.pb` (platform-level: id, name, parent, lat/lon —
-      names train PLATFORM ids the search dataset lacks) and per-mode
-      `shapes_<mode>.pb` (shape_id→polyline + trip_id index, deduped;
-      sydneytrains ≈ 2.9 MB). BFF `TrackDatasetStore` loads them
-      lazily from `TRACK_DATASET_DIR` (dev) or
-      `TRACK_DATASET_MANIFEST_URL` (prod, sha256-verified, 6-h
-      manifest recheck → weekly hot-swap). Tracking now serves
-      first-poll `LegGeometry` (GTFS_SHAPES; STOP_STRAIGHT_LINES
-      fallback + `track.geometry.straight_lines` miss metric) and
-      gates stop coordinates on `include_geometry`. Bus shapes stay
-      T3. **Post-merge: run the stops-dataset workflow once** so the
-      release carries the track artifacts prod points at.
+      directory + shapes join. The **KRAIL-GTFS repo** (dedicated data
+      repo) builds `track_stops.pb` (platform-level: id, name, parent,
+      lat/lon — names train PLATFORM ids the search dataset lacks) and
+      per-mode `shapes_<mode>.pb` (shape_id→polyline + trip_id index,
+      deduped) weekly via `track-dataset.yml` → rolling `track-latest`
+      release. BFF `TrackDatasetStore` loads them lazily from
+      `TRACK_DATASET_DIR` (dev) or `TRACK_DATASET_MANIFEST_URL` (prod,
+      sha256-verified, 6-h manifest recheck → weekly hot-swap).
+      Tracking serves first-poll `LegGeometry` (GTFS_SHAPES;
+      STOP_STRAIGHT_LINES fallback + `track.geometry.straight_lines`
+      miss metric) and gates stop coordinates on `include_geometry`.
+      Bus shapes stay T3. **Post-merge: merge KRAIL-GTFS PR #353, then
+      run its Build Track Datasets workflow once** so the release prod
+      points at exists.
 - [ ] **T1.6 `expected_occupancy`** — the one deferred T1 field:
       best-effort Trip Planner `stopSequence[].properties.occupancy`
       enrichment, validated against the locked trip_id, cached per

@@ -2,10 +2,13 @@ syntax = "proto3";
 
 package app.krail.bff.trackdata;
 
-// Server-internal tracking datasets, built weekly by the stops-dataset
-// GitHub Actions job (TRACKING_DESIGN.md §7a) and consumed in-memory by
-// the BFF's TrackDatasetStore. Never exposed to the app — the public
-// contract stays in krail-api-proto.
+// Server-internal tracking datasets (TRACKING_DESIGN.md §7a), consumed
+// in-memory by the BFF's TrackDatasetStore. Built weekly by the KRAIL-GTFS
+// repo (track-dataset.yml -> rolling track-latest release). Field numbers
+// and types are a WIRE CONTRACT with the builder schema there
+// (KRAIL-GTFS src/main/proto/TrackDataset.proto) — change both together
+// or not at all. Never exposed to the app — the public contract stays in
+// krail-api-proto.
 
 // Platform-level stop directory: every stop row from the NSW GTFS static
 // bundles (location_type 0 stops/platforms AND 1 stations), raw GTFS ids.

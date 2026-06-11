@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * In-memory tracking datasets (TRACKING_DESIGN.md §7a): the platform-level
  * stop directory and per-mode shapes polylines, built weekly by the
- * stops-dataset job.
+ * KRAIL-GTFS repo's track-dataset workflow (rolling `track-latest` release).
  *
  * Sources, in priority order:
  *  - `TRACK_DATASET_DIR` — local files (dev: point at the buildTrackDataset

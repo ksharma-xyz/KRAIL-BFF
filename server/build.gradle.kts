@@ -83,7 +83,7 @@ tasks.named<JavaExec>("run") {
 }
 
 // Build the stops dataset (.pb + manifest.json) from one or more GTFS zip bundles.
-// Used by the .github/workflows/stops-dataset.yml cron + workflow_dispatch.
+// Manual ROADMAP §2 tooling — dataset CI lives in the KRAIL-GTFS repo.
 // Args (positional): <gtfsDir> <output.pb> <version> <releaseUrl>
 tasks.register<JavaExec>("buildStopsDataset") {
     group = "data"
@@ -95,23 +95,6 @@ tasks.register<JavaExec>("buildStopsDataset") {
         project.findProperty("output")?.toString() ?: "${layout.buildDirectory.get().asFile}/dist/stops.pb",
         project.findProperty("version")?.toString() ?: "dev",
         project.findProperty("releaseUrl")?.toString() ?: "https://example.invalid/stops.pb",
-    )
-    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
-}
-
-// Build the tracking datasets (platform directory + per-mode shapes polylines)
-// from the same GTFS zip bundles. Used by .github/workflows/stops-dataset.yml.
-// Args (positional): <gtfsDir> <outDir> <version> <releaseUrlBase>
-tasks.register<JavaExec>("buildTrackDataset") {
-    group = "data"
-    description = "Build track_stops.pb + shapes_<mode>.pb + track_manifest.json from GTFS zip bundles"
-    mainClass.set("app.krail.bff.tools.BuildTrackDatasetKt")
-    classpath = sourceSets["main"].runtimeClasspath
-    args = listOf(
-        project.findProperty("gtfsDir")?.toString() ?: "${layout.buildDirectory.get().asFile}/gtfs",
-        project.findProperty("outDir")?.toString() ?: "${layout.buildDirectory.get().asFile}/dist/track",
-        project.findProperty("version")?.toString() ?: "dev",
-        project.findProperty("releaseUrlBase")?.toString() ?: "https://example.invalid",
     )
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
 }

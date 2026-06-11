@@ -225,4 +225,4 @@ private fun mapRouteTypeToMode(routeType: Int): TransportMode? = when (routeType
     else -> null
 }
 
-// CSV parsing shared with BuildTrackDataset — see GtfsCsv.kt.
+// CSV parsing lives in GtfsCsv.kt.
