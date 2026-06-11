@@ -1,1504 +1,640 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<title>KRAIL · API Control</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KRAIL-BFF · screen-first tester</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0e1116;
-    --panel: #1c2128;
-    --panel-elev: #22272e;
-    --border: #373e47;
-    --fg: #cdd9e5;
-    --muted: #768390;
-    --accent: #4493f8;
-    --accent-soft: #1f6feb40;
-    --ok: #3fb950;
-    --warn: #d29922;
-    --err: #f85149;
-    --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-  }
-  * { box-sizing: border-box; }
-  html, body { background: var(--bg); color: var(--fg); margin: 0; }
-  body {
-    font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    padding: 24px;
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-  a { color: var(--accent); }
-  code, pre { font-family: var(--mono); }
+/* ─── KRAIL taj dark + transit-signage type (shared with track-tester) ── */
+:root {
+  --bg:#141312; --surface:#1C1B1A; --surface2:#262422; --surface3:#2C2B2A;
+  --border:#34322f; --fg:#FCF6F1; --soft:#B0B0B0; --dim:#7d7a76;
+  --ok:#00B219; --bad:#FF2B2B; --warn:#F4B400;
+  --train:#F6891F; --metro:#009B77; --bus:#00B5EF; --lr:#E4022D; --ferry:#5AB031; --coach:#742282;
+  --disp:'Barlow Condensed',sans-serif; --body:'Archivo',sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 var(--body);
+  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, #f6891f0d, transparent),
+                    repeating-linear-gradient(0deg, transparent 0 2px, #ffffff02 2px 4px); }
 
-  header { margin-bottom: 24px; }
-  header h1 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
-  header .sub { color: var(--muted); font-size: 12px; }
+/* ─── app bar ─────────────────────────────────────────────────────────── */
+.bar { position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:14px; height:54px;
+  padding:0 18px; background:var(--surface); border-bottom:1px solid var(--border); }
+.brand { font:800 22px/1 var(--disp); letter-spacing:.5px; display:flex; align-items:center; gap:10px; }
+.brand .dotpulse { width:10px; height:10px; border-radius:50%; background:var(--dim); }
+.brand .dotpulse.live { background:var(--ok); box-shadow:0 0 0 0 #00b21966; animation:pulse 2s infinite; }
+@keyframes pulse { 70% { box-shadow:0 0 0 9px transparent; } }
+.bar label { font:500 11px var(--mono); color:var(--dim); display:flex; gap:6px; align-items:center; }
+.bar input { background:var(--bg); border:1px solid var(--border); color:var(--fg); border-radius:8px;
+  padding:5px 8px; font:12px var(--mono); width:190px; }
+.spacer { flex:1; }
+.bar a { color:var(--soft); font:600 12px var(--mono); text-decoration:none; border:1px solid var(--border);
+  border-radius:9px; padding:6px 12px; }
+.bar a:hover { color:var(--fg); border-color:var(--soft); }
 
-  .config {
-    display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
-    margin: 12px 0 24px;
-    padding: 10px 14px;
-    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
-  }
-  .config label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
-  .config input {
-    padding: 5px 8px; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 4px; color: var(--fg); font: 12px var(--mono);
-    min-width: 200px;
-  }
-  .config input:focus { outline: none; border-color: var(--accent); }
+.wrap { max-width:1180px; margin:0 auto; padding:22px 18px 80px; }
 
-  /* Screen tabs */
-  .screens { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
-  .screen-tab {
-    padding: 10px 16px; background: transparent;
-    border: 1px solid var(--border); border-radius: 6px;
-    color: var(--muted); cursor: pointer; font-size: 13px;
-    font-weight: 500;
-  }
-  .screen-tab:hover { color: var(--fg); border-color: var(--accent-soft); }
-  .screen-tab.active {
-    background: var(--accent-soft); border-color: var(--accent);
-    color: var(--fg);
-  }
-  .screen-tab .pill {
-    margin-left: 8px;
-    padding: 1px 6px; border-radius: 10px;
-    background: var(--bg); color: var(--muted); font-size: 10px; font-family: var(--mono);
-  }
+/* ─── sections ────────────────────────────────────────────────────────── */
+section { margin-bottom:42px; }
+h2.sec { font:700 15px var(--disp); letter-spacing:3px; text-transform:uppercase; color:var(--dim);
+  margin:0 0 4px; display:flex; align-items:center; gap:10px; }
+h2.sec .n { color:var(--train); }
+h2.sec::after { content:''; flex:1; height:1px; background:var(--border); }
+.lede { color:var(--soft); font-size:13px; margin:0 0 14px; max-width:860px; }
+.lede b { color:var(--fg); font-weight:600; }
 
-  .screen-desc {
-    color: var(--muted); font-size: 13px;
-    margin-bottom: 16px;
-  }
+/* ─── banner ──────────────────────────────────────────────────────────── */
+.banner { display:none; background:#f4b40014; border:1px solid #f4b40055; color:var(--warn);
+  border-radius:10px; padding:10px 14px; font:500 12px var(--mono); margin-bottom:16px; }
+.banner code { color:var(--fg); }
 
-  /* Inputs */
-  .inputs {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
-    padding: 16px; margin-bottom: 16px;
-  }
-  .inputs h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 12px; }
-  .inputs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
-  .inputs label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-  .inputs input {
-    width: 100%; padding: 6px 8px; background: var(--bg);
-    border: 1px solid var(--border); border-radius: 4px;
-    color: var(--fg); font: 12px var(--mono);
-  }
-  .inputs input:focus { outline: none; border-color: var(--accent); }
-  .inputs .actions { margin-top: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .btn-primary {
-    background: var(--accent); color: white; border: 0;
-    padding: 8px 18px; border-radius: 4px;
-    font-size: 14px; font-weight: 500; cursor: pointer;
-  }
-  .btn-primary:hover { background: #3683e1; }
-  .btn-primary:disabled { opacity: 0.5; cursor: wait; }
-  .btn-link {
-    background: transparent; border: 0; color: var(--accent);
-    cursor: pointer; font-size: 12px; padding: 6px 0;
-  }
-  .btn-link:hover { text-decoration: underline; }
-  .inputs .hint { color: var(--muted); font-size: 11px; }
+/* ─── health board ────────────────────────────────────────────────────── */
+.health-head { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.checked-at { font:500 11px var(--mono); color:var(--dim); }
+.hgroup { margin-bottom:14px; }
+.hgroup h3 { font:700 12px var(--disp); letter-spacing:2px; text-transform:uppercase; color:var(--soft); margin:0 0 8px; }
+.hgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(255px,1fr)); gap:8px; }
+.hcard { display:flex; align-items:center; gap:10px; background:var(--surface2); border:1px solid var(--border);
+  border-radius:12px; padding:10px 12px; cursor:pointer; transition:border-color .12s, transform .12s; }
+.hcard:hover { border-color:var(--soft); transform:translateY(-1px); }
+.hdot { width:12px; height:12px; border-radius:50%; background:var(--surface3); flex:none;
+  border:2px solid var(--border); }
+.hcard.ok .hdot { background:var(--ok); border-color:var(--ok); box-shadow:0 0 8px #00b21988; }
+.hcard.bad .hdot { background:var(--bad); border-color:var(--bad); box-shadow:0 0 8px #ff2b2b88; animation:blink 1.4s infinite; }
+.hcard.pending .hdot { animation:spinpulse 1s infinite; }
+@keyframes blink { 50% { opacity:.35; } }
+@keyframes spinpulse { 50% { background:var(--soft); } }
+.hname { font:700 16px/1.1 var(--disp); letter-spacing:.4px; }
+.hpowers { font:500 10px var(--mono); color:var(--dim); margin-top:2px; }
+.hmeta { margin-left:auto; text-align:right; flex:none; }
+.hstatus { font:700 13px var(--mono); }
+.hcard.ok .hstatus { color:var(--ok); }
+.hcard.bad .hstatus { color:var(--bad); }
+.hms { font:500 10px var(--mono); color:var(--dim); }
 
-  /* Result cards */
-  .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 16px; }
-  .card {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
-    padding: 14px;
-  }
-  .card.idle { opacity: 0.85; border-style: dashed; }
-  .card.idle h3, .card.idle .url, .card.idle .stat .value { opacity: 0.6; }
-  .card.err { border-color: var(--err); }
-  .card .ribbon {
-    font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
-    color: var(--muted); margin-bottom: 8px;
-    display: flex; gap: 6px; align-items: center;
-  }
-  .card .ribbon .badge {
-    padding: 2px 6px; border-radius: 2px;
-    background: var(--accent-soft); color: var(--accent);
-    font-weight: 600; font-size: 10px;
-  }
-  .card .ribbon .run-one {
-    margin-left: auto;
-    background: var(--accent-soft);
-    border: 1px solid var(--accent); border-radius: 4px;
-    color: var(--fg); cursor: pointer;
-    padding: 3px 12px; font-size: 11px; font-weight: 600;
-    font-family: inherit; text-transform: none; letter-spacing: 0;
-  }
-  .card .ribbon .run-one:hover:not(:disabled) { background: var(--accent); color: white; }
-  .card .ribbon .run-one:disabled { opacity: 0.5; cursor: wait; }
-  .card h3 { font-size: 14px; margin: 0 0 6px; font-weight: 500; }
-  .card .url {
-    font: 11px var(--mono); color: var(--muted);
-    word-break: break-all;
-    margin-bottom: 12px;
-    max-height: 36px; overflow: hidden;
-  }
+/* ─── buttons / inputs ────────────────────────────────────────────────── */
+.btn { background:var(--train); border:none; color:#fff; border-radius:9px; padding:8px 18px;
+  cursor:pointer; font:800 14px var(--disp); letter-spacing:1px; text-transform:uppercase; }
+.btn:hover { filter:brightness(1.15); }
+.btn[disabled] { opacity:.4; pointer-events:none; }
+.btn.ghost { background:var(--surface2); border:1px solid var(--border); color:var(--soft); }
+.btn.ghost:hover { color:var(--fg); border-color:var(--soft); filter:none; }
+.minibtn { background:var(--surface3); border:1px solid var(--border); color:var(--soft); border-radius:7px;
+  padding:4px 11px; cursor:pointer; font:600 11px var(--mono); }
+.minibtn:hover { color:var(--fg); border-color:var(--soft); }
 
-  .stat-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px 10px;
-    margin-bottom: 10px;
-  }
-  .stat { font-family: var(--mono); }
-  .stat .label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
-  .stat .value { font-size: 16px; font-weight: 600; }
-  .stat.ok .value { color: var(--ok); }
-  .stat.err .value { color: var(--err); }
-  .stat.warn .value { color: var(--warn); }
-  .stat .sub { font-size: 11px; color: var(--muted); }
+/* ─── test console ────────────────────────────────────────────────────── */
+.tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.tab { font:700 15px var(--disp); letter-spacing:.5px; padding:6px 18px; border-radius:18px; cursor:pointer;
+  background:var(--surface2); border:1px solid var(--border); color:var(--soft); }
+.tab:hover { color:var(--fg); }
+.tab.active { background:var(--train); border-color:var(--train); color:#fff; }
+.screen-desc { color:var(--soft); font-size:12.5px; margin:0 0 12px; }
+.inputs { display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:14px; }
+.inputs label { font:500 10px var(--mono); color:var(--dim); display:flex; flex-direction:column; gap:4px; }
+.inputs input { background:var(--bg); border:1px solid var(--border); color:var(--fg); border-radius:8px;
+  padding:7px 10px; font:13px var(--mono); width:170px; }
+.runhint { font:500 11px var(--mono); color:var(--warn); margin-left:8px; }
 
-  .card .card-actions { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
-  .card .card-actions button {
-    background: transparent; border: 1px solid var(--border); color: var(--muted);
-    padding: 3px 8px; border-radius: 3px; cursor: pointer; font: 10px var(--mono);
-  }
-  .card .card-actions button:hover { border-color: var(--accent); color: var(--accent); }
+.paths { display:grid; grid-template-columns:repeat(auto-fit, minmax(310px,1fr)); gap:12px; }
+.pcard { background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:14px;
+  display:flex; flex-direction:column; gap:9px; min-width:0; }
+.pcard.ok { border-color:#00b21955; }
+.pcard.bad { border-color:#ff2b2b66; }
+.phead { display:flex; align-items:center; gap:8px; }
+.ptitle { font:800 18px var(--disp); letter-spacing:.4px; }
+.ptag { font:600 9.5px var(--mono); color:var(--dim); border:1px solid var(--border); border-radius:6px; padding:1px 7px; }
+.pill { margin-left:auto; font:700 12px var(--mono); border-radius:12px; padding:2px 11px; }
+.pill.ok { color:#fff; background:var(--ok); }
+.pill.bad { color:#fff; background:var(--bad); }
+.pwhat { font-size:11.5px; color:var(--soft); }
+.purl { font:500 10px var(--mono); color:var(--dim); word-break:break-all; max-height:42px; overflow:hidden; }
+.pstats { display:flex; gap:14px; font:600 12px var(--mono); color:var(--soft); }
+.pstats b { color:var(--fg); font-weight:600; }
+.pacts { display:flex; gap:6px; flex-wrap:wrap; }
+.pcard details { font-size:12px; }
+.pcard summary { cursor:pointer; font:600 11px var(--mono); color:var(--dim); }
+.pcard pre { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px;
+  font:11px/1.5 var(--mono); max-height:340px; overflow:auto; white-space:pre-wrap; word-break:break-all; }
 
-  details.body-detail {
-    margin-top: 10px;
-    border: 1px solid var(--border); border-radius: 4px;
-    background: var(--bg);
-  }
-  details.body-detail summary {
-    list-style: none; cursor: pointer; padding: 6px 10px;
-    color: var(--muted); font-size: 11px;
-  }
-  details.body-detail summary::-webkit-details-marker { display: none; }
-  details.body-detail summary::before { content: '▸ '; }
-  details.body-detail[open] summary::before { content: '▾ '; }
-  details.body-detail pre {
-    margin: 0; padding: 10px;
-    font: 11px var(--mono); white-space: pre-wrap; word-break: break-all;
-    border-top: 1px solid var(--border);
-    max-height: 60vh; overflow: auto;
-  }
+/* ─── verdict ─────────────────────────────────────────────────────────── */
+.verdict-empty { color:var(--dim); font:500 12px var(--mono); padding:14px;
+  border:1px dashed var(--border); border-radius:12px; }
+table.verdict { width:100%; border-collapse:collapse; background:var(--surface2); border-radius:12px; overflow:hidden; }
+table.verdict th { font:700 12px var(--disp); letter-spacing:1.5px; text-transform:uppercase; color:var(--dim);
+  text-align:left; padding:10px 14px; border-bottom:1px solid var(--border); }
+table.verdict td { padding:10px 14px; border-bottom:1px solid var(--border); font:500 12.5px var(--mono); }
+table.verdict tr:last-child td { border-bottom:none; }
+.win { color:var(--ok); font-weight:700; }
+.loss { color:var(--bad); font-weight:700; }
+.neutral { color:var(--soft); }
+.verdict-note { color:var(--dim); font-size:12px; margin-top:10px; }
 
-  /* Summary panel */
-  .summary {
-    background: linear-gradient(180deg, rgba(68, 147, 248, 0.08), rgba(68, 147, 248, 0.02));
-    border: 1px solid var(--accent-soft); border-left: 3px solid var(--accent);
-    border-radius: 6px; padding: 14px 18px;
-    margin-bottom: 24px;
-  }
-  .summary h2 {
-    font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--accent); margin: 0 0 10px;
-  }
-  .summary table { width: 100%; border-collapse: collapse; font: 13px var(--mono); }
-  .summary th, .summary td { text-align: left; padding: 4px 8px 4px 0; }
-  .summary th { color: var(--muted); font-weight: 400; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-  .summary td.savings { font-weight: 600; }
-  .summary td.win { color: var(--ok); }
-  .summary td.neutral { color: var(--muted); }
-  .summary td.loss { color: var(--warn); }
-  .summary .note { color: var(--muted); font-size: 11px; margin-top: 10px; font-style: italic; }
-
-  /* Custom debug section */
-  details.debug-section {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
-    margin-top: 32px;
-  }
-  details.debug-section summary {
-    list-style: none; cursor: pointer; padding: 12px 16px;
-    color: var(--muted); font-size: 13px;
-  }
-  details.debug-section summary::-webkit-details-marker { display: none; }
-  details.debug-section summary::before { content: '▸ '; }
-  details.debug-section[open] summary::before { content: '▾ '; }
-  details.debug-section .debug-body { padding: 0 16px 16px; border-top: 1px solid var(--border); }
-  details.debug-section textarea {
-    width: 100%; min-height: 80px; padding: 8px;
-    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
-    color: var(--fg); font: 12px var(--mono); resize: vertical;
-    margin: 10px 0;
-  }
-
-  .pill-ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
-  .pill-err { background: rgba(248, 81, 73, 0.15); color: var(--err); padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
-  .pill-warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
-
-  /* TfNSW Inspector */
-  .inspector-section {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
-    margin-top: 32px; padding: 16px;
-  }
-  .inspector-section h2 {
-    font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--muted); margin: 0 0 4px;
-  }
-  .inspector-section .insp-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
-  .inspector-url-row { display: flex; gap: 8px; align-items: stretch; }
-  .inspector-url-row input {
-    flex: 1; padding: 7px 10px; background: var(--bg);
-    border: 1px solid var(--border); border-radius: 4px;
-    color: var(--fg); font: 12px var(--mono);
-  }
-  .inspector-url-row input:focus { outline: none; border-color: var(--accent); }
-
-  .journey-list { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
-  .journey-card {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-    padding: 12px 14px;
-  }
-  .journey-header {
-    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
-    flex-wrap: wrap;
-  }
-  .journey-num {
-    background: var(--accent-soft); border: 1px solid var(--accent);
-    color: var(--accent); font: 600 11px var(--mono);
-    padding: 2px 8px; border-radius: 3px; min-width: 24px; text-align: center;
-  }
-  .journey-times { font: 13px var(--mono); color: var(--fg); font-weight: 600; }
-  .journey-dur { font: 11px var(--mono); color: var(--muted); }
-  .journey-changes { font: 11px var(--mono); color: var(--muted); }
-  .mode-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
-  .mode-pill {
-    font: 600 10px var(--mono); padding: 2px 7px; border-radius: 3px;
-    letter-spacing: 0.03em; white-space: nowrap;
-  }
-  .mode-train  { background: rgba(255,140,  50, 0.15); color: #ff8c32; border: 1px solid rgba(255,140,50,0.3); }
-  .mode-metro  { background: rgba( 30, 180, 100, 0.15); color: #1eb464; border: 1px solid rgba(30,180,100,0.3); }
-  .mode-bus    { background: rgba(100, 170, 255, 0.15); color: #64aaff; border: 1px solid rgba(100,170,255,0.3); }
-  .mode-ferry  { background: rgba( 80, 210, 220, 0.15); color: #50d2dc; border: 1px solid rgba(80,210,220,0.3); }
-  .mode-light  { background: rgba(200, 100, 255, 0.15); color: #c864ff; border: 1px solid rgba(200,100,255,0.3); }
-  .mode-coach  { background: rgba(150, 120, 200, 0.15); color: #9678c8; border: 1px solid rgba(150,120,200,0.3); }
-  .mode-walk   { background: rgba(120, 120, 120, 0.15); color: var(--muted); border: 1px solid rgba(120,120,120,0.3); }
-  .mode-other  { background: rgba(180, 180,  60, 0.15); color: #b4b43c; border: 1px solid rgba(180,180,60,0.3); }
-
-  .legs-table { width: 100%; border-collapse: collapse; font: 12px var(--mono); }
-  .legs-table th {
-    text-align: left; color: var(--muted); font-weight: 400;
-    font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
-    padding: 0 8px 6px 0; border-bottom: 1px solid var(--border);
-  }
-  .legs-table td { padding: 6px 8px 6px 0; border-bottom: 1px solid rgba(55,62,71,0.5); vertical-align: top; }
-  .legs-table tr:last-child td { border-bottom: none; }
-  .legs-table .leg-from { color: var(--fg); }
-  .legs-table .leg-to   { color: var(--muted); font-size: 11px; margin-top: 2px; }
-  .legs-table .leg-line { font-weight: 600; }
-
-  .insp-meta {
-    display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px;
-    font: 12px var(--mono); color: var(--muted);
-  }
-  .insp-meta span { color: var(--fg); font-weight: 600; }
-
-  details.insp-raw {
-    margin-top: 12px; border: 1px solid var(--border); border-radius: 4px;
-    background: var(--bg);
-  }
-  details.insp-raw summary {
-    list-style: none; cursor: pointer; padding: 6px 10px;
-    color: var(--muted); font-size: 11px;
-  }
-  details.insp-raw summary::-webkit-details-marker { display: none; }
-  details.insp-raw summary::before { content: '▸ '; }
-  details.insp-raw[open] summary::before { content: '▾ '; }
-  details.insp-raw pre {
-    margin: 0; padding: 10px;
-    font: 11px var(--mono); white-space: pre-wrap; word-break: break-all;
-    border-top: 1px solid var(--border);
-    max-height: 50vh; overflow: auto;
-  }
-
-  /* Mode toggle buttons */
-  .mode-toggles { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
-  .mode-toggle {
-    display: flex; align-items: center; gap: 5px;
-    padding: 6px 12px; border-radius: 5px; cursor: pointer;
-    font: 600 12px var(--mono); border: 2px solid transparent;
-    transition: opacity 0.15s, filter 0.15s;
-    user-select: none;
-  }
-  .mode-toggle .mot-icon { font-size: 14px; line-height: 1; }
-  .mode-toggle.on  { opacity: 1; }
-  .mode-toggle.off { opacity: 0.35; filter: grayscale(0.8); }
-  .mode-toggle.mt-train  { background: rgba(255,140,50,0.15); color:#ff8c32; border-color:rgba(255,140,50,0.4); }
-  .mode-toggle.mt-metro  { background: rgba(30,180,100,0.15); color:#1eb464; border-color:rgba(30,180,100,0.4); }
-  .mode-toggle.mt-light  { background: rgba(200,100,255,0.15); color:#c864ff; border-color:rgba(200,100,255,0.4); }
-  .mode-toggle.mt-bus    { background: rgba(100,170,255,0.15); color:#64aaff; border-color:rgba(100,170,255,0.4); }
-  .mode-toggle.mt-coach  { background: rgba(150,120,200,0.15); color:#9678c8; border-color:rgba(150,120,200,0.4); }
-  .mode-toggle.mt-ferry  { background: rgba(80,210,220,0.15);  color:#50d2dc; border-color:rgba(80,210,220,0.4); }
-  .mode-toggle.mt-school { background: rgba(100,170,255,0.10); color:#4a8fcc; border-color:rgba(100,170,255,0.3); }
-
-  .insp-form-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
-  .insp-form-row label { font-size: 11px; color: var(--muted); display:flex; flex-direction:column; gap:3px; }
-  .insp-form-row input {
-    padding: 5px 8px; background: var(--bg);
-    border: 1px solid var(--border); border-radius: 4px;
-    color: var(--fg); font: 12px var(--mono); width: 120px;
-  }
-  .insp-form-row input:focus { outline: none; border-color: var(--accent); }
-  .insp-depart-toggle { display: flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-  .insp-depart-toggle button {
-    background: transparent; border: none; color: var(--muted);
-    padding: 5px 10px; cursor: pointer; font: 12px var(--mono);
-  }
-  .insp-depart-toggle button.active { background: var(--accent-soft); color: var(--fg); }
-
-  .insp-url-display {
-    margin: 10px 0 0;
-    padding: 8px 10px;
-    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
-    font: 11px var(--mono); color: var(--muted);
-    word-break: break-all; white-space: pre-wrap;
-    max-height: 56px; overflow: hidden;
-  }
-  .insp-url-display em { color: var(--accent); font-style: normal; }
-
-  .insp-paste-hint {
-    font-size: 11px; color: var(--muted); margin-bottom: 8px;
-    border-bottom: 1px solid var(--border); padding-bottom: 8px;
-  }
-  .insp-paste-hint input {
-    width: 100%; padding: 5px 8px; background: var(--bg);
-    border: 1px solid var(--border); border-radius: 4px;
-    color: var(--muted); font: 11px var(--mono); margin-top: 4px;
-  }
-  .insp-paste-hint input:focus { outline: none; border-color: var(--accent); color: var(--fg); }
-
-  .insp-count-row { display: flex; align-items: center; gap: 8px; }
-  .insp-count-row label { font-size: 11px; color: var(--muted); }
-  .insp-count-row input { width: 50px; padding: 4px 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--fg); font: 12px var(--mono); }
+/* ─── any url ─────────────────────────────────────────────────────────── */
+.anyurl { display:flex; gap:10px; }
+.anyurl textarea { flex:1; background:var(--bg); border:1px solid var(--border); color:var(--fg);
+  border-radius:10px; padding:10px 12px; font:12px var(--mono); min-height:46px; resize:vertical; }
+#anyResult { margin-top:12px; }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>KRAIL-BFF · screen-first tester</h1>
-  <div class="sub">Pick a KRAIL screen below. The tester fires every path that screen exercises in parallel and shows you the deltas.
-    &nbsp;·&nbsp; <a href="track-tester.html" style="color:#58a6ff">🛰 Live trip tracking tester →</a></div>
-</header>
-
-<div class="config">
-  <label>Base URL <input id="baseUrl" value="http://localhost:8080"></label>
-  <label>X-Krail-Version <input id="version" placeholder="optional"></label>
-  <label style="flex:1;min-width:260px;">NSW API Key <input id="nswApiKey" placeholder="Paste key → direct NSW calls (no BFF needed)" style="width:100%;min-width:200px;"></label>
+<div class="bar">
+  <div class="brand"><span class="dotpulse" id="bffDot"></span> KRAIL · API CONTROL</div>
+  <label>BFF <input id="baseUrl" value="http://localhost:8080"></label>
+  <label>X-Krail-Version <input id="version" placeholder="optional" style="width:110px"></label>
+  <div class="spacer"></div>
+  <a href="track-tester.html">live tracking →</a>
 </div>
 
-<div class="screens" id="screens"></div>
-<div class="screen-desc" id="screenDesc"></div>
+<div class="wrap">
 
-<section class="inputs">
-  <h2>Inputs</h2>
-  <div class="inputs-grid" id="inputs"></div>
-  <div class="actions">
-    <button class="btn-primary" id="runAll">Run all paths</button>
-    <span class="hint" id="runHint"></span>
-  </div>
-</section>
-
-<section class="results" id="results"></section>
-
-<section class="summary" id="summary" style="display: none;">
-  <h2>Wire-size deltas</h2>
-  <div id="summaryBody"></div>
-</section>
-
-<section class="inspector-section">
-  <h2>TfNSW API Inspector</h2>
-  <div class="insp-sub">Build a trip query visually, or paste a URL/JSON. Set NSW API Key above for direct calls (no BFF needed).</div>
-
-  <div style="display:flex;gap:6px;margin-bottom:12px;">
-    <button class="screen-tab active" id="inspModeUrl" style="padding:6px 12px;font-size:12px;">Trip Builder</button>
-    <button class="screen-tab" id="inspModeJson" style="padding:6px 12px;font-size:12px;">Paste JSON</button>
+  <div class="banner" id="passthroughBanner">
+    ⚠ NSW checks need the dev passthrough. Set <code>bff.devPassthrough=true</code> in
+    <code>local.properties</code> (or <code>BFF_DEV_PASSTHROUGH=true</code>) and restart the BFF.
+    BFF-only checks still work.
   </div>
 
-  <div id="inspUrlPane">
-    <!-- optional: paste a URL to auto-fill the form -->
-    <div class="insp-paste-hint">
-      <span>Optional: paste an existing NSW URL to auto-fill ↓</span>
-      <input id="inspPasteUrl" placeholder="https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=…">
+  <!-- ════════ 1 · HEALTH ════════ -->
+  <section>
+    <h2 class="sec"><span class="n">01</span> Upstream health</h2>
+    <p class="lede">Every API this system depends on, checked live from your browser the moment the page
+      opens. <b>Green = answering, red = down</b> (the HTTP code tells you how). NSW endpoints are called
+      once each through the BFF's dev passthrough — click any card to re-check just that one.</p>
+    <div class="health-head">
+      <button class="btn ghost" id="recheck">Re-check all</button>
+      <span class="checked-at" id="checkedAt"></span>
     </div>
+    <div id="healthBoard"></div>
+  </section>
 
-    <!-- origin / destination / dep-arr / count -->
-    <div class="insp-form-row">
-      <label>Origin stop ID
-        <input id="inspOrigin" value="200080" style="width:110px;">
-      </label>
-      <label>Destination stop ID
-        <input id="inspDest" value="214710" style="width:110px;">
-      </label>
-      <label>Depart / Arrive
-        <div class="insp-depart-toggle">
-          <button id="inspDep" class="active">dep</button>
-          <button id="inspArr">arr</button>
-        </div>
-      </label>
-      <label>Journeys
-        <input id="inspCount" value="6" style="width:50px;">
-      </label>
+  <!-- ════════ 2 · TEST CONSOLE ════════ -->
+  <section>
+    <h2 class="sec"><span class="n">02</span> Test console</h2>
+    <p class="lede">Postman, but pre-wired. Pick the <b>app screen</b> you care about, tweak the inputs,
+      then fire any path on its own — <b>NSW direct</b> (what the app does today), <b>BFF JSON</b>
+      (pass-through), or <b>BFF proto</b> (the screen-shaped binary the app is moving to). Each card shows
+      status, latency, payload size and the full response body.</p>
+    <div class="tabs" id="screens"></div>
+    <p class="screen-desc" id="screenDesc"></p>
+    <div class="inputs" id="inputs"></div>
+    <div style="display:flex; align-items:center; margin-bottom:14px;">
+      <button class="btn" id="runAll">Run all paths</button>
+      <span class="runhint" id="runHint"></span>
     </div>
+    <div class="paths" id="results"></div>
+  </section>
 
-    <!-- mode toggles -->
-    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px;">Transport modes — click to exclude:</div>
-    <div class="mode-toggles" id="modeToggles">
-      <button class="mode-toggle mt-train on"  data-mot="1"  title="Toggle Train">🚂 Train</button>
-      <button class="mode-toggle mt-metro on"  data-mot="2"  title="Toggle Metro">🚇 Metro</button>
-      <button class="mode-toggle mt-light on"  data-mot="4"  title="Toggle Light Rail">🚊 Light Rail</button>
-      <button class="mode-toggle mt-bus   on"  data-mot="5"  title="Toggle Bus">🚌 Bus</button>
-      <button class="mode-toggle mt-coach on"  data-mot="7"  title="Toggle Coach">🚎 Coach</button>
-      <button class="mode-toggle mt-ferry on"  data-mot="9"  title="Toggle Ferry">⛴️ Ferry</button>
-      <button class="mode-toggle mt-school on" data-mot="11" title="Toggle School Bus">🚐 School Bus</button>
+  <!-- ════════ 3 · VERDICT ════════ -->
+  <section>
+    <h2 class="sec"><span class="n">03</span> BFF vs NSW — verdict</h2>
+    <p class="lede">After <b>Run all paths</b> above, this table compares each path against the baseline
+      (NSW direct when present): payload size on the wire, decoded size, and latency. Green = the BFF
+      path wins, red = it costs more.</p>
+    <div id="verdict"><div class="verdict-empty">Run all paths in the test console to populate the comparison.</div></div>
+  </section>
+
+  <!-- ════════ 4 · ANY URL ════════ -->
+  <section>
+    <h2 class="sec"><span class="n">04</span> Fire any URL</h2>
+    <p class="lede">Paste a raw URL or a curl command. NSW-host URLs are routed through the passthrough
+      automatically (auth header added server-side, no CORS pain).</p>
+    <div class="anyurl">
+      <textarea id="anyInput" placeholder="https://api.transport.nsw.gov.au/v1/tp/trip?...   — or a curl command"></textarea>
+      <button class="btn" id="anyRun">Fire</button>
     </div>
+    <div id="anyResult"></div>
+  </section>
 
-    <!-- live URL preview -->
-    <div style="font-size:11px;color:var(--muted);margin:10px 0 3px;">Constructed URL:</div>
-    <div class="insp-url-display" id="inspBuiltUrl"></div>
-
-    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <button class="btn-primary" id="inspRun">Fetch &amp; Inspect</button>
-      <div class="insp-depart-toggle" title="NSW Direct: browser calls NSW with your API key (auto-falls back to BFF if CORS blocks). BFF: proxied via localhost:8080.">
-        <button id="inspViaNsw" class="active">NSW Direct</button>
-        <button id="inspViaBff">BFF Passthrough</button>
-      </div>
-      <span style="font-size:11px;color:var(--muted)" id="inspHint"></span>
-    </div>
-  </div>
-
-  <div id="inspJsonPane" style="display:none;">
-    <textarea id="inspJson" style="width:100%;min-height:110px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--fg);font:12px var(--mono);resize:vertical;" placeholder="Paste rapidJSON trip response here…"></textarea>
-    <button class="btn-primary" id="inspJsonRun" style="margin-top:8px;">Inspect JSON</button>
-  </div>
-
-  <div id="inspResult"></div>
-</section>
-
-<details class="debug-section">
-  <summary>Debug any URL or curl</summary>
-  <div class="debug-body">
-    <textarea id="debugInput" placeholder="Paste a URL (any host) or a curl command. NSW URLs are auto-routed through /internal/passthrough."></textarea>
-    <button class="btn-primary" id="debugRun">Fire</button>
-    <div id="debugResult"></div>
-  </div>
-</details>
+</div>
 
 <script>
 'use strict';
-
-// ---------------------------------------------------------------------------
-// Screens — one entry per KRAIL screen. Each defines:
-//   inputs:   form fields { name, label, placeholder, default }
-//   paths:    array of paths to fire in parallel { id, label, kind, build }
-//             kind: 'bff-json' | 'bff-proto' | 'nsw'
-//             build({base, inputs}) returns the absolute URL to fetch
-// ---------------------------------------------------------------------------
-const SCREENS = [
-  {
-    id: 'trip',
-    title: 'Trip results',
-    desc: 'TimeTableScreen — searches NSW trip planner, draws journey cards + journey map polyline.',
-    inputs: [
-      { name: 'origin', label: 'Origin stop', default: '200070', placeholder: '200070 (Town Hall)' },
-      { name: 'destination', label: 'Destination stop', default: '215020', placeholder: '215020 (Bondi Junction)' },
-      { name: 'depArr', label: 'Mode', default: 'dep', placeholder: 'dep | arr' },
-    ],
-    paths: [
-      {
-        id: 'nsw',
-        label: 'NSW direct',
-        kind: 'nsw',
-        binary: false,
-        build: ({ i }) =>
-          `https://api.transport.nsw.gov.au/v1/tp/trip?name_origin=${i.origin}&name_destination=${i.destination}` +
-          `&depArrMacro=${i.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any` +
-          `&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&itOptionsActive=1` +
-          `&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON`,
-      },
-      {
-        id: 'bff-json',
-        label: 'BFF JSON',
-        kind: 'bff-json',
-        binary: false,
-        build: ({ base, i }) =>
-          `${base}/v1/tp/trip?name_origin=${i.origin}&name_destination=${i.destination}` +
-          `&depArrMacro=${i.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any` +
-          `&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&itOptionsActive=1` +
-          `&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON`,
-      },
-      {
-        id: 'bff-proto',
-        label: 'BFF proto',
-        kind: 'bff-proto',
-        binary: true,
-        build: ({ base, i }) =>
-          `${base}/api/v1/trip/plan-proto?origin=${i.origin}&destination=${i.destination}&depArr=${i.depArr || 'dep'}`,
-      },
-    ],
-  },
-  {
-    id: 'departures',
-    title: 'Departures',
-    desc: 'Saved Trips card — fetches next departures for a stop. JSON pass-through is NSW shape verbatim; proto is screen-shaped (line + destination + time + platform).',
-    inputs: [
-      { name: 'stopId', label: 'Stop ID', default: '200060', placeholder: '200060' },
-      { name: 'date', label: 'Date (YYYYMMDD)', default: '', placeholder: 'optional' },
-      { name: 'time', label: 'Time (HHmm)', default: '', placeholder: 'optional' },
-    ],
-    paths: [
-      {
-        id: 'nsw',
-        label: 'NSW direct',
-        kind: 'nsw',
-        binary: false,
-        build: ({ i }) => {
-          let u = `https://api.transport.nsw.gov.au/v1/tp/departure_mon?name_dm=${i.stopId}` +
-            `&type_dm=any&mode=direct&excludedMeans=checkbox&limit=20` +
-            `&outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&TfNSWDM=true&version=10.2.1.42`;
-          if (i.date) u += `&itdDate=${i.date}`;
-          if (i.time) u += `&itdTime=${i.time}`;
-          return u;
-        },
-      },
-      {
-        id: 'bff-json',
-        label: 'BFF JSON',
-        kind: 'bff-json',
-        binary: false,
-        build: ({ base, i }) => {
-          let u = `${base}/v1/stops/${i.stopId}/departures`;
-          const qs = [];
-          if (i.date) qs.push(`date=${i.date}`);
-          if (i.time) qs.push(`time=${i.time}`);
-          if (qs.length) u += '?' + qs.join('&');
-          return u;
-        },
-      },
-      {
-        id: 'bff-proto',
-        label: 'BFF proto',
-        kind: 'bff-proto',
-        binary: true,
-        build: ({ base, i }) => {
-          let u = `${base}/api/v1/stops/${i.stopId}/departures-proto`;
-          const qs = [];
-          if (i.date) qs.push(`date=${i.date}`);
-          if (i.time) qs.push(`time=${i.time}`);
-          if (qs.length) u += '?' + qs.join('&');
-          return u;
-        },
-      },
-    ],
-  },
-  {
-    id: 'parking',
-    title: 'Park & Ride',
-    desc: 'Home parking cards — fan-out per saved-trip stop. No single NSW URL matches (each stop becomes N upstream calls), so we compare proto vs the BFF JSON variant of the same query.',
-    inputs: [
-      { name: 'stopIds', label: 'Stop IDs (comma)', default: '2155384,275010', placeholder: '2155384,275010' },
-    ],
-    paths: [
-      {
-        id: 'bff-json',
-        label: 'BFF JSON',
-        kind: 'bff-json',
-        binary: false,
-        build: ({ base, i }) => `${base}/v1/parking/availability?stopIds=${encodeURIComponent(i.stopIds)}`,
-      },
-      {
-        id: 'bff-proto',
-        label: 'BFF proto',
-        kind: 'bff-proto',
-        binary: true,
-        build: ({ base, i }) => `${base}/api/v1/parking/availability-proto?stopIds=${encodeURIComponent(i.stopIds)}`,
-      },
-    ],
-  },
-  {
-    id: 'tracking',
-    title: 'Live tracking',
-    desc: 'TrackTripScreen / JourneyMapScreen — GTFS-RT polling. BFF is byte-for-byte upstream protobuf pass-through; no proto-vs-JSON delta exists.',
-    inputs: [
-      { name: 'feed', label: 'Feed', default: 'sydneytrains', placeholder: 'sydneytrains' },
-      { name: 'kind', label: 'Kind', default: 'vehiclepos', placeholder: 'vehiclepos | realtime' },
-    ],
-    paths: [
-      {
-        id: 'nsw',
-        label: 'NSW direct',
-        kind: 'nsw',
-        binary: true,
-        build: ({ i }) => {
-          const isV2 = i.feed === 'sydneytrains' || i.feed === 'metro';
-          const v = isV2 ? 'v2' : 'v1';
-          return i.kind === 'vehiclepos'
-            ? `https://api.transport.nsw.gov.au/v2/gtfs/vehiclepos/${i.feed}`
-            : `https://api.transport.nsw.gov.au/${v}/gtfs/realtime/${i.feed}`;
-        },
-      },
-      {
-        id: 'bff',
-        label: 'BFF (pass-through)',
-        kind: 'bff-proto',
-        binary: true,
-        build: ({ base, i }) => {
-          const isV2 = i.feed === 'sydneytrains' || i.feed === 'metro';
-          const v = isV2 ? 'v2' : 'v1';
-          return i.kind === 'vehiclepos'
-            ? `${base}/v2/gtfs/vehiclepos/${i.feed}`
-            : `${base}/${v}/gtfs/realtime/${i.feed}`;
-        },
-      },
-    ],
-  },
-];
-
-// ---------------------------------------------------------------------------
-// State + UI binding.
-// ---------------------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
 const ss = window.sessionStorage;
+const base = () => ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
+const NSW = 'https://api.transport.nsw.gov.au';
 
-let activeScreenId = ss.getItem('screen') || SCREENS[0].id;
-
-function activeScreen() { return SCREENS.find(s => s.id === activeScreenId) || SCREENS[0]; }
-
-function renderScreens() {
-  $('screens').innerHTML = SCREENS.map(s => `
-    <button class="screen-tab ${s.id === activeScreenId ? 'active' : ''}" data-id="${s.id}">
-      ${s.title}<span class="pill">${s.paths.length}</span>
-    </button>
-  `).join('');
-  $('screens').querySelectorAll('.screen-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeScreenId = btn.dataset.id;
-      ss.setItem('screen', activeScreenId);
-      renderAll();
-    });
-  });
+/* ───────────────────────────── helpers ─────────────────────────────── */
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function fmtBytes(b) {
+  if (b == null) return '—';
+  if (b < 1024) return `${b} B`;
+  if (b < 1048576) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / 1048576).toFixed(1)} MB`;
 }
-
-function renderInputs() {
-  const s = activeScreen();
-  $('screenDesc').textContent = s.desc;
-  $('inputs').innerHTML = s.inputs.map(input => {
-    const stored = ss.getItem(`input:${s.id}:${input.name}`);
-    const v = stored !== null ? stored : (input.default || '');
-    return `
-      <div>
-        <label for="in-${input.name}">${input.label}</label>
-        <input id="in-${input.name}" data-name="${input.name}" value="${esc(v)}" placeholder="${esc(input.placeholder || '')}">
-      </div>
-    `;
-  }).join('');
-  $('inputs').querySelectorAll('input').forEach(el => {
-    el.addEventListener('input', () => ss.setItem(`input:${s.id}:${el.dataset.name}`, el.value));
-  });
-}
-
-function renderResultsSkeleton() {
-  const s = activeScreen();
-  $('results').innerHTML = s.paths.map(p => `
-    <div class="card idle" data-id="${p.id}">
-      <div class="ribbon">
-        <span class="badge">${p.label}</span>
-        <button class="run-one" data-id="${p.id}" title="Fire only this path">Run</button>
-      </div>
-      <h3>${p.label}</h3>
-      <div class="url" data-url-slot></div>
-      <div class="stat-grid">
-        <div class="stat"><div class="label">Status</div><div class="value">—</div></div>
-        <div class="stat"><div class="label">Latency</div><div class="value">—</div></div>
-        <div class="stat"><div class="label">Body</div><div class="value">—</div></div>
-        <div class="stat"><div class="label">Wire (gz)</div><div class="value">—</div></div>
-      </div>
-    </div>
-  `).join('');
-  $('summary').style.display = 'none';
-  $('summaryBody').innerHTML = '';
-  bindCardRunButtons();
-}
-
-function bindCardRunButtons() {
-  document.querySelectorAll('.card .run-one').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      runOne(btn.dataset.id);
-    });
-  });
-}
-
-function readInputs() {
-  const s = activeScreen();
-  const i = {};
-  s.inputs.forEach(input => {
-    const el = $(`in-${input.name}`);
-    i[input.name] = (el ? el.value : input.default || '').trim();
-  });
-  return i;
-}
-
-// ---------------------------------------------------------------------------
-// HTTP firing.
-// ---------------------------------------------------------------------------
-async function rawFetch(url, { binary = false } = {}) {
-  const t0 = performance.now();
-  let response;
-  try {
-    response = await fetch(url, { headers: optHeaders() });
-  } catch (e) {
-    return { url, error: e.message || String(e), elapsed: Math.round(performance.now() - t0) };
+function pct(baseV, cur) { return (!baseV) ? null : Math.round((cur / baseV - 1) * 100); }
+function fmtSavings(p) { return p == null ? '—' : (p > 0 ? `+${p}%` : `${p}%`); }
+function hexPreview(bytes, max = 256) {
+  const rows = [];
+  for (let i = 0; i < Math.min(bytes.length, max); i += 16) {
+    rows.push(Array.from(bytes.slice(i, i + 16)).map(b => b.toString(16).padStart(2, '0')).join(' '));
   }
-  const elapsed = Math.round(performance.now() - t0);
-
-  const buf = await response.arrayBuffer();
-  const ct = response.headers.get('Content-Type') || '';
-  const decodedBytes = buf.byteLength;
-
-  let body;
-  const isJsonish = ct.includes('json') || ct.includes('text');
-  const isProtoish = ct.includes('protobuf');
-  if (binary || isProtoish) {
-    body = `<binary, ${decodedBytes} bytes>\n\n${hexPreview(new Uint8Array(buf), 256)}`;
-  } else if (isJsonish) {
-    const text = new TextDecoder().decode(buf);
-    try { body = JSON.stringify(JSON.parse(text), null, 2); } catch { body = text; }
-  } else {
-    body = new TextDecoder().decode(buf);
-  }
-
-  // Wire size via Resource Timing.
-  let encodedBodySize = null;
-  try {
-    const entries = performance.getEntriesByName(url);
-    const last = entries[entries.length - 1];
-    if (last && typeof last.encodedBodySize === 'number') encodedBodySize = last.encodedBodySize;
-  } catch {}
-
-  return {
-    url, status: response.status, statusText: response.statusText,
-    elapsed, decodedBytes, encodedBodySize, body,
-  };
+  return rows.join('\n') + (bytes.length > max ? `\n… (${bytes.length - max} more bytes)` : '');
 }
-
 function optHeaders() {
   const h = {};
   const v = ($('version').value || '').trim();
   if (v) h['X-Krail-Version'] = v;
   return h;
 }
+function passthrough(url) { return `${base()}/internal/passthrough?url=${encodeURIComponent(url)}`; }
 
-/**
- * Resolve a path's URL: build via screen-config, then wrap NSW URLs in
- * /internal/passthrough so the browser doesn't choke on missing CORS.
- */
-function resolveUrl(path, base, inputs) {
-  const raw = path.build({ base, i: inputs });
-  if (path.kind === 'nsw') {
-    return `${base}/internal/passthrough?url=${encodeURIComponent(raw)}`;
+async function rawFetch(url, { binary = false } = {}) {
+  const t0 = performance.now();
+  let response;
+  try { response = await fetch(url, { headers: optHeaders() }); }
+  catch (e) { return { url, error: e.message || String(e), elapsed: Math.round(performance.now() - t0) }; }
+  const elapsed = Math.round(performance.now() - t0);
+  const buf = await response.arrayBuffer();
+  const ct = response.headers.get('Content-Type') || '';
+  const decodedBytes = buf.byteLength;
+  let body;
+  if (binary || ct.includes('protobuf')) {
+    body = `<binary, ${decodedBytes} bytes>\n\n${hexPreview(new Uint8Array(buf))}`;
+  } else {
+    const text = new TextDecoder().decode(buf);
+    try { body = JSON.stringify(JSON.parse(text), null, 2); } catch { body = text; }
   }
-  return raw;
+  let encodedBodySize = null;
+  try {
+    const entries = performance.getEntriesByName(url);
+    const last = entries[entries.length - 1];
+    if (last && typeof last.encodedBodySize === 'number') encodedBodySize = last.encodedBodySize;
+  } catch {}
+  return { url, status: response.status, statusText: response.statusText, elapsed, decodedBytes, encodedBodySize, body };
 }
 
-// ---------------------------------------------------------------------------
-// Run all paths in parallel + render results + summary.
-// ---------------------------------------------------------------------------
+/* ─────────────────────── 1 · health board ──────────────────────────── */
+// One entry per upstream dependency. kind 'bff' hits the BFF directly;
+// kind 'nsw' goes via /internal/passthrough (auth added server-side).
+const FEEDS = [
+  // [feed, vehiclepos version, tripupdates version] — mirrors the BFF's FeedRegistry.
+  ['sydneytrains', 2, 2, 'var(--train)'],
+  ['nswtrains', 1, 1, 'var(--train)'],
+  ['metro', 2, 2, 'var(--metro)'],
+  ['lightrail/innerwest', 2, 1, 'var(--lr)'],
+  ['buses', 1, 1, 'var(--bus)'],
+  ['ferries/sydneyferries', 2, 1, 'var(--ferry)'],
+];
+const tuUrl = (feed, v) => v === 2 ? `${NSW}/v2/gtfs/tripupdate/${feed}` : `${NSW}/v1/gtfs/realtime/${feed}`;
+const vpUrl = (feed, v) => `${NSW}/v${v}/gtfs/vehiclepos/${feed}`;
+
+const HEALTH = [
+  { group: 'KRAIL-BFF (this machine)', items: [
+    { id: 'bff', name: 'BFF /health', powers: 'everything below goes through it', kind: 'bff', url: () => `${base()}/health` },
+  ]},
+  { group: 'NSW · journey APIs', items: [
+    { id: 'tp', name: 'Trip Planner', powers: 'trip search + journey cards', kind: 'nsw',
+      url: () => `${NSW}/v1/tp/trip?outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&depArrMacro=dep&type_origin=any&type_destination=any&name_origin=200060&name_destination=200070&calcNumberOfTrips=1&TfNSWTR=true&version=10.2.1.42` },
+    { id: 'dep', name: 'Departures monitor', powers: 'saved-trips departure times', kind: 'nsw',
+      url: () => `${NSW}/v1/tp/departure_mon?outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&mode=direct&type_dm=stop&name_dm=200060&departureMonitorMacro=true&TfNSWDM=true&version=10.2.1.42` },
+    { id: 'carpark', name: 'Car park occupancy', powers: 'park & ride cards', kind: 'nsw',
+      url: () => `${NSW}/v1/carpark` },
+  ]},
+  { group: 'NSW · realtime — trip updates (stop timelines, delays)', items:
+    FEEDS.map(([feed, , tu, color]) => ({
+      id: `tu:${feed}`, name: feed, powers: 'live stop times in tracking', kind: 'nsw', color,
+      url: () => tuUrl(feed, tu),
+    })),
+  },
+  { group: 'NSW · realtime — vehicle positions (the dot on the map)', items:
+    FEEDS.map(([feed, vp, , color]) => ({
+      id: `vp:${feed}`, name: feed, powers: 'live vehicle marker in tracking', kind: 'nsw', color,
+      url: () => vpUrl(feed, vp),
+    })),
+  },
+];
+
+let passthroughDown = false;
+
+function renderHealthBoard() {
+  $('healthBoard').innerHTML = HEALTH.map(g => `
+    <div class="hgroup">
+      <h3>${esc(g.group)}</h3>
+      <div class="hgrid">
+        ${g.items.map(it => `
+          <div class="hcard pending" id="h-${cssId(it.id)}" data-id="${esc(it.id)}" title="click to re-check">
+            <span class="hdot" ${it.color ? `style="border-color:${it.color}"` : ''}></span>
+            <span><div class="hname">${esc(it.name)}</div><div class="hpowers">${esc(it.powers)}</div></span>
+            <span class="hmeta"><div class="hstatus">…</div><div class="hms"></div></span>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+  document.querySelectorAll('.hcard').forEach(el =>
+    el.addEventListener('click', () => checkOne(findItem(el.dataset.id))));
+}
+function cssId(id) { return id.replace(/[^a-z0-9]/gi, '_'); }
+function findItem(id) { for (const g of HEALTH) { const f = g.items.find(i => i.id === id); if (f) return f; } }
+
+async function checkOne(item) {
+  const el = $(`h-${cssId(item.id)}`);
+  el.className = 'hcard pending';
+  el.querySelector('.hstatus').textContent = '…';
+  el.querySelector('.hms').textContent = '';
+  const target = item.kind === 'nsw' ? passthrough(item.url()) : item.url();
+  const t0 = performance.now();
+  let status = null, err = null;
+  try {
+    const resp = await fetch(target, { headers: optHeaders() });
+    status = resp.status;
+    await resp.arrayBuffer(); // drain so latency includes the body
+    // a 404 from the passthrough route itself means dev passthrough is off
+    if (item.kind === 'nsw' && resp.status === 404) {
+      const text = '' + (resp.headers.get('Content-Type') || '');
+      if (text.includes('json')) passthroughDown = true;
+    }
+  } catch (e) { err = e.message || 'network error'; }
+  const ms = Math.round(performance.now() - t0);
+  const ok = status != null && status >= 200 && status < 300;
+  el.className = `hcard ${ok ? 'ok' : 'bad'}`;
+  el.querySelector('.hstatus').textContent = err ? 'ERR' : status;
+  el.querySelector('.hms').textContent = err ? err.slice(0, 24) : `${ms} ms`;
+  return ok;
+}
+
+async function checkAll() {
+  passthroughDown = false;
+  $('recheck').disabled = true;
+  const items = HEALTH.flatMap(g => g.items);
+  // BFF first — if it's down, everything else will fail with noise.
+  const bffOk = await checkOne(items[0]);
+  $('bffDot').classList.toggle('live', bffOk);
+  // The rest with a small concurrency cap (kind to NSW).
+  const queue = items.slice(1);
+  const workers = Array.from({ length: 4 }, async () => {
+    while (queue.length) await checkOne(queue.shift());
+  });
+  await Promise.all(workers);
+  $('passthroughBanner').style.display = passthroughDown ? 'block' : 'none';
+  $('checkedAt').textContent = `checked ${new Date().toLocaleTimeString('en-AU', { hour12: false })} — counts as ~${items.length - 1} NSW calls`;
+  $('recheck').disabled = false;
+}
+
+/* ─────────────────────── 2 · test console ──────────────────────────── */
+const SCREENS = [
+  {
+    id: 'trip', title: 'Trip results',
+    desc: 'TimeTableScreen — searches the trip planner, draws journey cards + the journey-map polyline.',
+    inputs: [
+      { name: 'origin', label: 'Origin stop', default: '200070', placeholder: '200070 (Town Hall)' },
+      { name: 'destination', label: 'Destination stop', default: '215020', placeholder: '215020 (Bondi Junction)' },
+      { name: 'depArr', label: 'dep | arr', default: 'dep' },
+    ],
+    paths: [
+      { id: 'nsw', label: 'NSW direct', what: 'what the app does today', kind: 'nsw', binary: false,
+        build: ({ i }) => `${NSW}/v1/tp/trip?name_origin=${i.origin}&name_destination=${i.destination}&depArrMacro=${i.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON` },
+      { id: 'bff-json', label: 'BFF JSON', what: 'verbatim pass-through of the NSW shape', kind: 'bff', binary: false,
+        build: ({ b, i }) => `${b}/v1/tp/trip?name_origin=${i.origin}&name_destination=${i.destination}&depArrMacro=${i.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON` },
+      { id: 'bff-proto', label: 'BFF proto', what: 'screen-shaped binary the app is migrating to', kind: 'bff', binary: true,
+        build: ({ b, i }) => `${b}/api/v1/trip/plan-proto?name_origin=${i.origin}&name_destination=${i.destination}&depArrMacro=${i.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&outputFormat=rapidJSON` },
+    ],
+  },
+  {
+    id: 'departures', title: 'Departures',
+    desc: 'Saved-trips card — next departures for a stop. Proto is screen-shaped (line + destination + time + platform).',
+    inputs: [
+      { name: 'stopId', label: 'Stop ID', default: '200060', placeholder: '200060 (Central)' },
+      { name: 'date', label: 'Date YYYYMMDD', default: '', placeholder: 'optional' },
+      { name: 'time', label: 'Time HHmm', default: '', placeholder: 'optional' },
+    ],
+    paths: [
+      { id: 'nsw', label: 'NSW direct', what: 'departure monitor, full NSW shape', kind: 'nsw', binary: false,
+        build: ({ i }) => { let u = `${NSW}/v1/tp/departure_mon?name_dm=${i.stopId}&type_dm=any&mode=direct&excludedMeans=checkbox&limit=20&outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&TfNSWDM=true&version=10.2.1.42`; if (i.date) u += `&itdDate=${i.date}`; if (i.time) u += `&itdTime=${i.time}`; return u; } },
+      { id: 'bff-json', label: 'BFF JSON', what: 'pass-through of the NSW shape', kind: 'bff', binary: false,
+        build: ({ b, i }) => { let u = `${b}/v1/stops/${i.stopId}/departures`; const q = []; if (i.date) q.push(`date=${i.date}`); if (i.time) q.push(`time=${i.time}`); return q.length ? `${u}?${q.join('&')}` : u; } },
+      { id: 'bff-proto', label: 'BFF proto', what: 'screen-shaped binary', kind: 'bff', binary: true,
+        build: ({ b, i }) => { let u = `${b}/api/v1/stops/${i.stopId}/departures-proto`; const q = []; if (i.date) q.push(`date=${i.date}`); if (i.time) q.push(`time=${i.time}`); return q.length ? `${u}?${q.join('&')}` : u; } },
+    ],
+  },
+  {
+    id: 'parking', title: 'Park & Ride',
+    desc: 'Home parking cards. No single NSW URL exists (each stop fans out to N upstream calls), so the comparison is BFF JSON vs BFF proto for the same batch.',
+    inputs: [
+      { name: 'stopIds', label: 'Stop IDs (comma)', default: '2155384,275010' },
+    ],
+    paths: [
+      { id: 'bff-json', label: 'BFF JSON', what: 'batched facilities, JSON', kind: 'bff', binary: false,
+        build: ({ b, i }) => `${b}/v1/parking/availability?stopIds=${encodeURIComponent(i.stopIds)}` },
+      { id: 'bff-proto', label: 'BFF proto', what: 'batched facilities, binary', kind: 'bff', binary: true,
+        build: ({ b, i }) => `${b}/api/v1/parking/availability-proto?stopIds=${encodeURIComponent(i.stopIds)}` },
+    ],
+  },
+  {
+    id: 'track', title: 'Live tracking',
+    desc: 'TrackTripScreen — POST /api/v1/track/snapshot is the app contract (use the live-tracking dashboard for the full experience). These GETs compare the raw GTFS-RT feeds the BFF consumes.',
+    inputs: [
+      { name: 'feed', label: 'Feed', default: 'sydneytrains', placeholder: 'sydneytrains | metro | buses…' },
+      { name: 'kind', label: 'vehiclepos | tripupdate', default: 'vehiclepos' },
+    ],
+    paths: [
+      { id: 'nsw', label: 'NSW direct', what: 'raw GTFS-RT protobuf feed', kind: 'nsw', binary: true,
+        build: ({ i }) => {
+          const f = FEEDS.find(x => x[0] === i.feed) || FEEDS[0];
+          return i.kind === 'tripupdate' ? tuUrl(f[0], f[2]) : vpUrl(f[0], f[1]);
+        } },
+      { id: 'bff', label: 'BFF pass-through', what: 'same bytes via the BFF', kind: 'bff', binary: true,
+        build: ({ b, i }) => {
+          const f = FEEDS.find(x => x[0] === i.feed) || FEEDS[0];
+          const raw = i.kind === 'tripupdate' ? tuUrl(f[0], f[2]) : vpUrl(f[0], f[1]);
+          return raw.replace(NSW, b);
+        } },
+    ],
+  },
+];
+
+let activeScreenId = ss.getItem('screen') || SCREENS[0].id;
+let lastResults = [];
+const activeScreen = () => SCREENS.find(s => s.id === activeScreenId) || SCREENS[0];
+
+function renderTabs() {
+  $('screens').innerHTML = SCREENS.map(s =>
+    `<button class="tab ${s.id === activeScreenId ? 'active' : ''}" data-id="${s.id}">${s.title}</button>`).join('');
+  $('screens').querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+    activeScreenId = b.dataset.id; ss.setItem('screen', activeScreenId);
+    lastResults = []; renderConsole(); renderVerdict();
+  }));
+}
+
+function renderConsole() {
+  renderTabs();
+  const s = activeScreen();
+  $('screenDesc').textContent = s.desc;
+  $('inputs').innerHTML = s.inputs.map(inp => {
+    const stored = ss.getItem(`input:${s.id}:${inp.name}`);
+    const v = stored !== null ? stored : (inp.default || '');
+    return `<label>${esc(inp.label)}<input data-name="${inp.name}" value="${esc(v)}" placeholder="${esc(inp.placeholder || '')}"></label>`;
+  }).join('');
+  $('inputs').querySelectorAll('input').forEach(el =>
+    el.addEventListener('input', () => ss.setItem(`input:${s.id}:${el.dataset.name}`, el.value)));
+  $('results').innerHTML = s.paths.map(p => pathCardHtml(p, null)).join('');
+  bindPathCards();
+}
+
+function readInputs() {
+  const i = {};
+  $('inputs').querySelectorAll('input').forEach(el => { i[el.dataset.name] = el.value.trim(); });
+  return i;
+}
+
+function pathCardHtml(p, r) {
+  const url = safeBuild(p);
+  let statsHtml = `<div class="pstats"><span>status <b>—</b></span><span>latency <b>—</b></span><span>size <b>—</b></span></div>`;
+  let pill = '', bodyHtml = '', cls = '';
+  if (r) {
+    if (r.error) {
+      cls = 'bad'; pill = `<span class="pill bad">ERR</span>`;
+      bodyHtml = `<details open><summary>Network error</summary><pre>${esc(r.error)}</pre></details>`;
+      statsHtml = `<div class="pstats"><span>status <b>network error</b></span><span>latency <b>${r.elapsed} ms</b></span></div>`;
+    } else {
+      const ok = r.status >= 200 && r.status < 400;
+      cls = ok ? 'ok' : 'bad';
+      pill = `<span class="pill ${ok ? 'ok' : 'bad'}">${r.status}</span>`;
+      const wire = r.encodedBodySize ? ` · wire ${fmtBytes(r.encodedBodySize)}` : '';
+      statsHtml = `<div class="pstats"><span>latency <b>${r.elapsed} ms</b></span><span>body <b>${fmtBytes(r.decodedBytes)}</b>${wire}</span></div>`;
+      bodyHtml = `<details><summary>response body (${fmtBytes(r.decodedBytes)})</summary><pre>${esc(r.body)}</pre></details>`;
+    }
+  }
+  return `
+    <div class="pcard ${cls}" data-id="${p.id}">
+      <div class="phead"><span class="ptitle">${esc(p.label)}</span><span class="ptag">${p.binary ? 'proto' : 'json'}</span>${pill}</div>
+      <div class="pwhat">${esc(p.what)}</div>
+      <div class="purl">${esc(url)}</div>
+      ${statsHtml}
+      <div class="pacts">
+        <button class="minibtn fire" data-id="${p.id}">▶ Fire</button>
+        <button class="minibtn cp-url" data-url="${esc(url)}">copy URL</button>
+        <button class="minibtn cp-curl" data-id="${p.id}">copy curl</button>
+        ${r && !r.error ? `<button class="minibtn cp-body" data-id="${p.id}">copy body</button>` : ''}
+      </div>
+      ${bodyHtml}
+    </div>`;
+}
+
+function safeBuild(p) {
+  try { return p.build({ b: base(), i: readInputsOrDefaults() }); } catch { return '—'; }
+}
+function readInputsOrDefaults() {
+  const s = activeScreen();
+  const fromDom = readInputs();
+  const i = {};
+  s.inputs.forEach(inp => { i[inp.name] = fromDom[inp.name] !== undefined ? fromDom[inp.name] : (inp.default || ''); });
+  return i;
+}
+
+function bindPathCards() {
+  document.querySelectorAll('.fire').forEach(b => b.addEventListener('click', () => fireOne(b.dataset.id)));
+  document.querySelectorAll('.cp-url').forEach(b => b.addEventListener('click', () => navigator.clipboard.writeText(b.dataset.url)));
+  document.querySelectorAll('.cp-curl').forEach(b => b.addEventListener('click', () => {
+    const p = activeScreen().paths.find(x => x.id === b.dataset.id);
+    const raw = safeBuild(p);
+    const curl = p.kind === 'nsw'
+      ? `curl -H 'Authorization: apikey $NSW_API_KEY' '${raw}'`
+      : `curl '${raw}'`;
+    navigator.clipboard.writeText(curl);
+  }));
+  document.querySelectorAll('.cp-body').forEach(b => b.addEventListener('click', () => {
+    const found = lastResults.find(x => x.path.id === b.dataset.id);
+    if (found && found.r.body) navigator.clipboard.writeText(found.r.body);
+  }));
+}
+
+async function fireOne(pathId) {
+  const p = activeScreen().paths.find(x => x.id === pathId);
+  if (!p) return;
+  const raw = safeBuild(p);
+  const url = p.kind === 'nsw' ? passthrough(raw) : raw;
+  const card = document.querySelector(`.pcard[data-id="${pathId}"]`);
+  card.querySelector('.fire').textContent = '…';
+  const r = await rawFetch(url, { binary: p.binary });
+  const idx = lastResults.findIndex(x => x.path.id === pathId);
+  if (idx >= 0) lastResults[idx] = { path: p, r }; else lastResults.push({ path: p, r });
+  card.outerHTML = pathCardHtml(p, r);
+  bindPathCards();
+}
+
 async function runAll() {
   const s = activeScreen();
-  const inputs = readInputs();
-  const base = ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
-
-  // Validate required inputs.
-  for (const input of s.inputs) {
-    if (!input.default && !inputs[input.name]) continue; // optional
-    if (input.default && !inputs[input.name]) {
-      $('runHint').textContent = `Need a value for ${input.label}.`;
-      return;
-    }
-  }
-
-  $('runAll').disabled = true;
-  $('runAll').textContent = 'Running…';
-  $('runHint').textContent = '';
-  renderResultsSkeleton();
-
-  // Stamp each card with its displayed URL up-front.
-  s.paths.forEach(p => {
-    const card = document.querySelector(`.card[data-id="${p.id}"]`);
-    if (!card) return;
-    const rawUrl = p.build({ base, i: inputs });
-    card.querySelector('[data-url-slot]').textContent = rawUrl;
-  });
-
-  // Fire all in parallel.
-  const fetches = s.paths.map(p => {
-    const url = resolveUrl(p, base, inputs);
-    return rawFetch(url, { binary: p.binary }).then(r => ({ path: p, r }));
-  });
-  const settled = await Promise.allSettled(fetches);
-
-  // Render each card.
-  const results = [];
-  settled.forEach((res, idx) => {
-    const p = s.paths[idx];
-    const r = res.status === 'fulfilled' ? res.value.r : { error: res.reason?.message || String(res.reason) };
-    renderCard(p, r);
-    results.push({ path: p, r });
-  });
-
-  renderSummary(results);
-
-  $('runAll').disabled = false;
-  $('runAll').textContent = 'Run all paths';
+  $('runAll').disabled = true; $('runAll').textContent = 'Running…'; $('runHint').textContent = '';
+  lastResults = [];
+  await Promise.all(s.paths.map(p => fireOne(p.id)));
+  $('runAll').disabled = false; $('runAll').textContent = 'Run all paths';
+  renderVerdict();
 }
 
-function renderCard(path, r) {
-  const card = document.querySelector(`.card[data-id="${path.id}"]`);
-  if (!card) return;
-  card.classList.remove('idle');
-  if (r.error) {
-    card.classList.add('err');
-    card.innerHTML = `
-      <div class="ribbon">
-        <span class="badge">${esc(path.label)}</span>
-        <button class="run-one" data-id="${path.id}">Run</button>
-      </div>
-      <h3>${esc(path.label)}</h3>
-      <div class="url">${esc(path.build({ base: $('baseUrl').value.replace(/\/+$/, ''), i: readInputs() }))}</div>
-      <div class="stat-grid">
-        <div class="stat err"><div class="label">Status</div><div class="value">NET ERROR</div></div>
-        <div class="stat"><div class="label">Latency</div><div class="value">—</div></div>
-      </div>
-      <details class="body-detail"><summary>Error</summary><pre>${esc(r.error)}</pre></details>
-    `;
-    bindCardRunButtons();
-    return;
-  }
-
-  const okCls = r.status >= 200 && r.status < 400 ? 'ok' : 'err';
-  const statusPill = okCls === 'ok' ? 'pill-ok' : 'pill-err';
-  const wire = r.encodedBodySize != null && r.encodedBodySize > 0 ? fmtBytes(r.encodedBodySize) : '—';
-
-  card.innerHTML = `
-    <div class="ribbon">
-      <span class="badge">${esc(path.label)}</span>
-      <span class="${statusPill}">${r.status}</span>
-      <button class="run-one" data-id="${path.id}" title="Re-run only this path">Re-run</button>
-    </div>
-    <h3>${esc(path.label)}</h3>
-    <div class="url">${esc(path.build({ base: $('baseUrl').value.replace(/\/+$/, ''), i: readInputs() }))}</div>
-    <div class="stat-grid">
-      <div class="stat ${okCls}"><div class="label">Status</div><div class="value">${r.status}</div><div class="sub">${esc(r.statusText || '')}</div></div>
-      <div class="stat"><div class="label">Latency</div><div class="value">${r.elapsed}<span style="font-size:11px;color:var(--muted)"> ms</span></div></div>
-      <div class="stat"><div class="label">Body</div><div class="value">${fmtBytes(r.decodedBytes)}</div></div>
-      <div class="stat"><div class="label">Wire (gz)</div><div class="value">${wire}</div></div>
-    </div>
-    <div class="card-actions">
-      <button class="cp-url">Copy URL</button>
-      <button class="cp-body">Copy body</button>
-    </div>
-    <details class="body-detail"><summary>Response body (${fmtBytes(r.decodedBytes)})</summary><pre>${esc(r.body)}</pre></details>
-  `;
-
-  // Wire copy + re-run buttons on this card.
-  card.querySelector('.cp-url').addEventListener('click', () => navigator.clipboard.writeText(r.url));
-  card.querySelector('.cp-body').addEventListener('click', () => navigator.clipboard.writeText(r.body));
-  bindCardRunButtons();
-}
-
-/**
- * Fire exactly one path. Used by the Run / Re-run buttons in each card.
- * Doesn't refresh the deltas table — that needs at least 2 fresh results.
- */
-async function runOne(pathId) {
-  const s = activeScreen();
-  const path = s.paths.find(p => p.id === pathId);
-  if (!path) return;
-  const inputs = readInputs();
-  const base = ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
-
-  // Mark the card busy via the button text.
-  const btn = document.querySelector(`.card[data-id="${pathId}"] .run-one`);
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-
-  const url = resolveUrl(path, base, inputs);
-  const r = await rawFetch(url, { binary: path.binary });
-  renderCard(path, r);
-}
-
-/**
- * Build the deltas table: for each pair of paths in the screen, show
- * what the size delta + savings % is. We prefer "vs NSW" comparisons
- * when an NSW path is present, else "vs BFF JSON".
- */
-function renderSummary(results) {
-  const ok = results.filter(({ r }) => r && !r.error && r.status >= 200 && r.status < 400);
+/* ─────────────────────── 3 · verdict ───────────────────────────────── */
+function renderVerdict() {
+  const ok = lastResults.filter(({ r }) => r && !r.error && r.status >= 200 && r.status < 400);
   if (ok.length < 2) {
-    $('summary').style.display = 'none';
+    $('verdict').innerHTML = `<div class="verdict-empty">Run all paths in the test console to populate the comparison.</div>`;
     return;
   }
-
-  // Pick the baseline:
-  //   - NSW direct if present (the "what would have been transferred" baseline)
-  //   - else BFF JSON
-  const baseline = ok.find(({ path }) => path.kind === 'nsw')
-    || ok.find(({ path }) => path.kind === 'bff-json')
-    || ok[0];
-
-  const rows = ok.filter(o => o.path.id !== baseline.path.id).map(({ path, r }) => {
-    const dRaw = pct(baseline.r.decodedBytes, r.decodedBytes);
-    const dWire = (baseline.r.encodedBodySize && r.encodedBodySize)
-      ? pct(baseline.r.encodedBodySize, r.encodedBodySize)
-      : null;
-    const dLatency = r.elapsed - baseline.r.elapsed;
-    return {
-      label: path.label, dRaw, dWire, dLatency,
-      thisRaw: r.decodedBytes, thisWire: r.encodedBodySize,
-      baseRaw: baseline.r.decodedBytes, baseWire: baseline.r.encodedBodySize,
-    };
+  const baselineEntry = ok.find(o => o.path.id === 'nsw') || ok.find(o => o.path.id === 'bff-json') || ok[0];
+  const rows = ok.filter(o => o.path.id !== baselineEntry.path.id).map(({ path, r }) => {
+    const dRaw = pct(baselineEntry.r.decodedBytes, r.decodedBytes);
+    const dWire = (baselineEntry.r.encodedBodySize && r.encodedBodySize) ? pct(baselineEntry.r.encodedBodySize, r.encodedBodySize) : null;
+    const dLat = r.elapsed - baselineEntry.r.elapsed;
+    return { label: path.label, dRaw, dWire, dLat, thisRaw: r.decodedBytes, baseRaw: baselineEntry.r.decodedBytes };
   });
-
-  if (!rows.length) {
-    $('summary').style.display = 'none';
-    return;
-  }
-
-  const headerLatency = '<th>Latency Δ</th>';
-  const html = `
-    <table>
-      <thead>
+  const cls = (v, t) => v == null ? 'neutral' : (v <= -t ? 'win' : v >= t ? 'loss' : 'neutral');
+  $('verdict').innerHTML = `
+    <table class="verdict">
+      <thead><tr><th>vs ${esc(baselineEntry.path.label)}</th><th>Body size</th><th>Wire (gz)</th><th>Latency Δ</th></tr></thead>
+      <tbody>${rows.map(r => `
         <tr>
-          <th>vs ${esc(baseline.path.label)}</th>
-          <th>Body</th>
-          <th>Wire (gz)</th>
-          ${headerLatency}
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map(r => {
-          const rawCls = r.dRaw == null ? 'neutral' : (r.dRaw <= -5 ? 'win' : r.dRaw >= 5 ? 'loss' : 'neutral');
-          const wireCls = r.dWire == null ? 'neutral' : (r.dWire <= -5 ? 'win' : r.dWire >= 5 ? 'loss' : 'neutral');
-          const latCls = r.dLatency == null ? 'neutral' : (r.dLatency <= -25 ? 'win' : r.dLatency >= 25 ? 'loss' : 'neutral');
-          return `
-          <tr>
-            <td>${esc(r.label)}</td>
-            <td class="savings ${rawCls}">${fmtSavings(r.dRaw)} <span style="color:var(--muted);font-weight:400">(${fmtBytes(r.thisRaw)} vs ${fmtBytes(r.baseRaw)})</span></td>
-            <td class="savings ${wireCls}">${r.dWire == null ? '—' : fmtSavings(r.dWire)} ${r.thisWire && r.baseWire ? `<span style="color:var(--muted);font-weight:400">(${fmtBytes(r.thisWire)} vs ${fmtBytes(r.baseWire)})</span>` : ''}</td>
-            <td class="savings ${latCls}">${r.dLatency >= 0 ? '+' : ''}${r.dLatency} ms</td>
-          </tr>
-          `;
-        }).join('')}
+          <td>${esc(r.label)}</td>
+          <td class="${cls(r.dRaw, 5)}">${fmtSavings(r.dRaw)} <span class="neutral">(${fmtBytes(r.thisRaw)} vs ${fmtBytes(r.baseRaw)})</span></td>
+          <td class="${cls(r.dWire, 5)}">${fmtSavings(r.dWire)}</td>
+          <td class="${cls(r.dLat, 25)}">${r.dLat >= 0 ? '+' : ''}${r.dLat} ms</td>
+        </tr>`).join('')}
       </tbody>
     </table>
-    <div class="note">${noteForScreen()}</div>
-  `;
-  $('summaryBody').innerHTML = html;
-  $('summary').style.display = '';
+    <div class="verdict-note">${verdictNote()}</div>`;
+}
+function verdictNote() {
+  switch (activeScreen().id) {
+    case 'trip': return 'BFF JSON equals NSW direct by design (verbatim pass-through). Proto reshapes to a smaller, screen-shaped binary that also carries the journey-map polylines.';
+    case 'departures': return 'BFF JSON is byte-equal to NSW. Proto carries only what the card renders (line + destination + time + platform).';
+    case 'parking': return 'No NSW baseline exists — the BFF fans one request out to N upstream calls. The delta shown is encoding-only for the same batch.';
+    case 'track': return 'GTFS-RT is byte-for-byte pass-through; zero delta expected. The real tracking contract is POST /api/v1/track/snapshot — see the live-tracking dashboard.';
+    default: return '';
+  }
 }
 
-function noteForScreen() {
-  const s = activeScreen();
-  if (s.id === 'trip') return 'JSON pass-through equals NSW direct in body size by design — the BFF forwards verbatim. Proto reshapes to a smaller binary.';
-  if (s.id === 'departures') return 'JSON pass-through is byte-equal to NSW. Proto is screen-shaped (only line + destination + time + platform), so it carries far less.';
-  if (s.id === 'parking') return 'No NSW direct comparison — the BFF fan-out makes N upstream calls per request. Proto vs JSON shows the encoding-only delta for the same logical batch.';
-  if (s.id === 'tracking') return 'GTFS-RT is byte-for-byte pass-through. No delta is expected; this check confirms the BFF isn\'t silently reshaping.';
-  return '';
-}
-
-// ---------------------------------------------------------------------------
-// Debug-any-URL panel.
-// ---------------------------------------------------------------------------
-async function runDebug() {
-  const raw = $('debugInput').value.trim();
+/* ─────────────────────── 4 · any url ───────────────────────────────── */
+async function fireAny() {
+  let raw = $('anyInput').value.trim();
   if (!raw) return;
-  $('debugRun').disabled = true; $('debugRun').textContent = 'Firing…';
-  $('debugResult').innerHTML = '';
-
-  const base = ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
-  // Parse: either URL or curl. Curl handling kept minimal.
-  let url = raw;
-  let method = 'GET';
   if (/^curl\s/i.test(raw)) {
-    const m = raw.match(/'((https?|http):\/\/[^']+)'|"((https?|http):\/\/[^"]+)"|((https?|http):\/\/\S+)/);
-    if (m) url = m[1] || m[3] || m[5];
+    const m = raw.match(/'(https?:\/\/[^']+)'|"(https?:\/\/[^"]+)"|(https?:\/\/\S+)/);
+    if (m) raw = m[1] || m[2] || m[3];
   }
-  // Auto-wrap NSW URLs.
-  if (url.startsWith('https://api.transport.nsw.gov.au')) {
-    url = `${base}/internal/passthrough?url=${encodeURIComponent(url)}`;
-  }
-
+  const url = raw.startsWith(NSW) ? passthrough(raw) : raw;
+  $('anyRun').disabled = true; $('anyRun').textContent = '…';
   const r = await rawFetch(url, { binary: false });
-  if (r.error) {
-    $('debugResult').innerHTML = `<div class="card err" style="margin-top:12px;"><div class="ribbon">DEBUG</div><h3>Network error</h3><pre>${esc(r.error)}</pre></div>`;
-  } else {
-    const okCls = r.status >= 200 && r.status < 400 ? 'ok' : 'err';
-    const statusPill = okCls === 'ok' ? 'pill-ok' : 'pill-err';
-    const wire = r.encodedBodySize != null ? fmtBytes(r.encodedBodySize) : '—';
-    $('debugResult').innerHTML = `
-      <div class="card" style="margin-top:12px;">
-        <div class="ribbon"><span class="badge">DEBUG</span><span class="${statusPill}">${r.status}</span></div>
-        <div class="url">${esc(url)}</div>
-        <div class="stat-grid">
-          <div class="stat ${okCls}"><div class="label">Status</div><div class="value">${r.status}</div></div>
-          <div class="stat"><div class="label">Latency</div><div class="value">${r.elapsed}<span style="font-size:11px;color:var(--muted)"> ms</span></div></div>
-          <div class="stat"><div class="label">Body</div><div class="value">${fmtBytes(r.decodedBytes)}</div></div>
-          <div class="stat"><div class="label">Wire</div><div class="value">${wire}</div></div>
-        </div>
-        <details class="body-detail" open><summary>Body</summary><pre>${esc(r.body)}</pre></details>
-      </div>
-    `;
-  }
-  $('debugRun').disabled = false; $('debugRun').textContent = 'Fire';
-}
-
-// ---------------------------------------------------------------------------
-// Utils
-// ---------------------------------------------------------------------------
-function pct(base, current) {
-  if (!base || base === 0) return null;
-  return Math.round((current / base - 1) * 100);
-}
-function fmtSavings(p) {
-  if (p === null || p === undefined) return '—';
-  if (p === 0) return '0%';
-  return p > 0 ? `+${p}%` : `${p}%`;
-}
-function fmtBytes(b) {
-  if (b == null) return '—';
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  return `${(b / 1024 / 1024).toFixed(1)} MB`;
-}
-function hexPreview(bytes, max = 256) {
-  const slice = bytes.slice(0, max);
-  const rows = [];
-  for (let i = 0; i < slice.length; i += 16) {
-    const chunk = slice.slice(i, i + 16);
-    const hex = Array.from(chunk).map(b => b.toString(16).padStart(2, '0')).join(' ');
-    rows.push(hex);
-  }
-  return rows.join('\n') + (bytes.length > max ? `\n... (${bytes.length - max} more bytes)` : '');
-}
-function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
-
-// ---------------------------------------------------------------------------
-// TfNSW Inspector
-// ---------------------------------------------------------------------------
-const MOT_CLASS = {
-  1:   { label: 'Train',      css: 'mode-train'  },
-  2:   { label: 'Metro',      css: 'mode-metro'  },
-  4:   { label: 'Light Rail', css: 'mode-light'  },
-  5:   { label: 'Bus',        css: 'mode-bus'    },
-  7:   { label: 'Coach',      css: 'mode-coach'  },
-  9:   { label: 'Ferry',      css: 'mode-ferry'  },
-  11:  { label: 'School Bus', css: 'mode-bus'    },
-  99:  { label: 'Walk',       css: 'mode-walk'   },
-  100: { label: 'Walk',       css: 'mode-walk'   },
-};
-
-function motInfo(cls) {
-  return MOT_CLASS[cls] || { label: `MOT-${cls}`, css: 'mode-other' };
-}
-
-function fmtTime(iso) {
-  if (!iso) return '—';
-  try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false });
-  } catch { return iso; }
-}
-
-function fmtDuration(secs) {
-  if (secs == null) return '—';
-  const m = Math.round(secs / 60);
-  if (m < 60) return `${m} min`;
-  return `${Math.floor(m / 60)}h ${m % 60}m`;
-}
-
-// ---------------------------------------------------------------------------
-// Mode toggle state + URL builder
-// ---------------------------------------------------------------------------
-// Set of MOT classes currently EXCLUDED (shown as "off" / greyed)
-const inspExcluded = new Set();
-let inspDepArr = 'dep';
-
-function inspBuildUrl() {
-  const origin = ($('inspOrigin').value || '').trim() || '200080';
-  const dest   = ($('inspDest').value   || '').trim() || '214710';
-  const count  = ($('inspCount').value  || '').trim() || '6';
-  let u = `https://api.transport.nsw.gov.au/v1/tp/trip` +
-    `?name_origin=${encodeURIComponent(origin)}&name_destination=${encodeURIComponent(dest)}` +
-    `&depArrMacro=${inspDepArr}&type_destination=any&calcNumberOfTrips=${encodeURIComponent(count)}&type_origin=any` +
-    `&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG%3A4326&itOptionsActive=1` +
-    `&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON`;
-  if (inspExcluded.size > 0) {
-    u += `&excludedMeans=checkbox`;
-    inspExcluded.forEach(mot => { u += `&exclMOT_${mot}=1`; });
-  }
-  return u;
-}
-
-function inspRefreshUrlDisplay() {
-  const el = $('inspBuiltUrl');
-  if (!el) return;
-  const u = inspBuildUrl();
-  // Highlight exclusion params in accent colour.
-  const safe = esc(u).replace(/(&amp;exclMOT_\d+=1|&amp;excludedMeans=checkbox)/g,
-    '<em>$1</em>');
-  el.innerHTML = safe;
-}
-
-function inspToggleMode(mot) {
-  if (inspExcluded.has(mot)) {
-    inspExcluded.delete(mot);
-  } else {
-    inspExcluded.add(mot);
-  }
-  // Re-sync button visual state.
-  document.querySelectorAll('#modeToggles .mode-toggle').forEach(btn => {
-    const m = parseInt(btn.dataset.mot, 10);
-    btn.classList.toggle('on',  !inspExcluded.has(m));
-    btn.classList.toggle('off',  inspExcluded.has(m));
-  });
-  inspRefreshUrlDisplay();
-}
-
-// Parse a pasted NSW trip URL and apply its params to the form.
-function inspApplyPastedUrl(raw) {
-  try {
-    const u = new URL(raw);
-    const p = u.searchParams;
-    if (p.get('name_origin'))      $('inspOrigin').value = p.get('name_origin');
-    if (p.get('name_destination')) $('inspDest').value   = p.get('name_destination');
-    if (p.get('calcNumberOfTrips')) $('inspCount').value = p.get('calcNumberOfTrips');
-    if (p.get('depArrMacro')) {
-      inspDepArr = p.get('depArrMacro');
-      $('inspDep').classList.toggle('active', inspDepArr === 'dep');
-      $('inspArr').classList.toggle('active', inspDepArr === 'arr');
-    }
-    // Reset all toggles to ON, then apply exclusions from URL.
-    // Accept both exclMOT_5=1 (correct) and legacy exclMOT5=5 (old/wrong).
-    inspExcluded.clear();
-    [1, 2, 4, 5, 7, 9, 11].forEach(mot => {
-      if (p.get(`exclMOT_${mot}`) != null || p.get(`exclMOT${mot}`) != null) inspExcluded.add(mot);
-    });
-    document.querySelectorAll('#modeToggles .mode-toggle').forEach(btn => {
-      const m = parseInt(btn.dataset.mot, 10);
-      btn.classList.toggle('on',  !inspExcluded.has(m));
-      btn.classList.toggle('off',  inspExcluded.has(m));
-    });
-    inspRefreshUrlDisplay();
-    $('inspHint').textContent = 'URL parsed ✓';
-    setTimeout(() => { $('inspHint').textContent = ''; }, 2000);
-  } catch {
-    $('inspHint').textContent = 'Could not parse URL';
-  }
-}
-
-// ---------------------------------------------------------------------------
-// NSW fetch helper — direct (with API key) or via passthrough
-// ---------------------------------------------------------------------------
-let inspVia = 'nsw'; // 'nsw' | 'bff'
-
-async function nswFetch(nswUrl) {
-  if (inspVia === 'nsw') {
-    const apiKey = ($('nswApiKey').value || '').trim();
-    const t0 = performance.now();
-    try {
-      const headers = apiKey ? { 'Authorization': `apikey ${apiKey}` } : {};
-      const resp = await fetch(nswUrl, { headers });
-      const elapsed = Math.round(performance.now() - t0);
-      const buf = await resp.arrayBuffer();
-      const text = new TextDecoder().decode(buf);
-      let body;
-      try { body = JSON.stringify(JSON.parse(text), null, 2); } catch { body = text; }
-      return { url: nswUrl, status: resp.status, statusText: resp.statusText,
-               elapsed, decodedBytes: buf.byteLength, encodedBodySize: null, body, via: 'nsw' };
-    } catch (e) {
-      // CORS blocks direct browser calls to NSW — auto-fallback to BFF passthrough.
-      $('inspHint').textContent = 'NSW Direct CORS-blocked → falling back to BFF…';
-      const base = ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
-      const proxyUrl = `${base}/internal/passthrough?url=${encodeURIComponent(nswUrl)}`;
-      const r = await rawFetch(proxyUrl, { binary: false });
-      return { ...r, via: 'bff-fallback' };
-    }
-  }
-  // Explicit BFF passthrough
-  const base = ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
-  const proxyUrl = `${base}/internal/passthrough?url=${encodeURIComponent(nswUrl)}`;
-  const r = await rawFetch(proxyUrl, { binary: false });
-  return { ...r, via: 'bff' };
-}
-
-async function runInspector() {
-  const nswUrl = inspBuildUrl();
-  const btn = $('inspRun');
-  btn.disabled = true; btn.textContent = 'Fetching…';
-  $('inspResult').innerHTML = '';
-  $('inspHint').textContent = '';
-
-  const r = await nswFetch(nswUrl);
-  btn.disabled = false; btn.textContent = 'Fetch & Inspect';
-
-  if (r.error) {
-    const hint = (r.via === 'bff-fallback' || inspVia === 'bff')
-      ? 'BFF Passthrough failed — is BFF running at localhost:8080? Run: ./gradlew :server:run'
-      : 'NSW Direct failed — check NSW API Key is set above.';
-    $('inspResult').innerHTML = `<div class="card err" style="margin-top:12px;">
-      <div class="ribbon"><span class="badge">INSPECTOR</span></div>
-      <h3>Network error</h3>
-      <pre>${esc(r.error)}</pre>
-      <div style="margin-top:8px;font-size:12px;color:var(--warn)">${hint}</div>
+  const ok = !r.error && r.status >= 200 && r.status < 400;
+  $('anyResult').innerHTML = `
+    <div class="pcard ${r.error ? 'bad' : ok ? 'ok' : 'bad'}">
+      <div class="phead"><span class="ptitle">Result</span>${r.error ? '<span class="pill bad">ERR</span>' : `<span class="pill ${ok ? 'ok' : 'bad'}">${r.status}</span>`}</div>
+      <div class="purl">${esc(url)}</div>
+      <div class="pstats"><span>latency <b>${r.elapsed} ms</b></span>${r.decodedBytes != null ? `<span>body <b>${fmtBytes(r.decodedBytes)}</b></span>` : ''}</div>
+      <details open><summary>body</summary><pre>${esc(r.error || r.body)}</pre></details>
     </div>`;
-    return;
-  }
-
-  let parsed = null;
-  try { parsed = JSON.parse(r.body); } catch {}
-
-  let html;
-  if (parsed && (parsed.journeys || parsed.trips)) {
-    html = renderTripInspection(parsed.journeys ? parsed : { journeys: parsed.trips }, r.body, r);
-  } else if (parsed && parsed.stopEvents) {
-    html = renderDeparturesInspection(parsed.stopEvents, r.body);
-  } else {
-    html = renderGenericInspection(r, r.body);
-  }
-  $('inspResult').innerHTML = html;
+  $('anyRun').disabled = false; $('anyRun').textContent = 'Fire';
 }
 
-// ---------------------------------------------------------------------------
-// Render helpers
-// ---------------------------------------------------------------------------
-function renderTripInspection(data, rawJson, r) {
-  const journeys = data.journeys || [];
-  const viaLabel = r?.via === 'nsw' ? 'NSW Direct' : r?.via === 'bff-fallback' ? 'BFF fallback (CORS)' : 'BFF Passthrough';
-  const statBar = r ? `
-    <div style="display:flex;gap:12px;font:11px var(--mono);color:var(--muted);margin-bottom:8px;">
-      <span><span style="color:var(--ok);font-weight:600">${r.status}</span> ${esc(r.statusText||'')}</span>
-      <span>${r.elapsed} ms</span>
-      <span>${fmtBytes(r.decodedBytes)}</span>
-      <span style="color:var(--accent)">${viaLabel}</span>
-    </div>` : '';
-
-  if (!journeys.length) {
-    return `${statBar}<div style="color:var(--warn);margin-top:8px;font-size:13px;">No journeys in response — NSW returned 0 results for these params / exclusions.</div>
-            <details class="insp-raw"><summary>Raw JSON</summary><pre>${esc(rawJson)}</pre></details>`;
-  }
-
-  const allModes = new Set();
-  journeys.forEach(j => (j.legs || []).forEach(l => {
-    const cls = l.transportation?.product?.class;
-    if (cls != null && cls !== 99 && cls !== 100) allModes.add(cls);
-  }));
-  const modeSummaryPills = [...allModes].sort().map(c => {
-    const m = motInfo(c);
-    return `<span class="mode-pill ${m.css}">${m.label}</span>`;
-  }).join(' ');
-
-  const metaHtml = `
-    ${statBar}
-    <div class="insp-meta" style="margin-top:8px;">
-      Journeys: <span>${journeys.length}</span>
-      &nbsp;·&nbsp; Modes in results: ${modeSummaryPills || '<span style="color:var(--muted)">none (walk-only?)</span>'}
-    </div>`;
-
-  const journeyCards = journeys.map((j, idx) => {
-    const legs = j.legs || [];
-    const depTime = fmtTime(legs[0]?.origin?.departureTimePlanned);
-    const arrTime = fmtTime(legs[legs.length - 1]?.destination?.arrivalTimePlanned);
-    const durSecs = j.duration;
-    const transitLegs = legs.filter(l => { const c = l.transportation?.product?.class; return c != null && c !== 99 && c !== 100; });
-    const interchanges = Math.max(0, transitLegs.length - 1);
-
-    const legModePills = legs.map(l => {
-      const cls = l.transportation?.product?.class;
-      if (cls == null || cls === 99 || cls === 100) return '';
-      const m = motInfo(cls);
-      return `<span class="mode-pill ${m.css}">${m.label}</span>`;
-    }).join('');
-
-    const legsRows = legs.map(l => {
-      const cls = l.transportation?.product?.class;
-      const m = motInfo(cls ?? 99);
-      const lineName = l.transportation?.disassembledName || l.transportation?.name || (cls === 99 || cls === 100 ? 'Walk' : '—');
-      const fromStop = l.origin?.name || '—';
-      const toStop   = l.destination?.name || '—';
-      const depT = fmtTime(l.origin?.departureTimePlanned);
-      const arrT = fmtTime(l.destination?.arrivalTimePlanned);
-      const legDur = fmtDuration(l.duration);
-      const stopCount = l.stopSequence ? l.stopSequence.length : '—';
-      return `
-        <tr>
-          <td><span class="mode-pill ${m.css}">${m.label}</span></td>
-          <td class="leg-line">${esc(lineName)}</td>
-          <td><div class="leg-from">${esc(fromStop)}</div><div class="leg-to">→ ${esc(toStop)}</div></td>
-          <td>${esc(depT)} → ${esc(arrT)}</td>
-          <td>${esc(legDur)}</td>
-          <td style="color:var(--muted)">${stopCount}</td>
-        </tr>`;
-    }).join('');
-
-    return `
-      <div class="journey-card">
-        <div class="journey-header">
-          <span class="journey-num">${idx + 1}</span>
-          <span class="journey-times">${depTime} → ${arrTime}</span>
-          <span class="journey-dur">${fmtDuration(durSecs)}</span>
-          ${interchanges > 0 ? `<span class="journey-changes">${interchanges} change${interchanges !== 1 ? 's' : ''}</span>` : ''}
-          <div class="mode-pills">${legModePills}</div>
-        </div>
-        <table class="legs-table">
-          <thead><tr><th>Mode</th><th>Line</th><th>From → To</th><th>Times</th><th>Duration</th><th>Stops</th></tr></thead>
-          <tbody>${legsRows}</tbody>
-        </table>
-      </div>`;
-  }).join('');
-
-  return `${metaHtml}<div class="journey-list">${journeyCards}</div>
-          <details class="insp-raw"><summary>Raw JSON (${fmtBytes(rawJson.length)} chars)</summary><pre>${esc(rawJson)}</pre></details>`;
-}
-
-function renderDeparturesInspection(events, rawJson) {
-  const rows = events.slice(0, 40).map(e => {
-    const cls = e.transportation?.product?.class;
-    const m = motInfo(cls ?? 99);
-    const line = e.transportation?.disassembledName || e.transportation?.name || '—';
-    const dest = e.transportation?.destination?.name || '—';
-    const dep = fmtTime(e.departureTimePlanned);
-    const depRT = e.departureTimeEstimated ? fmtTime(e.departureTimeEstimated) : null;
-    const platform = e.location?.properties?.stopId || '—';
-    return `<tr>
-      <td><span class="mode-pill ${m.css}">${m.label}</span></td>
-      <td class="leg-line">${esc(line)}</td>
-      <td>${esc(dest)}</td>
-      <td>${esc(dep)}${depRT && depRT !== dep ? ` <span style="color:var(--warn)">${esc(depRT)}</span>` : ''}</td>
-      <td style="color:var(--muted)">${esc(String(platform))}</td>
-    </tr>`;
-  }).join('');
-  return `<div class="insp-meta" style="margin-top:14px;">Departures: <span>${events.length}</span></div>
-    <div class="journey-list"><div class="journey-card">
-      <table class="legs-table">
-        <thead><tr><th>Mode</th><th>Line</th><th>Destination</th><th>Departs (RT)</th><th>Platform/Stop</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div></div>
-    <details class="insp-raw"><summary>Raw JSON</summary><pre>${esc(rawJson)}</pre></details>`;
-}
-
-function renderGenericInspection(r, rawJson) {
-  return `
-    <div class="card" style="margin-top:12px;">
-      <div class="ribbon"><span class="badge">INSPECTOR</span><span class="${r.status < 400 ? 'pill-ok' : 'pill-err'}">${r.status}</span></div>
-      <div class="stat-grid">
-        <div class="stat ${r.status < 400 ? 'ok' : 'err'}"><div class="label">Status</div><div class="value">${r.status}</div></div>
-        <div class="stat"><div class="label">Latency</div><div class="value">${r.elapsed} ms</div></div>
-        <div class="stat"><div class="label">Body</div><div class="value">${fmtBytes(r.decodedBytes)}</div></div>
-      </div>
-      <details class="insp-raw" open><summary>Body</summary><pre>${esc(rawJson)}</pre></details>
-    </div>`;
-}
-
-// ---------------------------------------------------------------------------
-// Wire up + first render.
-// ---------------------------------------------------------------------------
-function renderAll() {
-  renderScreens();
-  renderInputs();
-  renderResultsSkeleton();
-}
-
-$('runAll').addEventListener('click', () => runAll());
-$('debugRun').addEventListener('click', () => runDebug());
-
-// Inspector: mode toggle buttons
-document.querySelectorAll('#modeToggles .mode-toggle').forEach(btn => {
-  btn.addEventListener('click', () => inspToggleMode(parseInt(btn.dataset.mot, 10)));
-});
-
-// Inspector: dep/arr toggle
-$('inspDep').addEventListener('click', () => {
-  inspDepArr = 'dep';
-  $('inspDep').classList.add('active'); $('inspArr').classList.remove('active');
-  inspRefreshUrlDisplay();
-});
-$('inspArr').addEventListener('click', () => {
-  inspDepArr = 'arr';
-  $('inspArr').classList.add('active'); $('inspDep').classList.remove('active');
-  inspRefreshUrlDisplay();
-});
-
-// Inspector: origin/dest/count inputs live-refresh URL
-['inspOrigin', 'inspDest', 'inspCount'].forEach(id => {
-  $(id).addEventListener('input', inspRefreshUrlDisplay);
-});
-
-// Inspector: paste-URL auto-fill
-$('inspPasteUrl').addEventListener('paste', e => {
-  setTimeout(() => {
-    const v = ($('inspPasteUrl').value || '').trim();
-    if (v.includes('api.transport.nsw.gov.au')) inspApplyPastedUrl(v);
-  }, 0);
-});
-$('inspPasteUrl').addEventListener('blur', () => {
-  const v = ($('inspPasteUrl').value || '').trim();
-  if (v.includes('api.transport.nsw.gov.au')) inspApplyPastedUrl(v);
-});
-
-// Inspector: BFF vs NSW toggle
-$('inspViaBff').addEventListener('click', () => {
-  inspVia = 'bff';
-  $('inspViaBff').classList.add('active'); $('inspViaNsw').classList.remove('active');
-});
-$('inspViaNsw').addEventListener('click', () => {
-  inspVia = 'nsw';
-  $('inspViaNsw').classList.add('active'); $('inspViaBff').classList.remove('active');
-});
-
-// Inspector: fetch
-$('inspRun').addEventListener('click', () => runInspector());
-
-// Inspector: paste JSON tab
-$('inspJsonRun').addEventListener('click', () => {
-  const raw = ($('inspJson').value || '').trim();
-  if (!raw) return;
-  let parsed;
-  try { parsed = JSON.parse(raw); } catch (e) {
-    $('inspResult').innerHTML = `<div style="color:var(--err);margin-top:10px;font:12px var(--mono)">JSON parse error: ${esc(e.message)}</div>`;
-    return;
-  }
-  if (parsed.journeys || parsed.trips) {
-    $('inspResult').innerHTML = renderTripInspection(parsed.journeys ? parsed : { journeys: parsed.trips }, raw, null);
-  } else if (parsed.stopEvents) {
-    $('inspResult').innerHTML = renderDeparturesInspection(parsed.stopEvents, raw);
-  } else {
-    $('inspResult').innerHTML = renderGenericInspection({ status: 200, elapsed: 0, decodedBytes: raw.length }, raw);
-  }
-});
-
-// Tab switch
-$('inspModeUrl').addEventListener('click', () => {
-  $('inspUrlPane').style.display = '';
-  $('inspJsonPane').style.display = 'none';
-  $('inspModeUrl').classList.add('active');
-  $('inspModeJson').classList.remove('active');
-});
-$('inspModeJson').addEventListener('click', () => {
-  $('inspUrlPane').style.display = 'none';
-  $('inspJsonPane').style.display = '';
-  $('inspModeUrl').classList.remove('active');
-  $('inspModeJson').classList.add('active');
-});
-
-// Persist NSW API key
-$('nswApiKey').addEventListener('input', () => ss.setItem('nswApiKey', $('nswApiKey').value));
-if (ss.getItem('nswApiKey')) $('nswApiKey').value = ss.getItem('nswApiKey');
+/* ─────────────────────── boot ──────────────────────────────────────── */
+$('baseUrl').value = ss.getItem('baseUrl') || 'http://localhost:8080';
 $('baseUrl').addEventListener('input', () => ss.setItem('baseUrl', $('baseUrl').value));
-$('version').addEventListener('input', () => ss.setItem('version', $('version').value));
-
-// Restore persisted base / version.
-if (ss.getItem('baseUrl')) $('baseUrl').value = ss.getItem('baseUrl');
-if (ss.getItem('version')) $('version').value = ss.getItem('version');
-if (ss.getItem('nswApiKey')) $('nswApiKey').value = ss.getItem('nswApiKey');
-
-renderAll();
-inspRefreshUrlDisplay();
+$('recheck').addEventListener('click', checkAll);
+$('runAll').addEventListener('click', runAll);
+$('anyRun').addEventListener('click', fireAny);
+renderHealthBoard();
+renderConsole();
+checkAll();
 </script>
 </body>
 </html>
