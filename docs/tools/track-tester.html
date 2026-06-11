@@ -121,6 +121,11 @@ h2.sec::after { content:''; flex:1; height:1px; background:var(--border); }
   color:var(--soft); background:var(--surface2); display:inline-flex; gap:7px; align-items:center; border:1px solid transparent;}
 .legtab.active { color:#fff; background:var(--mode,#555); }
 .legtab .st { font:500 9px var(--mono); opacity:.85; }
+/* contract x-ray — what the BFF payload actually contains this poll */
+.contract { display:flex; gap:5px; flex-wrap:wrap; padding:8px 14px; border-bottom:1px solid var(--border); }
+.cf { font:600 10px var(--mono); padding:2px 8px; border-radius:4px; border:1px solid var(--border); color:var(--dim); }
+.cf.on { color:var(--fg); border-color:var(--early); background:#00b21914; }
+.cf b { font-weight:700; }
 .tlwrap { overflow-y:auto; min-height:0; flex:1; }
 .timeline { padding:12px 0 28px; }
 .tl-stop { display:grid; grid-template-columns: 58px 32px 1fr auto; align-items:center; padding:5px 16px 5px 8px; }
@@ -228,6 +233,7 @@ details.share .row input { width:100%; }
       <div class="empty-live">No active tracking<br><span style="font:500 12px var(--mono);color:var(--dim)">find a trip, then click its card</span></div>
     </div>
     <div class="legtabs" id="legtabs"></div>
+    <div class="contract" id="contract"></div>
     <div class="tlwrap"><div class="timeline" id="timeline"></div></div>
   </div>
 
@@ -579,6 +585,21 @@ function render() {
   const mc = modeOf(pc).c;
   $('hero').style.setProperty('--mode', mc);
   $('timeline').style.setProperty('--mode', mc);
+
+  // contract x-ray — THE point of this dashboard: what is the server
+  // actually sending the app for this status, field by field.
+  const segTagged = (leg.stops||[]).filter(s => s.segment && s.segment !== 'SEGMENT_UNSPECIFIED').length;
+  const fields = [
+    ['status', true, leg.status],
+    ['vehicle', !!leg.vehicle, leg.vehicle ? 'lat/lng + age' : 'omitted'],
+    ['fleet', !!leg.fleet, leg.fleet?.display_name || 'omitted'],
+    ['occupancy', !!leg.occupancy, leg.occupancy ? (leg.occupancy.cars?.length ? `${leg.occupancy.cars.length} cars` : 'overall') : 'omitted'],
+    ['stops', (leg.stops||[]).length > 0, `${(leg.stops||[]).length}`],
+    ['segments', segTagged > 0, segTagged > 0 ? `${segTagged} tagged` : 'unmatched'],
+    ['delay', leg.delay_seconds !== undefined, leg.delay_seconds !== undefined ? `${leg.delay_seconds}s` : 'omitted'],
+  ];
+  $('contract').innerHTML = `<span class="cf" style="border:none;padding-left:0">→ app receives:</span>` +
+    fields.map(([n, on, v]) => `<span class="cf ${on?'on':''}"><b>${n}</b> ${v}</span>`).join('');
 
   // hero
   let headline='', sub='', chips='';
