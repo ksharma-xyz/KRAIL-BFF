@@ -198,6 +198,30 @@ class TrackServiceTest {
     }
 
     @Test
+    fun `timeline is sliced to the requested journey segment`() = runBlocking {
+        // Take a live trip's real stop ids and request a mid-trip segment.
+        val tu = FeedMessage.ADAPTER.decode(fixture("tripupdates_sydneytrains.pb"))
+        val fullStops = tu.entity.first { it.trip_update?.trip?.trip_id == liveTripId }
+            .trip_update!!.stop_time_update.mapNotNull { it.stop_id }
+        check(fullStops.size >= 4) { "fixture trip too short for slicing test" }
+        val origin = fullStops[1]
+        val destination = fullStops[fullStops.size - 2]
+
+        val sliced = service().snapshot(TrackRequest(legs = listOf(
+            leg(liveTripId).copy(origin_stop_id = origin, destination_stop_id = destination),
+        ))).legs.single().stops
+        assertEquals(origin, sliced.first().stop_id)
+        assertEquals(destination, sliced.last().stop_id)
+        assertEquals(fullStops.size - 2, sliced.size)
+
+        // Unknown endpoints → full list, never a wrong slice.
+        val full = service().snapshot(TrackRequest(legs = listOf(
+            leg(liveTripId).copy(origin_stop_id = "NOPE1", destination_stop_id = "NOPE2"),
+        ))).legs.single().stops
+        assertEquals(fullStops.size, full.size)
+    }
+
+    @Test
     fun `stop states are consistent with vehicle progress`() = runBlocking {
         val tracked = service().snapshot(TrackRequest(legs = listOf(leg(liveTripId)))).legs.single()
         val states = tracked.stops.map { it.state }

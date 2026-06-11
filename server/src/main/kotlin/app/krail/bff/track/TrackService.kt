@@ -127,6 +127,7 @@ class TrackService(
         metrics.counter("track.match.exact").inc()
 
         val stops = buildStopTimeline(tripUpdate, vehicle, now)
+            .sliceToJourney(leg.origin_stop_id, leg.destination_stop_id)
         val status = when {
             vehicle != null -> LegTracking.Status.TRACKING
             stops.isNotEmpty() && stops.all { it.state == StopProgress.State.DEPARTED } ->
@@ -269,6 +270,27 @@ class TrackService(
                 estimated_epoch_sec = estimated,
                 state = state,
             )
+        }
+    }
+
+    /**
+     * The feed carries the vehicle's FULL run; the user boards and alights
+     * somewhere inside it. Slice to the journey segment when both endpoint
+     * stop ids match exactly (they do for trains/buses — Trip Planner leg
+     * stops use the same platform-level ids as TripUpdates). On any
+     * mismatch return the full list — wrong slicing is worse than extra
+     * stops, and a metric tracks how often the match fails.
+     */
+    private fun List<StopProgress>.sliceToJourney(originId: String, destinationId: String): List<StopProgress> {
+        if (originId.isBlank() || destinationId.isBlank()) return this
+        val from = indexOfFirst { it.stop_id == originId }
+        val to = indexOfLast { it.stop_id == destinationId }
+        return if (from in 0..to) {
+            metrics.counter("track.slice.matched").inc()
+            subList(from, to + 1)
+        } else {
+            metrics.counter("track.slice.unmatched").inc()
+            this
         }
     }
 
