@@ -48,35 +48,37 @@
 > Full design: [TRACKING_DESIGN.md](docs/reference/TRACKING_DESIGN.md).
 > Order matters; O-items are research, T-items are BFF code, A-items are app code.
 
-- [ ] **O1–O5 research spikes** — TfNSW extension proto fields
-      (PassLoad / TfnswVehicleDescriptor) + public-feed availability;
-      bus vehiclepos feed inventory; trip_id normalization from ~20
-      captured real pairs; NSW key has realtime products enabled;
-      `/.well-known/` serving on GitHub Pages (`.nojekyll`).
-- [ ] **T0** — `track.proto` into krail-api-proto (schema in design
-      doc §4); vendor GTFS-R + TfNSW extension protos in BFF; capture
-      golden feed fixtures for tests.
-- [ ] **T1** — `POST /api/v1/track/snapshot`: FeedCache (15–30 s TTL,
-      single-flight), VehicleMatcher port, TripUpdate stop progress,
-      fleet-from-trip_id, train-level occupancy, first-poll geometry +
-      per-stop expected occupancy. Trains/metro/light rail/ferry.
-      Hard rule: tracking never re-plans — GTFS trip_id is the only
-      source of truth (design G9).
-- [ ] **T1-dash** — tracking tab in the existing dev dashboard
-      (api-tester.html): JSON content-type on the endpoint, trip
-      picker via departures, poll-loop panel, Leaflet map with live
-      marker + polyline, stop timeline with render rules, share-link
-      simulator. Lands with T1; soak in browser before any app work
-      ([design §7c](docs/reference/TRACKING_DESIGN.md)).
-- [ ] **T1.5** — shapes.txt polyline dataset via GitHub Actions
-      (map line); `STOP_STRAIGHT_LINES` fallback until then
-      ([design §7a](docs/reference/TRACKING_DESIGN.md) — same weekly
-      workflow as stops, parses shapes.txt+trips.txt from the bundles
-      it already downloads).
-- [ ] **Handover docs per phase** — each BFF phase ships its
-      `docs/handover/` section (proto reference, integration guide,
-      fixtures, app-deletion checklist) in the same PR as the code
-      ([design §7b](docs/reference/TRACKING_DESIGN.md)).
+- [x] **O1–O4 research spikes** (2026-06-12, from live feeds): per-car
+      PassLoad ext 1007 CONFIRMED in public feeds (metro fully
+      labelled, sydneytrains partial); TfnswVehicleDescriptor ext 1007
+      confirmed (vehicle_model: full name on metro/bus, set letter on
+      trains); buses = ONE consolidated v1 feed (no fragmentation);
+      trip ids byte-identical between Trip Planner and GTFS-R (no
+      normalization); local key already has realtime products.
+      Remaining: O5 `/.well-known/` on GitHub Pages (A2-time).
+- [x] **T0** — track.proto in krail-api-proto (pushed); GTFS-R +
+      TfNSW extension protos vendored in BFF; real-feed fixtures +
+      GtfsRealtimeDecodeTest pin the feed assumptions.
+- [x] **T1** — `POST /api/v1/track/snapshot` live-verified against
+      real NSW: FeedCache (15/30 s TTL, single-flight, stale-grace),
+      exact trip_id match, status enum incl. EXPIRED, fleet
+      (live-descriptor first), tiered occupancy, stop timeline +
+      delay. Deferred into T1.5: geometry, stop names, expected
+      occupancy. Sydneytrains quirk: no bearing in feed.
+- [x] **T1-dash** — docs/tools/track-tester.html: trip picker, poll
+      loop obeying suggested_poll_seconds, Leaflet map with staleness
+      greying, status pills, car strip, timeline, share-link
+      simulator.
+- [ ] **SOAK (you, now)** — `./scripts/dev.sh up` →
+      http://localhost:8000/track-tester.html → track real trains for
+      a few days. Satisfaction gates app work.
+- [ ] **T1.5** — stops+shapes dataset join: stop names + pin coords +
+      encoded polyline in first-poll response (GitHub Actions job
+      extension per design §7a).
+- [x] **T1 handover doc** —
+      [docs/handover/TRACKING_INTEGRATION.md](docs/handover/TRACKING_INTEGRATION.md)
+      (includes the app-side `direction_id` proto bug found while
+      vendoring — fix in app before metro tracking).
 - [ ] **T2** — per-carriage occupancy + live fleet descriptor (after O1).
 - [ ] **T3** — buses (after O2) + carriage-layout dataset via GitHub
       Actions (`reaches_platform`).

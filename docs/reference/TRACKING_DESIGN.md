@@ -489,7 +489,33 @@ on live data) → only then A1 app integration. The dashboard stays
 afterwards as the permanent debugging tool for "why does this trip
 track weirdly" reports.
 
-## 8. Open items (confirm before T1 code)
+## 8. Open items — RESOLVED 2026-06-12 (kept for the record)
+
+All confirmed empirically from live feeds during the O-spikes; the
+decode tests (`GtfsRealtimeDecodeTest`) pin them permanently:
+
+- **O1 ✅** ext 1007 on VehiclePosition = repeated CarriageDescriptor
+  (name/position/occupancy/quiet/...), POPULATED publicly — metro
+  fully (6-car labelled), sydneytrains partially. Ext 1007 on
+  VehicleDescriptor = TfnswVehicleDescriptor; `vehicle_model` is a
+  full name on metro/buses, a set-type letter on trains.
+- **O2 ✅** buses are ONE consolidated `/v1/gtfs/vehiclepos/buses`
+  feed; nswtrains also v1-only; everything else v2. No fragmentation
+  problem — buses promoted from T3 into the supported set.
+- **O3 ✅** trip ids are byte-identical between Trip Planner
+  `RealtimeTripId` and GTFS-R (trains dotted, buses numeric); the
+  normalizer is `trim()`.
+- **O4 ✅** the existing key serves GTFS-R; mint the BFF-only key with
+  Trip Planner + GTFS-R + GTFS-static products.
+- **O6 ~** deferred with the enrichment phase (expected occupancy).
+- **O5 ⏳** `/.well-known/` on GitHub Pages — check at A2 time.
+
+Bonus finding: the KRAIL app's vendored `gtfs-realtime.proto` declares
+`TripDescriptor.direction_id` as `string`; spec says `uint32`, metro
+populates it → latent decode crash in the app's own GTFS-R path. In
+the handover checklist.
+
+## 8b. Original pre-build open items
 
 - **O1:** Exact proto field numbers/paths for `PassLoad` and
   `TfnswVehicleDescriptor` — pull the published TfNSW `.proto` /

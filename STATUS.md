@@ -13,11 +13,13 @@ Last refresh: **2026-06-11**.
 
 ## TL;DR
 
-**All code is merged.** `main` is at PR #72; `gh pr list --state open`
-returns nothing. The BFF is feature-complete, tested, and has a ready
-deploy spec — it has simply **never been deployed**.
+**Live tracking T1 is built and live-verified** (2026-06-12): the
+track.proto contract, `POST /api/v1/track/snapshot` joining GTFS-R
+feeds server-side, and a browser test dashboard
+(`docs/tools/track-tester.html`). Workflow is now direct-to-main, no
+PRs. **Next: soak the tracker in the browser, then deploy.**
 
-You are one (guided) deploy away from production.
+The deploy itself is still pending — spec and runbook ready.
 
 ---
 
