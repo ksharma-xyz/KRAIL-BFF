@@ -119,6 +119,15 @@ class TrackService(
                     metrics.counter("track.status.not_started").inc()
                     LegTracking(leg_ref = leg.leg_ref, status = LegTracking.Status.NOT_STARTED)
                 }
+                // Finished trips drop out of the feeds entirely. A client
+                // returning from hours in the background must see a clean
+                // "completed", not a puzzling NO_REALTIME: departure more
+                // than 3h ago (longer than any Sydney metro-area run) and
+                // the trip gone from feeds ⇒ it ran and finished.
+                isPlannedDepartureOlderThan(leg, now, hours = 3) -> {
+                    metrics.counter("track.status.ended").inc()
+                    LegTracking(leg_ref = leg.leg_ref, status = LegTracking.Status.ENDED)
+                }
                 else -> {
                     metrics.counter("track.status.no_realtime").inc()
                     LegTracking(leg_ref = leg.leg_ref, status = LegTracking.Status.NO_REALTIME)
@@ -129,13 +138,26 @@ class TrackService(
 
         val stops = buildStopTimeline(tripUpdate, vehicle, now)
             .annotateSegments(leg.origin_stop_id, leg.destination_stop_id)
+
+        // The USER's journey ends at their destination, not the vehicle's
+        // terminus. Destination departed (or NSW trimmed it out of the
+        // remaining-stops feed) ⇒ ENDED, even while the vehicle runs on.
+        val journeyComplete = stops.any { it.segment != StopProgress.Segment.SEGMENT_UNSPECIFIED } &&
+            stops.none { it.segment == StopProgress.Segment.JOURNEY && it.state != StopProgress.State.DEPARTED }
+
         val status = when {
+            journeyComplete -> LegTracking.Status.ENDED
             vehicle != null -> LegTracking.Status.TRACKING
             stops.isNotEmpty() && stops.all { it.state == StopProgress.State.DEPARTED } ->
                 LegTracking.Status.ENDED
             else -> LegTracking.Status.NOT_STARTED
         }
         metrics.counter("track.status.${status.name.lowercase()}").inc()
+
+        if (status == LegTracking.Status.ENDED) {
+            // Don't show the user a live vehicle they've already left.
+            return LegTracking(leg_ref = leg.leg_ref, status = status, stops = stops)
+        }
 
         val delay = latestDelaySeconds(tripUpdate)
         return LegTracking(
@@ -162,6 +184,10 @@ class TrackService(
 
     private fun isPlannedDepartureInFuture(leg: TrackRequest.TrackLeg, now: Instant): Boolean =
         runCatching { Instant.parse(leg.planned_departure_utc) }.getOrNull()?.isAfter(now) == true
+
+    private fun isPlannedDepartureOlderThan(leg: TrackRequest.TrackLeg, now: Instant, hours: Long): Boolean =
+        runCatching { Instant.parse(leg.planned_departure_utc) }.getOrNull()
+            ?.isBefore(now.minusSeconds(hours * 3600)) == true
 
     private fun mapVehicle(vp: VehiclePosition): VehicleLive {
         val pos = vp.position

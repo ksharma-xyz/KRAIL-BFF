@@ -533,6 +533,21 @@ function render() {
     $('legtabs').appendChild(tab);
   });
 
+  // Per-leg "user journey complete" — server says ENDED, or our merged
+  // stop memory shows the destination already departed (NSW trims passed
+  // stops from the feed, so the server can't always see this itself).
+  const legDone = resp.legs.map((lg, i) => {
+    if (lg.status === 'ENDED' || lg.status === 'EXPIRED') return true;
+    const destId = pickedLegs[i]?.destination_stop_id;
+    const remembered = seenStops[lg.leg_ref] || lg.stops || [];
+    const dest = remembered.find(s => s.stop_id === destId);
+    return !!dest && dest.state === 'DEPARTED';
+  });
+  if (legDone.every(Boolean) && timer) {
+    stopLoop();
+    $('pollMeta').textContent = 'journey complete';
+  }
+
   const li = Math.min(activeLeg, resp.legs.length-1);
   const leg = resp.legs[li]; if (!leg) return;
   const pc = pickedLegs[li]?.product_class;
@@ -544,7 +559,11 @@ function render() {
   let headline='', sub='', chips='';
   const cur = leg.stops?.find(s => s.state==='CURRENT');
   const next = leg.stops?.find(s => s.state==='UPCOMING');
-  if (leg.status === 'TRACKING') {
+  if (legDone[li]) {
+    headline = '✓ Journey complete';
+    sub = `arrived at ${stopName(pickedLegs[li]?.destination_stop_id) || 'destination'}`;
+    chips = `<span class="chip early">done</span>`;
+  } else if (leg.status === 'TRACKING') {
     headline = cur ? `At ${stopName(cur.stop_id)}` : next ? `Next · ${stopName(next.stop_id)}` : 'On the move';
     if (next) sub = `arriving ${stopName(next.stop_id)} ${fmtT(next.estimated_epoch_sec || plannedFor(leg,next.stop_id))}`;
     chips = delayChip(leg);
@@ -635,9 +654,13 @@ function render() {
   const curEl = $('timeline').querySelector('.tl-CURRENT');
   if (curEl) curEl.scrollIntoView({ block:'center', behavior:'smooth' });
 
-  // map vehicles
+  // map vehicles — remove markers for finished legs or lost vehicles
   resp.legs.forEach((lg,i) => {
-    if (!lg.vehicle) return;
+    if ((legDone[i] || !lg.vehicle) && vehicleMarkers[lg.leg_ref]) {
+      map.removeLayer(vehicleMarkers[lg.leg_ref]);
+      delete vehicleMarkers[lg.leg_ref];
+    }
+    if (legDone[i] || !lg.vehicle) return;
     const pos = [lg.vehicle.latitude, lg.vehicle.longitude];
     const stale = (now - lg.vehicle.measured_at_epoch_sec) > 90;
     const key = lg.leg_ref;

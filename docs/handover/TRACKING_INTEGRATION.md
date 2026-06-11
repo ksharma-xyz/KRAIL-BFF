@@ -55,7 +55,7 @@ in T1.5; harmless now).
 | `TRACKING` | live screen: marker, timeline, occupancy |
 | `NOT_STARTED` | "starts at HH:MM" + timeline when present (it usually is — TripUpdates carry future trips with full estimated times) |
 | `NO_REALTIME` | timeline-less fallback: planned data the app already has, "live data unavailable" |
-| `ENDED` | "trip completed" |
+| `ENDED` | "journey complete". Fires when (a) the **user's destination** is behind the vehicle — even though the vehicle keeps running to its terminus — (b) every stop has departed, or (c) the trip vanished from the feeds with a departure >3h past (app returning from background long after arrival). The BFF omits `vehicle`/`occupancy` on ENDED — never show a live train the user already left. **Client must also self-detect**: NSW trims passed stops from the feed, so when your remembered destination stop reaches DEPARTED, treat the leg as complete locally too. |
 | `EXPIRED` | "this trip has ended" + offer re-planning (stale share link) |
 | `UPSTREAM_UNAVAILABLE` | keep last rendered state + "live data delayed"; next poll usually recovers |
 

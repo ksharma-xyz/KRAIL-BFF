@@ -230,6 +230,36 @@ class TrackServiceTest {
     }
 
     @Test
+    fun `journey ends when the destination is behind the vehicle`() = runBlocking {
+        // Find a live trip whose timeline has at least one DEPARTED stop,
+        // then request a journey that ends at that already-passed stop.
+        val svc = service()
+        val full = svc.snapshot(TrackRequest(legs = listOf(leg(liveTripId)))).legs.single()
+        val departed = full.stops.filter { it.state == StopProgress.State.DEPARTED }
+        if (departed.size < 2) return@runBlocking // fixture trip just started; nothing to assert
+        val origin = departed.first().stop_id
+        val dest = departed.last().stop_id
+
+        val ended = svc.snapshot(TrackRequest(legs = listOf(
+            leg(liveTripId).copy(origin_stop_id = origin, destination_stop_id = dest),
+        ))).legs.single()
+        assertEquals(LegTracking.Status.ENDED, ended.status)
+        // No live vehicle for a journey the user has finished.
+        assertEquals(null, ended.vehicle)
+        assertEquals(null, ended.occupancy)
+    }
+
+    @Test
+    fun `vanished trip with long-past departure resolves to ENDED`() = runBlocking {
+        val tracked = service().snapshot(TrackRequest(legs = listOf(
+            leg("999Z.0000.000.00.A.8.00000000").copy(
+                planned_departure_utc = captureInstant.minusSeconds(5 * 3600).toString(),
+            ),
+        ))).legs.single()
+        assertEquals(LegTracking.Status.ENDED, tracked.status)
+    }
+
+    @Test
     fun `stop states are consistent with vehicle progress`() = runBlocking {
         val tracked = service().snapshot(TrackRequest(legs = listOf(leg(liveTripId)))).legs.single()
         val states = tracked.stops.map { it.state }
