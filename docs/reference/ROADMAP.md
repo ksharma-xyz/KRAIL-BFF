@@ -36,6 +36,21 @@ Until phase 3 the extractable key is an **accepted, time-boxed risk**:
 it's a free-tier transit-data key, so the blast radius is quota abuse
 against NSW, not user data.
 
+**FAQ — "can't we protect the in-app key instead?" No.** A client-side
+secret is unprotectable in principle: the app must hold the assembled
+key in memory to call NSW, so decompilation (jadx) or runtime hooking
+(Frida) recovers it regardless of obfuscation, string-splitting, NDK
+hiding, or "encryption" (the decryption key ships too). Certificate
+pinning doesn't help — the interceptor is the device's own owner, who
+can also unpin. CI secrecy (GitHub Actions → BuildKonfig) is correct
+and keeps the key safe *in transit*; the destination (a public APK) is
+the leak. The only fix is the one this section describes: the key
+never ships. Interim posture: watch per-key usage in the NSW portal
+for spikes; rotate + force-update only if abuse actually appears.
+Device attestation (Play Integrity / App Attest) is meaningless for
+direct NSW calls (NSW can't verify it) but becomes a real option
+against *BFF* abuse post-migration — someday-item, not now.
+
 Note: `stopFinder()` in the app's `TripPlanningService` is **dead
 code** — declared but never called from production code (verified
 2026-06-11; local stops search replaced it). No BFF stop-finder route
