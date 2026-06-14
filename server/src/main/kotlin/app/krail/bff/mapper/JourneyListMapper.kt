@@ -202,7 +202,7 @@ object JourneyListMapper {
 
     private fun mapStop(stopSeq: TripResponse.StopSequence): Stop? {
         val name = stopSeq.disassembledName ?: stopSeq.name ?: return null
-        val time = stopSeq.departureTimeEstimated
+        val utcTime = stopSeq.departureTimeEstimated
             ?: stopSeq.departureTimePlanned
             ?: stopSeq.arrivalTimeEstimated
             ?: stopSeq.arrivalTimePlanned
@@ -210,12 +210,14 @@ object JourneyListMapper {
 
         return Stop(
             name = name,
-            time = formatTime(time),
+            time = formatTime(utcTime),
             is_wheelchair_accessible = stopSeq.properties?.wheelchairAccess?.lowercase() == "true",
             // NSW returns a [lat, lon] tuple per stop; flatten to the
             // proto Coord shape. Null when NSW didn't publish coordinates
             // for this stop (e.g. some planning-only entries).
             coord = stopSeq.coord.toSingleCoordOrNull(),
+            stop_id = stopSeq.id?.takeIf { it.isNotEmpty() },
+            utc_time = utcTime,
         )
     }
 
