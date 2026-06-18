@@ -67,7 +67,7 @@ class TrackService(
     private suspend fun resolveLeg(leg: TrackRequest.TrackLeg, now: Instant, includeGeometry: Boolean): LegTracking {
         // Expiry: trip ids are scoped to a service day (Sydney time).
         val serviceDate = runCatching { LocalDate.parse(leg.service_date, serviceDateFormat) }.getOrNull()
-        if (serviceDate != null && serviceDate.isBefore(LocalDate.now(sydney).minusDays(1))) {
+        if (serviceDate != null && serviceDate.isBefore(LocalDate.ofInstant(now, sydney).minusDays(1))) {
             // minusDays(1): overnight services keep yesterday's service date
             // while still running after midnight.
             metrics.counter("track.status.expired").inc()

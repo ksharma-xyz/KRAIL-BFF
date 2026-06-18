@@ -77,16 +77,16 @@ jobs:
           branch="proto-bump/${LATEST}"
 
           # Skip if a PR for this version already exists.
-          if [ -n "$(gh pr list --state open --search "head:$branch" --json number --jq 'map(.number) | join(\" \")' )" ]; then
+          if [ -n "$(gh pr list --state open --search "head:$branch" --json number --jq '[.[].number] | join(" ")')" ]; then
             echo "PR for $branch already open — nothing to do."
             exit 0
           fi
 
-          git switch -c "$branch"
+          git switch -c "$branch" 2>/dev/null || git switch "$branch"
           (cd krail-api-proto && git checkout "${LATEST}")
           git add krail-api-proto
-          git commit -m "chore(proto): bump KRAIL-API-PROTO to ${LATEST}"
-          git push --set-upstream origin "$branch"
+          git commit -m "chore(proto): bump KRAIL-API-PROTO to ${LATEST}" || echo "Nothing to commit"
+          git push --force-with-lease --set-upstream origin "$branch"
 
           # Build PR body in a file to dodge YAML pipe-block indentation traps.
           cat > /tmp/pr-body.md <<EOF
