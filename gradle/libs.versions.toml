@@ -7,6 +7,7 @@ khealth = "3.0.2"
 logstashEncoder = "9.0"
 koin = "4.2.0"
 wire = "5.5.1"
+krail-api-proto = "0.4.2"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -47,6 +48,7 @@ koin-logger-slf4j = { module = "io.insert-koin:koin-logger-slf4j", version.ref =
 
 # Wire / Protobuf
 wire-runtime = { module = "com.squareup.wire:wire-runtime", version.ref = "wire" }
+krail-api-proto = { module = "xyz.ksharma.krail:api-proto", version.ref = "krail-api-proto" }
 
 # Tests
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }

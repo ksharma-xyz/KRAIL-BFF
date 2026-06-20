@@ -99,24 +99,27 @@ tasks.register<JavaExec>("buildStopsDataset") {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
 }
 
+// Separate configuration so Gradle resolves the proto JAR independently from
+// the main compile classpath. Must be populated BEFORE wire {} reads it.
+val krailProto: Configuration by configurations.creating { isTransitive = false }
+dependencies {
+    krailProto(libs.krail.api.proto) { artifact { classifier = "proto" } }
+}
+
 // Wire configuration for Protocol Buffers
 wire {
     kotlin {
-        // Generate Kotlin code
         javaInterop = true
-        // Use explicit nullability for optional fields
         emitAppliedOptions = true
     }
 
     sourcePath {
-        // The .proto contract lives in the KRAIL-API-PROTO submodule, pinned
-        // to a tag (see .gitmodules + krail-api-proto/version.txt). Wire
-        // resolves imports relative to this directory, so both proto/api/
-        // and proto/data/ are visible without listing them individually.
-        srcDir("$rootDir/krail-api-proto/proto")
+        // Public contract: downloaded from GitHub Packages as a versioned JAR.
+        // Version is in gradle/libs.versions.toml (krail-api-proto).
+        // To bump: update the version there — Renovate opens the PR automatically.
+        srcJar(krailProto.singleFile.absolutePath)
         // Server-internal protos: vendored GTFS-Realtime (proto2) + TfNSW
-        // extensions. Never exposed to the app — the public contract stays
-        // in krail-api-proto.
+        // extensions. Never exposed to the app.
         srcDir("src/main/proto")
     }
 }

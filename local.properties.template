@@ -8,6 +8,12 @@
 #   # Edit local.properties with your actual API key
 #
 
+# GitHub Packages token (read:packages scope only)
+# Required to resolve xyz.ksharma.krail:api-proto from GitHub Packages locally.
+# Create at: https://github.com/settings/tokens → "Generate new token (classic)"
+# → check "read:packages" only. In CI, GITHUB_TOKEN is used automatically.
+# gpr.token=github_pat_...
+
 # NSW Transport API Key
 # Get yours at: https://opendata.transport.nsw.gov.au/
 nsw.apiKey=your-api-key-here
