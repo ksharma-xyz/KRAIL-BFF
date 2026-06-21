@@ -18,10 +18,14 @@ Never propose alternative hosting. Cost cap: ~A$15/mo total.
 
 ## Proto contract (CRITICAL — read before touching mappers or proto types)
 
-The BFF's wire contract with the KMP client lives in `krail-api-proto/` — a git submodule
-pointing at `github.com/ksharma-xyz/KRAIL-API-PROTO`.
+The BFF's wire contract with the KMP client is defined in
+`github.com/ksharma-xyz/KRAIL-API-PROTO`. The BFF consumes it as a **Maven
+artifact from GitHub Packages** (`xyz.ksharma.krail:api-proto`), not a git
+submodule. The pinned version is a single string in
+`gradle/libs.versions.toml` under `krail-api-proto`; the GitHub Packages repo +
+auth are wired in `settings.gradle.kts`.
 
-**Both KRAIL-BFF and KRAIL must be pinned to the same proto tag at all times.**
+**Both KRAIL-BFF and KRAIL must be pinned to the same proto version at all times.**
 
 ### Proto release flow
 
@@ -39,18 +43,23 @@ pointing at `github.com/ksharma-xyz/KRAIL-API-PROTO`.
 ### What proto-bump.yml does
 
 Runs daily at 14:00 UTC. Compares the latest `v*.*.*` tag in KRAIL-API-PROTO
-against the currently-pinned submodule commit. If newer tag exists → opens a PR.
+against the version pinned in `gradle/libs.versions.toml`. If a newer tag exists
+→ `sed`s the bare `X.Y.Z` into the catalog, commits, and opens a PR. No clone,
+no submodule — it reads tags via `git ls-remote`.
 
 **Never auto-merges.** Proto changes may need matching changes in response builders
 (mappers under `server/src/main/kotlin/app/krail/bff/mapper/`).
 
-### Submodule rules
+### Version pinning rules
 
-- **Never pin to an untagged commit.** proto-bump sees only tags; an untagged
-  submodule commit looks "older" than the latest tag and triggers a backward bump.
-- **Always update version.txt** when making proto changes — auto-tag keys off it.
-- If you manually tag in KRAIL-API-PROTO, ensure `version.txt` matches the tag
-  or the `release-on-tag` validation job will fail.
+- The pinned version lives **only** in `gradle/libs.versions.toml`
+  (`krail-api-proto = "X.Y.Z"`) — the bare version, no `v` prefix.
+- Upstream tags are `vX.Y.Z`; proto-bump strips the `v`. Bump = edit that one line.
+- **Always update version.txt** in KRAIL-API-PROTO when making proto changes —
+  auto-tag keys off it, and the published GitHub Packages artifact version must
+  match the tag.
+- The artifact for a version must be published to GitHub Packages before the BFF
+  can resolve it — a tag with no published artifact will fail the Gradle build.
 
 ### Mapper ↔ proto coupling
 
@@ -69,8 +78,10 @@ server/
     track/            # GTFS-Realtime tracking (TrackService, FeedCache, etc.)
     trackdata/        # Dataset stores (shapes, stop directory)
     route/            # Ktor routing
-krail-api-proto/      # Submodule — proto schema + generated Kotlin types
 ```
+
+Proto types come from the `xyz.ksharma.krail:api-proto` Maven artifact (GitHub
+Packages) — there is no in-repo proto directory.
 
 ## Key invariants
 

@@ -1,9 +1,15 @@
 name: proto-bump
 
 # Daily check + manual dispatch. Opens a PR if KRAIL-API-PROTO has a newer
-# tag than the currently-pinned submodule SHA. Never auto-merges — schema
-# changes need a human in the loop, since adding a new contract: required
-# field requires a matching response-builder change in the BFF.
+# release tag than the version currently pinned in gradle/libs.versions.toml.
+# Never auto-merges — schema changes need a human in the loop, since adding a
+# new contract: required field requires a matching response-builder change in
+# the BFF.
+#
+# Proto is consumed as a Maven artifact from GitHub Packages (no submodule).
+# The pinned version lives in gradle/libs.versions.toml under `krail-api-proto`.
+# Upstream releases are tagged `vX.Y.Z`; this workflow strips the `v` and writes
+# the bare X.Y.Z into the version catalog.
 #
 # When a new tag includes contract: required field additions, the existing
 # contract-enforcement unit tests will fail on this auto-bump PR until the
@@ -23,57 +29,62 @@ concurrency:
   group: proto-bump
   cancel-in-progress: false
 
+env:
+  PROTO_REPO: ksharma-xyz/KRAIL-API-PROTO
+  VERSION_CATALOG: gradle/libs.versions.toml
+  VERSION_KEY: krail-api-proto
+
 jobs:
   bump:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: true
-          fetch-depth: 0
 
       - name: Find latest KRAIL-API-PROTO tag
         id: latest
-        working-directory: krail-api-proto
         run: |
-          git fetch --tags --quiet origin
-          latest=$(git tag --list 'v*.*.*' --sort=-version:refname | head -n1)
-          # Currently pinned commit's tag (or short SHA if not on a tag).
-          current_tag=$(git describe --tags --exact-match 2>/dev/null || true)
-          current_sha=$(git rev-parse --short HEAD)
-          echo "latest=$latest"            >> "$GITHUB_OUTPUT"
-          echo "current_tag=$current_tag"  >> "$GITHUB_OUTPUT"
-          echo "current_sha=$current_sha"  >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          # Latest vX.Y.Z tag upstream, sorted by semver (no clone needed).
+          latest=$(git ls-remote --tags --refs "https://github.com/${PROTO_REPO}" 'v*.*.*' \
+            | awk -F/ '{print $NF}' | sort -V | tail -n1)
+          # Currently pinned bare version from the catalog (e.g. 0.4.2).
+          current=$(grep -E "^${VERSION_KEY} = " "${VERSION_CATALOG}" \
+            | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "latest=$latest"     >> "$GITHUB_OUTPUT"
+          echo "current=$current"   >> "$GITHUB_OUTPUT"
           if [ -z "$latest" ]; then
-            echo "::warning::No tags found in KRAIL-API-PROTO yet."
+            echo "::warning::No vX.Y.Z tags found in ${PROTO_REPO} yet."
           fi
 
       - name: Skip if already at latest
         id: gate
         run: |
-          if [ -z "${{ steps.latest.outputs.latest }}" ]; then
+          latest="${{ steps.latest.outputs.latest }}"
+          current="${{ steps.latest.outputs.current }}"
+          if [ -z "$latest" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "Reason: no upstream tags exist."
-          elif [ "${{ steps.latest.outputs.latest }}" = "${{ steps.latest.outputs.current_tag }}" ]; then
+          elif [ "${latest#v}" = "$current" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Reason: already pinned at ${{ steps.latest.outputs.latest }}."
+            echo "Reason: already pinned at ${current}."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "Will bump from ${{ steps.latest.outputs.current_tag }}${{ steps.latest.outputs.current_sha }} to ${{ steps.latest.outputs.latest }}."
+            echo "Will bump from ${current} to ${latest#v}."
           fi
 
-      - name: Bump submodule + open PR
+      - name: Bump version catalog + open PR
         if: steps.gate.outputs.skip == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LATEST: ${{ steps.latest.outputs.latest }}
-          PREV: ${{ steps.latest.outputs.current_tag }}
+          PREV: ${{ steps.latest.outputs.current }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          new="${LATEST#v}"
           branch="proto-bump/${LATEST}"
 
           # Skip if a PR for this version already exists.
@@ -83,18 +94,23 @@ jobs:
           fi
 
           git switch -c "$branch" 2>/dev/null || git switch "$branch"
-          (cd krail-api-proto && git checkout "${LATEST}")
-          git add krail-api-proto
-          git commit -m "chore(proto): bump KRAIL-API-PROTO to ${LATEST}" || echo "Nothing to commit"
+
+          # Rewrite the pinned version in the catalog.
+          sed -i -E "s/^(${VERSION_KEY} = \")[^\"]+(\")/\1${new}\2/" "${VERSION_CATALOG}"
+
+          git add "${VERSION_CATALOG}"
+          git commit -m "chore(proto): bump KRAIL-API-PROTO to ${new}" || echo "Nothing to commit"
           git push --force-with-lease --set-upstream origin "$branch"
 
           # Build PR body in a file to dodge YAML pipe-block indentation traps.
           cat > /tmp/pr-body.md <<EOF
-          Automated submodule bump from the daily \`proto-bump\` workflow.
+          Automated version bump from the daily \`proto-bump\` workflow.
 
-          **Diff:** https://github.com/ksharma-xyz/KRAIL-API-PROTO/compare/${PREV:-${LATEST}~1}...${LATEST}
+          Bumps \`${VERSION_KEY}\` in \`${VERSION_CATALOG}\` from \`${PREV}\` to \`${new}\`.
 
-          **Release notes:** https://github.com/ksharma-xyz/KRAIL-API-PROTO/releases/tag/${LATEST}
+          **Diff:** https://github.com/${PROTO_REPO}/compare/v${PREV}...${LATEST}
+
+          **Release notes:** https://github.com/${PROTO_REPO}/releases/tag/${LATEST}
 
           The existing CI runs on this PR. If a contract-enforcement test fails,
           the new release introduced a \`contract: required\` field that the BFF
@@ -103,6 +119,6 @@ jobs:
           EOF
 
           gh pr create \
-            --title "chore(proto): bump KRAIL-API-PROTO to ${LATEST}" \
+            --title "chore(proto): bump KRAIL-API-PROTO to ${new}" \
             --body-file /tmp/pr-body.md \
             --label "dependencies"
