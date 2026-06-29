@@ -49,7 +49,9 @@ jobs:
           latest=$(git ls-remote --tags --refs "https://github.com/${PROTO_REPO}" 'v*.*.*' \
             | awk -F/ '{print $NF}' | sort -V | tail -n1)
           # Currently pinned bare version from the catalog (e.g. 0.4.2).
-          current=$(grep -E "^${VERSION_KEY} = " "${VERSION_CATALOG}" \
+          # Anchor on the opening quote so we match only the [versions] entry
+          # (`krail-api-proto = "X.Y.Z"`), not the [libraries] entry (`= { ... }`).
+          current=$(grep -E "^${VERSION_KEY} = \"" "${VERSION_CATALOG}" \
             | sed -E 's/.*"([^"]+)".*/\1/')
           echo "latest=$latest"     >> "$GITHUB_OUTPUT"
           echo "current=$current"   >> "$GITHUB_OUTPUT"
