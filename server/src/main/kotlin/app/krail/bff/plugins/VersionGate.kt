@@ -4,6 +4,7 @@ import app.krail.bff.model.ErrorDetails
 import app.krail.bff.model.ErrorEnvelope
 import app.krail.bff.util.Version
 import app.krail.bff.util.correlationIdOrNull
+import app.krail.bff.util.string
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCallPipeline
@@ -32,10 +33,7 @@ private val EXEMPT_PATHS = setOf("/", "/health", "/ready")
  *   MIN_APP_VERSION   /  bff.minAppVersion   — semver "MAJOR.MINOR.PATCH"; default 0.0.0
  */
 fun Application.configureVersionGate() {
-    val cfg = environment.config
-    val raw = System.getenv("MIN_APP_VERSION")
-        ?: cfg.propertyOrNull("bff.minAppVersion")?.getString()
-        ?: "0.0.0"
+    val raw = environment.config.string("MIN_APP_VERSION", "bff.minAppVersion", "0.0.0")
 
     val minVersion = Version.parse(raw) ?: run {
         logger.warn("Invalid MIN_APP_VERSION '{}'; defaulting to 0.0.0", raw)

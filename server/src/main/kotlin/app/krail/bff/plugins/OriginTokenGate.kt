@@ -3,6 +3,7 @@ package app.krail.bff.plugins
 import app.krail.bff.model.ErrorDetails
 import app.krail.bff.model.ErrorEnvelope
 import app.krail.bff.util.correlationIdOrNull
+import app.krail.bff.util.stringOrNull
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCallPipeline
@@ -33,8 +34,7 @@ private val EXEMPT_PATHS = setOf("/", "/health", "/ready")
  * still work without the header.
  */
 fun Application.configureOriginTokenGate() {
-    val expected = System.getenv("CF_ORIGIN_TOKEN")
-        ?: environment.config.propertyOrNull("bff.cfOriginToken")?.getString()
+    val expected = environment.config.stringOrNull("CF_ORIGIN_TOKEN", "bff.cfOriginToken")
 
     if (expected.isNullOrBlank()) {
         logger.info("Origin token gate disabled (CF_ORIGIN_TOKEN unset)")

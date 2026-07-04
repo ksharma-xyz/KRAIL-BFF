@@ -3,6 +3,7 @@ package app.krail.bff.routes
 import app.krail.bff.model.ErrorDetails
 import app.krail.bff.model.ErrorEnvelope
 import app.krail.bff.util.correlationIdOrNull
+import app.krail.bff.util.stringOrNull
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.response.respond
@@ -24,8 +25,7 @@ private val logger = LoggerFactory.getLogger("app.krail.bff.routes.DataRoutes")
  * the BFF's data path zero-compute. Cloudflare caches the redirect itself.
  */
 fun Application.configureDataRoutes() {
-    val manifestUrl = System.getenv("STOPS_MANIFEST_URL")
-        ?: environment.config.propertyOrNull("data.stops.manifestUrl")?.getString()
+    val manifestUrl = environment.config.stringOrNull("STOPS_MANIFEST_URL", "data.stops.manifestUrl")
 
     routing {
         route("/v1/data/stops") {

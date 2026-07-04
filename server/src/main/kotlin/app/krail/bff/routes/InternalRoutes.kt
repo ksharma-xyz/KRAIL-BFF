@@ -1,6 +1,7 @@
 package app.krail.bff.routes
 
 import app.krail.bff.config.NswConfig
+import app.krail.bff.util.boolean
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -36,9 +37,7 @@ private val logger = LoggerFactory.getLogger("app.krail.bff.routes.InternalRoute
  * Smoke-runs against this in CI / production deployments are a misconfiguration.
  */
 fun Application.configureInternalRoutes() {
-    val enabled = (System.getenv("BFF_DEV_PASSTHROUGH")
-        ?: environment.config.propertyOrNull("bff.devPassthrough")?.getString()
-        ?: "false").equals("true", ignoreCase = true)
+    val enabled = environment.config.boolean("BFF_DEV_PASSTHROUGH", "bff.devPassthrough", false)
 
     if (!enabled) {
         logger.debug("Internal /internal/passthrough disabled (set BFF_DEV_PASSTHROUGH=true in local dev only)")

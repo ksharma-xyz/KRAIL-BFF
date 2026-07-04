@@ -4,6 +4,8 @@ import app.krail.bff.model.ErrorDetails
 import app.krail.bff.model.ErrorEnvelope
 import app.krail.bff.util.TokenBucket
 import app.krail.bff.util.correlationIdOrNull
+import app.krail.bff.util.long
+import app.krail.bff.util.string
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -24,8 +26,7 @@ fun Application.configureHTTP() {
     //   "https://krail.app,http://localhost:3000"
     //
     // Empty = no cross-origin requests allowed (safe production default).
-    val corsOrigins = (System.getenv("BFF_CORS_ORIGINS")
-        ?: config.propertyOrNull("bff.cors.origins")?.getString().orEmpty())
+    val corsOrigins = config.string("BFF_CORS_ORIGINS", "bff.cors.origins", "")
         .split(",")
         .map { it.trim() }
         .filter { it.isNotBlank() }
@@ -83,10 +84,8 @@ fun Application.configureHTTP() {
     //   BFF_RATE_LIMIT_BURST  / bff.rateLimit.burst  — burst capacity, default 100
     //
     // Health endpoints and root bypass rate limiting.
-    val rps = (System.getenv("BFF_RATE_LIMIT_RPS")?.toLongOrNull()
-        ?: config.propertyOrNull("bff.rateLimit.rps")?.getString()?.toLongOrNull()) ?: 50L
-    val burst = (System.getenv("BFF_RATE_LIMIT_BURST")?.toLongOrNull()
-        ?: config.propertyOrNull("bff.rateLimit.burst")?.getString()?.toLongOrNull()) ?: 100L
+    val rps = config.long("BFF_RATE_LIMIT_RPS", "bff.rateLimit.rps", 50L)
+    val burst = config.long("BFF_RATE_LIMIT_BURST", "bff.rateLimit.burst", 100L)
 
     val limiter = TokenBucket(capacity = burst, refillPerSecond = rps)
 

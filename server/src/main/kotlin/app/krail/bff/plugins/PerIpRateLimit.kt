@@ -5,6 +5,8 @@ import app.krail.bff.model.ErrorEnvelope
 import app.krail.bff.util.TokenBucket
 import app.krail.bff.util.clientIp
 import app.krail.bff.util.correlationIdOrNull
+import app.krail.bff.util.int
+import app.krail.bff.util.long
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCallPipeline
@@ -31,12 +33,9 @@ private val EXEMPT_PATHS = setOf("/", "/health", "/ready")
  */
 fun Application.configurePerIpRateLimit() {
     val cfg = environment.config
-    val rps = (System.getenv("BFF_PER_IP_RPS")?.toLongOrNull()
-        ?: cfg.propertyOrNull("bff.perIp.rps")?.getString()?.toLongOrNull()) ?: 5L
-    val burst = (System.getenv("BFF_PER_IP_BURST")?.toLongOrNull()
-        ?: cfg.propertyOrNull("bff.perIp.burst")?.getString()?.toLongOrNull()) ?: 10L
-    val maxIps = (System.getenv("BFF_PER_IP_MAX")?.toIntOrNull()
-        ?: cfg.propertyOrNull("bff.perIp.maxIps")?.getString()?.toIntOrNull()) ?: 10_000
+    val rps = cfg.long("BFF_PER_IP_RPS", "bff.perIp.rps", 5L)
+    val burst = cfg.long("BFF_PER_IP_BURST", "bff.perIp.burst", 10L)
+    val maxIps = cfg.int("BFF_PER_IP_MAX", "bff.perIp.maxIps", 10_000)
 
     val limiter = PerIpLimiter(rps = rps, burst = burst, maxIps = maxIps)
 

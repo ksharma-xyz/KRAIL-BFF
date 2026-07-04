@@ -7,6 +7,7 @@ import app.krail.bff.config.NswConfig
 import app.krail.bff.track.TrackDatasetStore
 import app.krail.bff.track.TrackService
 import app.krail.bff.track.TripOccupancyEnricher
+import app.krail.bff.util.long
 import com.codahale.metrics.MetricRegistry
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -144,9 +145,7 @@ private fun provideNswConfig(config: ApplicationConfig): NswConfig {
 }
 
 private fun provideNswDailyBudget(config: ApplicationConfig): NswDailyBudget {
-    val limit = System.getenv("NSW_DAILY_BUDGET")?.toLongOrNull()
-        ?: config.propertyOrNull("nsw.dailyBudget")?.getString()?.toLongOrNull()
-        ?: 10_000L
+    val limit = config.long("NSW_DAILY_BUDGET", "nsw.dailyBudget", 10_000L)
     logger.info("✅ NSW daily call budget: {}", limit)
     return NswDailyBudget(limit = limit)
 }

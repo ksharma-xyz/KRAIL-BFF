@@ -124,6 +124,48 @@ class NswClientImpl(
 
     private val logger = LoggerFactory.getLogger(NswClientImpl::class.java)
 
+    /**
+     * Query params for `/v1/tp/trip` — shared by [getTrip] (typed path) and
+     * [getTripRaw] (pass-through path) so the two can never drift apart.
+     *
+     * Per TfNSW Trip Planner API spec, `exclMOT_<id>` value must always be "1"
+     * (not the mode ID). See:
+     * https://opendata.transport.nsw.gov.au/data/dataset/trip-planner-apis/resource/917c66c3-8123-4a0f-b1b1-b4220f32585d
+     */
+    private fun io.ktor.http.URLBuilder.appendTripPlanParams(
+        originStopId: String,
+        destinationStopId: String,
+        depArr: String,
+        date: String?,
+        time: String?,
+        excludedModes: Set<Int>,
+    ) {
+        parameters.append("name_origin", originStopId)
+        parameters.append("name_destination", destinationStopId)
+        parameters.append("depArrMacro", depArr)
+        date?.let { parameters.append("itdDate", it) }
+        time?.let { parameters.append("itdTime", it) }
+
+        parameters.append("type_destination", "any")
+        parameters.append("calcNumberOfTrips", "6")
+        parameters.append("type_origin", "any")
+        parameters.append("TfNSWTR", "true")
+        parameters.append("version", "10.2.1.42")
+        parameters.append("coordOutputFormat", "EPSG:4326")
+        parameters.append("itOptionsActive", "1")
+        parameters.append("computeMonomodalTripBicycle", "false")
+        parameters.append("cycleSpeed", "16")
+        parameters.append("useElevationData", "1")
+        parameters.append("outputFormat", "rapidJSON")
+
+        if (excludedModes.isNotEmpty()) {
+            parameters.append("excludedMeans", "checkbox")
+            for (mode in intArrayOf(1, 2, 4, 5, 7, 9, 11)) {
+                if (mode in excludedModes) parameters.append("exclMOT_$mode", "1")
+            }
+        }
+    }
+
     private val failures = AtomicInteger(0)
     private val openUntilEpochMs = AtomicLong(0)
 
@@ -223,40 +265,7 @@ class NswClientImpl(
             val response = http.get(baseUrl) {
                 // Add Authorization header for NSW Transport API
                 headers.append("Authorization", "apikey ${config.apiKey}")
-
-                url {
-                    parameters.append("name_origin", originStopId)
-                    parameters.append("name_destination", destinationStopId)
-                    parameters.append("depArrMacro", depArr)
-                    date?.let { parameters.append("itdDate", it) }
-                    time?.let { parameters.append("itdTime", it) }
-
-                    parameters.append("type_destination", "any")
-                    parameters.append("calcNumberOfTrips", "6")
-                    parameters.append("type_origin", "any")
-                    parameters.append("TfNSWTR", "true")
-                    parameters.append("version", "10.2.1.42")
-                    parameters.append("coordOutputFormat", "EPSG:4326")
-                    parameters.append("itOptionsActive", "1")
-                    parameters.append("computeMonomodalTripBicycle", "false")
-                    parameters.append("cycleSpeed", "16")
-                    parameters.append("useElevationData", "1")
-                    parameters.append("outputFormat", "rapidJSON")
-
-                    // Exclude transport modes. Per TfNSW Trip Planner API spec, exclMOT_<id> value must
-                    // always be "1" (not the mode ID). See:
-                    // https://opendata.transport.nsw.gov.au/data/dataset/trip-planner-apis/resource/917c66c3-8123-4a0f-b1b1-b4220f32585d
-                    if (excludedModes.isNotEmpty()) {
-                        parameters.append("excludedMeans", "checkbox")
-                        if (1 in excludedModes) parameters.append("exclMOT_1", "1")
-                        if (2 in excludedModes) parameters.append("exclMOT_2", "1")
-                        if (4 in excludedModes) parameters.append("exclMOT_4", "1")
-                        if (5 in excludedModes) parameters.append("exclMOT_5", "1")
-                        if (7 in excludedModes) parameters.append("exclMOT_7", "1")
-                        if (9 in excludedModes) parameters.append("exclMOT_9", "1")
-                        if (11 in excludedModes) parameters.append("exclMOT_11", "1")
-                    }
-                }
+                url { appendTripPlanParams(originStopId, destinationStopId, depArr, date, time, excludedModes) }
             }
 
             // Log the actual request URL from the response
@@ -356,39 +365,7 @@ class NswClientImpl(
             val baseUrl = "${config.baseUrl.trimEnd('/')}/v1/tp/trip"
             val response = http.get(baseUrl) {
                 headers.append("Authorization", "apikey ${config.apiKey}")
-                url {
-                    parameters.append("name_origin", originStopId)
-                    parameters.append("name_destination", destinationStopId)
-                    parameters.append("depArrMacro", depArr)
-                    date?.let { parameters.append("itdDate", it) }
-                    time?.let { parameters.append("itdTime", it) }
-
-                    parameters.append("type_destination", "any")
-                    parameters.append("calcNumberOfTrips", "6")
-                    parameters.append("type_origin", "any")
-                    parameters.append("TfNSWTR", "true")
-                    parameters.append("version", "10.2.1.42")
-                    parameters.append("coordOutputFormat", "EPSG:4326")
-                    parameters.append("itOptionsActive", "1")
-                    parameters.append("computeMonomodalTripBicycle", "false")
-                    parameters.append("cycleSpeed", "16")
-                    parameters.append("useElevationData", "1")
-                    parameters.append("outputFormat", "rapidJSON")
-
-                    // Exclude transport modes. Per TfNSW Trip Planner API spec, exclMOT_<id> value must
-                    // always be "1" (not the mode ID). See:
-                    // https://opendata.transport.nsw.gov.au/data/dataset/trip-planner-apis/resource/917c66c3-8123-4a0f-b1b1-b4220f32585d
-                    if (excludedModes.isNotEmpty()) {
-                        parameters.append("excludedMeans", "checkbox")
-                        if (1 in excludedModes) parameters.append("exclMOT_1", "1")
-                        if (2 in excludedModes) parameters.append("exclMOT_2", "1")
-                        if (4 in excludedModes) parameters.append("exclMOT_4", "1")
-                        if (5 in excludedModes) parameters.append("exclMOT_5", "1")
-                        if (7 in excludedModes) parameters.append("exclMOT_7", "1")
-                        if (9 in excludedModes) parameters.append("exclMOT_9", "1")
-                        if (11 in excludedModes) parameters.append("exclMOT_11", "1")
-                    }
-                }
+                url { appendTripPlanParams(originStopId, destinationStopId, depArr, date, time, excludedModes) }
             }
             val body = response.bodyAsText()
             if (!response.status.isSuccess()) {
