@@ -2,223 +2,397 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>KRAIL · API Control</title>
+<title>KRAIL · Dispatch — API tester</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* ─── KRAIL taj dark + transit-signage type (shared with track-tester) ── */
+/* ═══ KRAIL taj dark + transit-signage type (family: api-tester / track-tester) ═══ */
 :root {
   --bg:#141312; --surface:#1C1B1A; --surface2:#262422; --surface3:#2C2B2A;
   --border:#34322f; --fg:#FCF6F1; --soft:#B0B0B0; --dim:#7d7a76;
-  --ok:#00B219; --bad:#FF2B2B; --warn:#F4B400;
-  --train:#F6891F; --metro:#009B77; --bus:#00B5EF; --lr:#E4022D; --ferry:#5AB031; --coach:#742282;
+  --ok:#00B219; --bad:#FF2B2B; --warn:#F4B400; --info:#00B5EF;
+  --train:#F6891F; --metro:#009B77; --bus:#00B5EF; --lr:#E4022D; --ferry:#5AB031;
+  --coach:#742282; --school:#F4B400;
   --disp:'Barlow Condensed',sans-serif; --body:'Archivo',sans-serif; --mono:'IBM Plex Mono',monospace;
+  --j-key:#8ecbff; --j-str:#a8d977; --j-num:#f6a94a; --j-bool:#e88ae8; --j-null:#8d8a86;
 }
 * { box-sizing:border-box; }
+html,body { height:100%; }
 body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 var(--body);
-  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, #f6891f0d, transparent),
-                    repeating-linear-gradient(0deg, transparent 0 2px, #ffffff02 2px 4px); }
+  background-image: radial-gradient(ellipse 70% 40% at 50% -8%, #f6891f10, transparent),
+                    repeating-linear-gradient(0deg, transparent 0 2px, #ffffff02 2px 4px);
+  display:flex; flex-direction:column; }
+::selection { background:#f6891f55; }
+button { font-family:inherit; }
+input, textarea, select { font-family:var(--mono); }
 
-/* ─── app bar ─────────────────────────────────────────────────────────── */
-.bar { position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:14px; height:54px;
-  padding:0 18px; background:var(--surface); border-bottom:1px solid var(--border); }
-.brand { font:800 22px/1 var(--disp); letter-spacing:.5px; display:flex; align-items:center; gap:10px; }
-.brand .dotpulse { width:10px; height:10px; border-radius:50%; background:var(--dim); }
-.brand .dotpulse.live { background:var(--ok); box-shadow:0 0 0 0 #00b21966; animation:pulse 2s infinite; }
-@keyframes pulse { 70% { box-shadow:0 0 0 9px transparent; } }
-.bar label { font:500 11px var(--mono); color:var(--dim); display:flex; gap:6px; align-items:center; }
+/* ═══ top bar ═══ */
+.bar { display:flex; align-items:center; gap:14px; height:56px; padding:0 18px; flex:none;
+  background:var(--surface); border-bottom:1px solid var(--border); position:relative; z-index:60; }
+.brand { font:800 22px/1 var(--disp); letter-spacing:.6px; display:flex; align-items:center; gap:10px; }
+.brand small { font:600 11px var(--mono); color:var(--dim); letter-spacing:1.5px; align-self:flex-end; padding-bottom:2px; }
+.led { display:flex; align-items:center; gap:6px; font:500 10.5px var(--mono); color:var(--dim);
+  border:1px solid var(--border); border-radius:9px; padding:5px 10px; cursor:default; }
+.led i { width:8px; height:8px; border-radius:50%; background:var(--surface3); border:1px solid var(--border); flex:none; }
+.led.ok i { background:var(--ok); border-color:var(--ok); box-shadow:0 0 6px #00b21988; }
+.led.bad i { background:var(--bad); border-color:var(--bad); }
+.led.warn i { background:var(--warn); border-color:var(--warn); }
+.bar label { font:500 10.5px var(--mono); color:var(--dim); display:flex; gap:6px; align-items:center; }
 .bar input { background:var(--bg); border:1px solid var(--border); color:var(--fg); border-radius:8px;
-  padding:5px 8px; font:12px var(--mono); width:190px; }
+  padding:6px 9px; font-size:12px; width:180px; }
+.bar input:focus { outline:none; border-color:var(--train); }
 .spacer { flex:1; }
-.bar a { color:var(--soft); font:600 12px var(--mono); text-decoration:none; border:1px solid var(--border);
+.bar .nswcount { font:500 10.5px var(--mono); color:var(--dim); }
+.bar .nswcount b { color:var(--warn); font-weight:600; }
+.bar a { color:var(--soft); font:600 11.5px var(--mono); text-decoration:none; border:1px solid var(--border);
   border-radius:9px; padding:6px 12px; }
 .bar a:hover { color:var(--fg); border-color:var(--soft); }
 
-.wrap { max-width:1180px; margin:0 auto; padding:22px 18px 80px; }
+/* ═══ layout ═══ */
+.main { flex:1; display:flex; min-height:0; }
+.composer { width:420px; flex:none; overflow-y:auto; padding:18px 16px 40px;
+  border-right:1px solid var(--border); background:linear-gradient(180deg, #1a1918, var(--bg) 300px); }
+.bay { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; }
 
-/* ─── sections ────────────────────────────────────────────────────────── */
-section { margin-bottom:42px; }
-h2.sec { font:700 15px var(--disp); letter-spacing:3px; text-transform:uppercase; color:var(--dim);
-  margin:0 0 4px; display:flex; align-items:center; gap:10px; }
+h2.sec { font:700 13px var(--disp); letter-spacing:3px; text-transform:uppercase; color:var(--dim);
+  margin:22px 0 10px; display:flex; align-items:center; gap:10px; }
+h2.sec:first-child { margin-top:0; }
 h2.sec .n { color:var(--train); }
 h2.sec::after { content:''; flex:1; height:1px; background:var(--border); }
-.lede { color:var(--soft); font-size:13px; margin:0 0 14px; max-width:860px; }
-.lede b { color:var(--fg); font-weight:600; }
 
-/* ─── banner ──────────────────────────────────────────────────────────── */
-.banner { display:none; background:#f4b40014; border:1px solid #f4b40055; color:var(--warn);
-  border-radius:10px; padding:10px 14px; font:500 12px var(--mono); margin-bottom:16px; }
-.banner code { color:var(--fg); }
+/* ═══ journey picker ═══ */
+.station { position:relative; margin-bottom:8px; }
+.station .tag { position:absolute; top:9px; left:12px; font:800 12px var(--disp); letter-spacing:2px;
+  color:var(--dim); pointer-events:none; }
+.station input { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--fg);
+  border-radius:12px; padding:9px 88px 9px 58px; font-size:13px; }
+.station input:focus { outline:none; border-color:var(--train); background:var(--surface3); }
+.station .stopid { position:absolute; top:7px; right:10px; font:600 10.5px var(--mono); color:var(--bg);
+  background:var(--train); border-radius:7px; padding:3px 8px; display:none; }
+.station.picked .stopid { display:block; }
+.station.picked input { border-color:#f6891f66; }
+.swap { display:flex; justify-content:center; margin:-4px 0 4px; }
+.swap button { background:var(--surface2); border:1px solid var(--border); color:var(--soft); width:30px; height:30px;
+  border-radius:50%; cursor:pointer; font-size:14px; line-height:1; transition:transform .25s; }
+.swap button:hover { color:var(--fg); border-color:var(--train); transform:rotate(180deg); }
 
-/* ─── health board ────────────────────────────────────────────────────── */
-.health-head { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
-.checked-at { font:500 11px var(--mono); color:var(--dim); }
-.hgroup { margin-bottom:14px; }
-.hgroup h3 { font:700 12px var(--disp); letter-spacing:2px; text-transform:uppercase; color:var(--soft); margin:0 0 8px; }
-.hgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(255px,1fr)); gap:8px; }
-.hcard { display:flex; align-items:center; gap:10px; background:var(--surface2); border:1px solid var(--border);
-  border-radius:12px; padding:10px 12px; cursor:pointer; transition:border-color .12s, transform .12s; }
-.hcard:hover { border-color:var(--soft); transform:translateY(-1px); }
-.hdot { width:12px; height:12px; border-radius:50%; background:var(--surface3); flex:none;
-  border:2px solid var(--border); }
-.hcard.ok .hdot { background:var(--ok); border-color:var(--ok); box-shadow:0 0 8px #00b21988; }
-.hcard.bad .hdot { background:var(--bad); border-color:var(--bad); box-shadow:0 0 8px #ff2b2b88; animation:blink 1.4s infinite; }
-.hcard.pending .hdot { animation:spinpulse 1s infinite; }
-@keyframes blink { 50% { opacity:.35; } }
-@keyframes spinpulse { 50% { background:var(--soft); } }
-.hname { font:700 16px/1.1 var(--disp); letter-spacing:.4px; }
-.hpowers { font:500 10px var(--mono); color:var(--dim); margin-top:2px; }
-.hmeta { margin-left:auto; text-align:right; flex:none; }
-.hstatus { font:700 13px var(--mono); }
-.hcard.ok .hstatus { color:var(--ok); }
-.hcard.bad .hstatus { color:var(--bad); }
-.hms { font:500 10px var(--mono); color:var(--dim); }
+.suggest { position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:80; background:var(--surface2);
+  border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:0 14px 34px #000a;
+  max-height:320px; overflow-y:auto; display:none; }
+.suggest.open { display:block; }
+.suggest .srow { display:flex; align-items:center; gap:10px; padding:9px 12px; cursor:pointer;
+  border-left:3px solid transparent; }
+.suggest .srow:hover, .suggest .srow.active { background:var(--surface3); border-left-color:var(--train); }
+.suggest .sname { font:600 13.5px var(--body); }
+.suggest .ssub { font:500 10px var(--mono); color:var(--dim); margin-top:1px; }
+.suggest .smodes { margin-left:auto; display:flex; gap:4px; flex:none; }
+.suggest .note { padding:10px 12px; font:500 11px var(--mono); color:var(--dim); }
+.mdot { width:9px; height:9px; border-radius:3px; display:inline-block; }
 
-/* ─── buttons / inputs ────────────────────────────────────────────────── */
-.btn { background:var(--train); border:none; color:#fff; border-radius:9px; padding:8px 18px;
-  cursor:pointer; font:800 14px var(--disp); letter-spacing:1px; text-transform:uppercase; }
-.btn:hover { filter:brightness(1.15); }
+.rowflex { display:flex; gap:8px; margin-bottom:8px; }
+.rowflex > * { flex:1; }
+.seg { display:flex; background:var(--surface2); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.seg button { flex:1; background:none; border:none; color:var(--soft); padding:8px 0; cursor:pointer;
+  font:700 13px var(--disp); letter-spacing:1.5px; text-transform:uppercase; }
+.seg button.active { background:var(--train); color:#fff; }
+.field { display:flex; flex-direction:column; gap:4px; }
+.field span { font:500 10px var(--mono); color:var(--dim); }
+.field input { background:var(--surface2); border:1px solid var(--border); color:var(--fg); border-radius:10px;
+  padding:8px 10px; font-size:12.5px; width:100%; }
+.field input:focus { outline:none; border-color:var(--train); }
+
+.modes { display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+.mchip { display:flex; align-items:center; gap:6px; font:600 11px var(--mono); color:var(--soft);
+  background:var(--surface2); border:1px solid var(--border); border-radius:16px; padding:5px 11px; cursor:pointer;
+  user-select:none; }
+.mchip .mdot { opacity:.9; }
+.mchip.off { opacity:.38; text-decoration:line-through; }
+.mchip:hover { border-color:var(--soft); }
+.modes-hint { font:500 10px var(--mono); color:var(--dim); margin-top:6px; }
+
+/* ═══ endpoint catalog ═══ */
+.eplist { display:flex; flex-direction:column; gap:6px; }
+.ep { display:flex; align-items:center; gap:9px; background:var(--surface2); border:1px solid var(--border);
+  border-radius:11px; padding:9px 11px; cursor:pointer; transition:border-color .1s; }
+.ep:hover { border-color:var(--soft); }
+.ep.active { border-color:var(--train); background:#f6891f14; }
+.ep .method { font:700 9.5px var(--mono); color:var(--ok); border:1px solid #00b21944; border-radius:5px; padding:1px 5px; flex:none; }
+.ep .method.post { color:var(--info); border-color:#00b5ef44; }
+.ep .epname { font:700 15px var(--disp); letter-spacing:.4px; }
+.ep .eppath { font:500 9.5px var(--mono); color:var(--dim); margin-top:1px; word-break:break-all; }
+.ep .src { margin-left:auto; flex:none; font:700 9px var(--mono); letter-spacing:1px; border-radius:5px; padding:2px 7px; }
+.ep .src.bff { color:var(--train); border:1px solid #f6891f55; }
+.ep .src.nsw { color:var(--info); border:1px solid #00b5ef55; }
+.ep .src.proto { color:var(--metro); border:1px solid #009b7755; }
+.epgroup { font:700 11px var(--disp); letter-spacing:2.5px; text-transform:uppercase; color:var(--dim); margin:10px 0 4px; }
+.epgroup:first-child { margin-top:0; }
+
+.gtfsrow { display:flex; gap:8px; margin-top:8px; }
+.gtfsrow select { flex:1; background:var(--surface2); border:1px solid var(--border); color:var(--fg);
+  border-radius:10px; padding:8px 10px; font-size:12px; }
+
+.anyurl textarea { width:100%; min-height:64px; background:var(--surface2); border:1px solid var(--border);
+  color:var(--fg); border-radius:11px; padding:10px 12px; font-size:12px; resize:vertical; }
+.anyurl textarea:focus { outline:none; border-color:var(--train); }
+
+/* ═══ send controls ═══ */
+.sendbar { position:sticky; bottom:0; margin:18px -16px -40px; padding:14px 16px 18px;
+  background:linear-gradient(180deg, transparent, var(--bg) 26%); display:flex; gap:8px; }
+.btn { background:var(--train); border:none; color:#fff; border-radius:11px; padding:11px 22px;
+  cursor:pointer; font:800 16px var(--disp); letter-spacing:1.5px; text-transform:uppercase; flex:1; }
+.btn:hover { filter:brightness(1.12); }
 .btn[disabled] { opacity:.4; pointer-events:none; }
-.btn.ghost { background:var(--surface2); border:1px solid var(--border); color:var(--soft); }
+.btn.ghost { background:var(--surface2); border:1px solid var(--border); color:var(--soft); flex:none; }
 .btn.ghost:hover { color:var(--fg); border-color:var(--soft); filter:none; }
-.minibtn { background:var(--surface3); border:1px solid var(--border); color:var(--soft); border-radius:7px;
-  padding:4px 11px; cursor:pointer; font:600 11px var(--mono); }
+
+/* ═══ response bay ═══ */
+.bay-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--dim); }
+.bay-empty .big { font:800 34px var(--disp); letter-spacing:2px; color:var(--surface3); text-transform:uppercase; }
+.bay-empty .hint { font:500 11.5px var(--mono); max-width:420px; text-align:center; line-height:1.8; }
+.bay-empty kbd { background:var(--surface2); border:1px solid var(--border); border-radius:5px; padding:1px 6px; font:600 10.5px var(--mono); }
+
+.statusbar { flex:none; display:flex; align-items:center; gap:14px; padding:12px 18px;
+  border-bottom:1px solid var(--border); background:var(--surface); flex-wrap:wrap; }
+.spill { font:800 15px var(--disp); letter-spacing:1px; border-radius:9px; padding:4px 14px; color:#fff; }
+.spill.ok { background:var(--ok); } .spill.bad { background:var(--bad); } .spill.warn { background:var(--warn); color:#141312; }
+.stat { font:500 11px var(--mono); color:var(--soft); }
+.stat b { color:var(--fg); font-weight:600; }
+.statusbar .url { flex-basis:100%; font:500 10.5px var(--mono); color:var(--dim); word-break:break-all;
+  cursor:pointer; }
+.statusbar .url:hover { color:var(--soft); }
+
+.vtabs { flex:none; display:flex; gap:4px; padding:10px 18px 0; border-bottom:1px solid var(--border); }
+.vtab { background:none; border:none; border-bottom:2px solid transparent; color:var(--soft); padding:7px 14px 9px;
+  cursor:pointer; font:700 14px var(--disp); letter-spacing:1px; text-transform:uppercase; }
+.vtab:hover { color:var(--fg); }
+.vtab.active { color:var(--train); border-bottom-color:var(--train); }
+.vtab[hidden] { display:none; }
+
+.actions { flex:none; display:flex; gap:6px; padding:10px 18px; align-items:center; flex-wrap:wrap; }
+.minibtn { background:var(--surface2); border:1px solid var(--border); color:var(--soft); border-radius:8px;
+  padding:6px 13px; cursor:pointer; font:600 11px var(--mono); }
 .minibtn:hover { color:var(--fg); border-color:var(--soft); }
+.minibtn.accent { color:var(--train); border-color:#f6891f55; }
+.minibtn.accent:hover { border-color:var(--train); }
+.actions .exportdir { font:500 10px var(--mono); color:var(--dim); margin-left:auto; }
+.actions .exportdir b { color:var(--soft); font-weight:600; }
 
-/* ─── test console ────────────────────────────────────────────────────── */
-.tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
-.tab { font:700 15px var(--disp); letter-spacing:.5px; padding:6px 18px; border-radius:18px; cursor:pointer;
-  background:var(--surface2); border:1px solid var(--border); color:var(--soft); }
-.tab:hover { color:var(--fg); }
-.tab.active { background:var(--train); border-color:var(--train); color:#fff; }
-.screen-desc { color:var(--soft); font-size:12.5px; margin:0 0 12px; }
-.inputs { display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:14px; }
-.inputs label { font:500 10px var(--mono); color:var(--dim); display:flex; flex-direction:column; gap:4px; }
-.inputs input { background:var(--bg); border:1px solid var(--border); color:var(--fg); border-radius:8px;
-  padding:7px 10px; font:13px var(--mono); width:170px; }
-.runhint { font:500 11px var(--mono); color:var(--warn); margin-left:8px; }
+.viewport { flex:1; overflow:auto; padding:4px 18px 30px; }
+.viewport pre { margin:0; font:12px/1.6 var(--mono); white-space:pre-wrap; word-break:break-word; }
 
-.paths { display:grid; grid-template-columns:repeat(auto-fit, minmax(310px,1fr)); gap:12px; }
-.pcard { background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:14px;
-  display:flex; flex-direction:column; gap:9px; min-width:0; }
-.pcard.ok { border-color:#00b21955; }
-.pcard.bad { border-color:#ff2b2b66; }
-.phead { display:flex; align-items:center; gap:8px; }
-.ptitle { font:800 18px var(--disp); letter-spacing:.4px; }
-.ptag { font:600 9.5px var(--mono); color:var(--dim); border:1px solid var(--border); border-radius:6px; padding:1px 7px; }
-.pill { margin-left:auto; font:700 12px var(--mono); border-radius:12px; padding:2px 11px; }
-.pill.ok { color:#fff; background:var(--ok); }
-.pill.bad { color:#fff; background:var(--bad); }
-.pwhat { font-size:11.5px; color:var(--soft); }
-.purl { font:500 10px var(--mono); color:var(--dim); word-break:break-all; max-height:42px; overflow:hidden; }
-.pstats { display:flex; gap:14px; font:600 12px var(--mono); color:var(--soft); }
-.pstats b { color:var(--fg); font-weight:600; }
-.pacts { display:flex; gap:6px; flex-wrap:wrap; }
-.pcard details { font-size:12px; }
-.pcard summary { cursor:pointer; font:600 11px var(--mono); color:var(--dim); }
-.pcard pre { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px;
-  font:11px/1.5 var(--mono); max-height:340px; overflow:auto; white-space:pre-wrap; word-break:break-all; }
+.jfilter { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--fg);
+  border-radius:9px; padding:7px 11px; font-size:12px; margin:6px 0 10px; }
+.jfilter:focus { outline:none; border-color:var(--train); }
 
-/* ─── verdict ─────────────────────────────────────────────────────────── */
-.verdict-empty { color:var(--dim); font:500 12px var(--mono); padding:14px;
-  border:1px dashed var(--border); border-radius:12px; }
-table.verdict { width:100%; border-collapse:collapse; background:var(--surface2); border-radius:12px; overflow:hidden; }
-table.verdict th { font:700 12px var(--disp); letter-spacing:1.5px; text-transform:uppercase; color:var(--dim);
-  text-align:left; padding:10px 14px; border-bottom:1px solid var(--border); }
-table.verdict td { padding:10px 14px; border-bottom:1px solid var(--border); font:500 12.5px var(--mono); }
-table.verdict tr:last-child td { border-bottom:none; }
-.win { color:var(--ok); font-weight:700; }
-.loss { color:var(--bad); font-weight:700; }
-.neutral { color:var(--soft); }
-.verdict-note { color:var(--dim); font-size:12px; margin-top:10px; }
+/* JSON tree */
+.jt { font:12px/1.65 var(--mono); }
+.jt details { padding-left:16px; }
+.jt details > summary { cursor:pointer; list-style:none; margin-left:-16px; }
+.jt details > summary::before { content:'▸'; color:var(--dim); display:inline-block; width:14px; font-size:10px; }
+.jt details[open] > summary::before { content:'▾'; }
+.jt .k { color:var(--j-key); }
+.jt .s { color:var(--j-str); }
+.jt .n { color:var(--j-num); }
+.jt .b { color:var(--j-bool); }
+.jt .z { color:var(--j-null); }
+.jt .p { color:var(--dim); }
+.jt .cnt { color:var(--dim); font-size:10px; }
+.jt .hl { background:#f4b40033; border-radius:3px; }
+.jt .leaf { margin-left:0; }
 
-/* ─── any url ─────────────────────────────────────────────────────────── */
-.anyurl { display:flex; gap:10px; }
-.anyurl textarea { flex:1; background:var(--bg); border:1px solid var(--border); color:var(--fg);
-  border-radius:10px; padding:10px 12px; font:12px var(--mono); min-height:46px; resize:vertical; }
-#anyResult { margin-top:12px; }
+/* proto tree */
+.pt { font:12px/1.7 var(--mono); }
+.pt .fnum { color:var(--train); font-weight:600; }
+.pt .wt { color:var(--dim); font-size:10px; }
+.pt .pv { color:var(--j-str); }
+.pt .pnum { color:var(--j-num); }
+.pt details { padding-left:18px; }
+.pt details > summary { cursor:pointer; list-style:none; margin-left:-18px; }
+.pt details > summary::before { content:'▸'; color:var(--dim); display:inline-block; width:14px; font-size:10px; }
+.pt details[open] > summary::before { content:'▾'; }
+.hexpre { color:var(--dim); }
+
+/* headers table */
+table.htab { border-collapse:collapse; width:100%; font:11.5px var(--mono); }
+table.htab td { border-bottom:1px solid var(--border); padding:7px 10px; vertical-align:top; word-break:break-all; }
+table.htab td:first-child { color:var(--j-key); white-space:nowrap; }
+
+/* compare table */
+table.cmp { border-collapse:collapse; width:100%; font:12px var(--mono); margin-top:6px; }
+table.cmp th { font:700 13px var(--disp); letter-spacing:1px; text-transform:uppercase; color:var(--dim);
+  text-align:left; padding:8px 12px; border-bottom:1px solid var(--border); }
+table.cmp td { padding:9px 12px; border-bottom:1px solid var(--border); }
+.win { color:var(--ok); } .loss { color:var(--bad); } .neutral { color:var(--soft); }
+.cmp-note { font:500 11px var(--mono); color:var(--dim); margin-top:12px; line-height:1.8; }
+
+/* ═══ history drawer ═══ */
+.histwrap { border-top:1px solid var(--border); flex:none; background:var(--surface); }
+.histhead { display:flex; align-items:center; gap:10px; padding:8px 18px; cursor:pointer; user-select:none; }
+.histhead h3 { margin:0; font:700 12px var(--disp); letter-spacing:2.5px; text-transform:uppercase; color:var(--dim); }
+.histhead .chev { color:var(--dim); font-size:10px; transition:transform .2s; }
+.histwrap.open .chev { transform:rotate(180deg); }
+.histhead .minibtn { margin-left:auto; }
+.histbody { display:none; max-height:190px; overflow-y:auto; padding:0 12px 12px; }
+.histwrap.open .histbody { display:block; }
+.hrow { display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:9px; cursor:pointer; font:11px var(--mono); }
+.hrow:hover { background:var(--surface2); }
+.hrow .hst { font-weight:700; width:34px; flex:none; }
+.hrow .hst.ok { color:var(--ok); } .hrow .hst.bad { color:var(--bad); }
+.hrow .hname { color:var(--fg); flex:none; font:700 13px var(--disp); letter-spacing:.4px; }
+.hrow .hurl { color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hrow .hts { margin-left:auto; color:var(--dim); flex:none; font-size:10px; }
+
+/* toast + banner */
+#toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); z-index:200;
+  background:var(--surface3); border:1px solid var(--border); color:var(--fg); border-radius:11px;
+  padding:10px 18px; font:600 12px var(--mono); transition:transform .25s; box-shadow:0 10px 30px #000a; }
+#toast.show { transform:translateX(-50%) translateY(0); }
+.banner { display:none; background:#f4b40012; border:1px solid #f4b40055; color:var(--warn); border-radius:11px;
+  padding:10px 13px; font:500 11px var(--mono); margin-bottom:12px; line-height:1.7; }
+.banner.show { display:block; }
+.banner code { color:var(--fg); background:var(--surface3); border-radius:4px; padding:0 5px; }
+
+.spin { display:inline-block; width:14px; height:14px; border:2px solid #ffffff44; border-top-color:#fff;
+  border-radius:50%; animation:rot .7s linear infinite; vertical-align:-2px; }
+@keyframes rot { to { transform:rotate(360deg); } }
+
+@media (max-width: 900px) {
+  .main { flex-direction:column; overflow:auto; }
+  .composer { width:auto; border-right:none; border-bottom:1px solid var(--border); overflow:visible; }
+  .bay { overflow:visible; }
+  .viewport { overflow:visible; }
+}
 </style>
 </head>
 <body>
 
+<!-- ═══ top bar ═══ -->
 <div class="bar">
-  <div class="brand"><span class="dotpulse" id="bffDot"></span> KRAIL · API CONTROL</div>
-  <label>BFF <input id="baseUrl" value="http://localhost:8080"></label>
-  <label>X-Krail-Version <input id="version" placeholder="optional" style="width:110px"></label>
-  <div class="spacer"></div>
-  <a href="track-tester.html">live tracking →</a>
+  <span class="brand">KRAIL <small>DISPATCH</small></span>
+  <span class="led" id="ledBff" title="BFF /health"><i></i>BFF</span>
+  <span class="led" id="ledPass" title="/internal/passthrough — needs BFF_DEV_PASSTHROUGH=true"><i></i>NSW passthrough</span>
+  <span class="spacer"></span>
+  <span class="nswcount" id="nswCount"></span>
+  <label>base <input id="baseUrl" spellcheck="false" placeholder="http://localhost:8080"></label>
+  <label>X-Krail-Version <input id="version" style="width:80px" spellcheck="false" placeholder="1.2.0"></label>
+  <a href="track-tester.html">tracking ↗</a>
 </div>
 
-<div class="wrap">
+<div class="main">
 
-  <div class="banner" id="passthroughBanner">
-    ⚠ NSW checks need the dev passthrough. Set <code>bff.devPassthrough=true</code> in
-    <code>local.properties</code> (or <code>BFF_DEV_PASSTHROUGH=true</code>) and restart the BFF.
-    BFF-only checks still work.
+  <!-- ═══ composer ═══ -->
+  <div class="composer">
+    <div class="banner" id="passBanner">
+      NSW-direct calls and station search need the passthrough. Start the BFF with
+      <code>BFF_DEV_PASSTHROUGH=true</code> in <code>local.properties</code> or env, then reload.
+    </div>
+
+    <h2 class="sec"><span class="n">01</span> Journey</h2>
+    <div class="station" id="stFrom">
+      <span class="tag">FROM</span>
+      <input id="fromInput" placeholder="search station… e.g. Town Hall" autocomplete="off" spellcheck="false">
+      <span class="stopid" id="fromId"></span>
+      <div class="suggest" id="fromSuggest"></div>
+    </div>
+    <div class="swap"><button id="swapBtn" title="swap origin/destination">⇅</button></div>
+    <div class="station" id="stTo">
+      <span class="tag">TO</span>
+      <input id="toInput" placeholder="search station… e.g. Bondi Junction" autocomplete="off" spellcheck="false">
+      <span class="stopid" id="toId"></span>
+      <div class="suggest" id="toSuggest"></div>
+    </div>
+
+    <div class="rowflex">
+      <div class="seg" id="depArrSeg">
+        <button data-v="dep" class="active">Depart</button>
+        <button data-v="arr">Arrive</button>
+      </div>
+    </div>
+    <div class="rowflex">
+      <label class="field"><span>date YYYYMMDD</span><input id="dateInput" placeholder="today" spellcheck="false"></label>
+      <label class="field"><span>time HHmm</span><input id="timeInput" placeholder="now" spellcheck="false"></label>
+    </div>
+
+    <div class="modes" id="modeChips"></div>
+    <div class="modes-hint">click a mode to exclude it from trip planning</div>
+
+    <h2 class="sec"><span class="n">02</span> Endpoint</h2>
+    <div class="eplist" id="epList"></div>
+
+    <div class="gtfsrow" id="gtfsRow" style="display:none">
+      <select id="gtfsFeed"></select>
+      <select id="gtfsKind">
+        <option value="vehiclepos">vehicle positions</option>
+        <option value="tripupdate">trip updates</option>
+      </select>
+    </div>
+
+    <div class="anyurl" id="anyUrlRow" style="display:none; margin-top:8px;">
+      <textarea id="anyInput" placeholder="https://api.transport.nsw.gov.au/v1/tp/…  — raw URL or curl command. NSW-host URLs auto-route via passthrough." spellcheck="false"></textarea>
+    </div>
+
+    <div class="sendbar">
+      <button class="btn" id="sendBtn">Send</button>
+      <button class="btn ghost" id="compareBtn" title="fire BFF JSON + BFF proto + NSW direct together and compare">Compare</button>
+    </div>
   </div>
 
-  <!-- ════════ 1 · HEALTH ════════ -->
-  <section>
-    <h2 class="sec"><span class="n">01</span> Upstream health</h2>
-    <p class="lede">Every API this system depends on, checked live from your browser the moment the page
-      opens. <b>Green = answering, red = down</b> (the HTTP code tells you how). NSW endpoints are called
-      once each through the BFF's dev passthrough — click any card to re-check just that one.</p>
-    <div class="health-head">
-      <button class="btn ghost" id="recheck">Re-check all</button>
-      <span class="checked-at" id="checkedAt"></span>
+  <!-- ═══ response bay ═══ -->
+  <div class="bay">
+    <div class="bay-empty" id="bayEmpty">
+      <div class="big">Response Bay</div>
+      <div class="hint">
+        Pick FROM / TO stations (live search — no more hunting stop IDs),<br>
+        choose an endpoint, hit <kbd>Send</kbd> — or <kbd>⌘↵</kbd>.<br><br>
+        <kbd>Compare</kbd> races BFF JSON vs BFF proto vs NSW direct.<br>
+        Export drops the response into <kbd>api-exports/</kbd> (git-ignored).
+      </div>
     </div>
-    <div id="healthBoard"></div>
-  </section>
 
-  <!-- ════════ 2 · TEST CONSOLE ════════ -->
-  <section>
-    <h2 class="sec"><span class="n">02</span> Test console</h2>
-    <p class="lede">Postman, but pre-wired. Pick the <b>app screen</b> you care about, tweak the inputs,
-      then fire any path on its own — <b>NSW direct</b> (what the app does today), <b>BFF JSON</b>
-      (pass-through), or <b>BFF proto</b> (the screen-shaped binary the app is moving to). Each card shows
-      status, latency, payload size and the full response body.</p>
-    <div class="tabs" id="screens"></div>
-    <p class="screen-desc" id="screenDesc"></p>
-    <div class="inputs" id="inputs"></div>
-    <div style="display:flex; align-items:center; margin-bottom:14px;">
-      <button class="btn" id="runAll">Run all paths</button>
-      <span class="runhint" id="runHint"></span>
+    <div id="bayFull" style="display:none; flex:1; min-height:0; flex-direction:column;">
+      <div class="statusbar" id="statusBar"></div>
+      <div class="vtabs" id="vtabs">
+        <button class="vtab active" data-v="pretty">Pretty</button>
+        <button class="vtab" data-v="raw">Raw</button>
+        <button class="vtab" data-v="proto" hidden>Proto</button>
+        <button class="vtab" data-v="headers">Headers</button>
+        <button class="vtab" data-v="compare" hidden>Compare</button>
+      </div>
+      <div class="actions">
+        <button class="minibtn" id="copyBody">copy body</button>
+        <button class="minibtn" id="copyUrl">copy URL</button>
+        <button class="minibtn" id="copyCurl">copy curl</button>
+        <button class="minibtn accent" id="exportBtn">⬇ export to file</button>
+        <span class="exportdir" id="exportDir"></span>
+      </div>
+      <div class="viewport" id="viewport"></div>
     </div>
-    <div class="paths" id="results"></div>
-  </section>
 
-  <!-- ════════ 3 · VERDICT ════════ -->
-  <section>
-    <h2 class="sec"><span class="n">03</span> BFF vs NSW — verdict</h2>
-    <p class="lede">After <b>Run all paths</b> above, this table compares each path against the baseline
-      (NSW direct when present): payload size on the wire, decoded size, and latency. Green = the BFF
-      path wins, red = it costs more.</p>
-    <div id="verdict"><div class="verdict-empty">Run all paths in the test console to populate the comparison.</div></div>
-  </section>
-
-  <!-- ════════ 4 · ANY URL ════════ -->
-  <section>
-    <h2 class="sec"><span class="n">04</span> Fire any URL</h2>
-    <p class="lede">Paste a raw URL or a curl command. NSW-host URLs are routed through the passthrough
-      automatically (auth header added server-side, no CORS pain).</p>
-    <div class="anyurl">
-      <textarea id="anyInput" placeholder="https://api.transport.nsw.gov.au/v1/tp/trip?...   — or a curl command"></textarea>
-      <button class="btn" id="anyRun">Fire</button>
+    <div class="histwrap" id="histWrap">
+      <div class="histhead" id="histHead">
+        <h3>History</h3><span class="chev">▲</span>
+        <button class="minibtn" id="histClear">clear</button>
+      </div>
+      <div class="histbody" id="histBody"></div>
     </div>
-    <div id="anyResult"></div>
-  </section>
-
+  </div>
 </div>
+
+<div id="toast"></div>
 
 <script>
 'use strict';
+/* ═══════════════════ state + helpers ═══════════════════ */
 const $ = (id) => document.getElementById(id);
-const ss = window.sessionStorage;
-const base = () => ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
+const ls = window.localStorage;
 const NSW = 'https://api.transport.nsw.gov.au';
+const base = () => ($('baseUrl').value || 'http://localhost:8080').replace(/\/+$/, '');
+const passthrough = (url) => `${base()}/internal/passthrough?url=${encodeURIComponent(url)}`;
 
-/* ───────────────────────────── helpers ─────────────────────────────── */
+let nswCalls = 0;
+function bumpNsw(n = 1) { nswCalls += n; $('nswCount').textContent = `NSW calls this session: `; $('nswCount').innerHTML = `NSW calls this session <b>${nswCalls}</b>`; }
+
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function fmtBytes(b) {
   if (b == null) return '—';
@@ -226,415 +400,746 @@ function fmtBytes(b) {
   if (b < 1048576) return `${(b / 1024).toFixed(1)} KB`;
   return `${(b / 1048576).toFixed(1)} MB`;
 }
-function pct(baseV, cur) { return (!baseV) ? null : Math.round((cur / baseV - 1) * 100); }
-function fmtSavings(p) { return p == null ? '—' : (p > 0 ? `+${p}%` : `${p}%`); }
-function hexPreview(bytes, max = 256) {
-  const rows = [];
-  for (let i = 0; i < Math.min(bytes.length, max); i += 16) {
-    rows.push(Array.from(bytes.slice(i, i + 16)).map(b => b.toString(16).padStart(2, '0')).join(' '));
-  }
-  return rows.join('\n') + (bytes.length > max ? `\n… (${bytes.length - max} more bytes)` : '');
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._h); toast._h = setTimeout(() => t.classList.remove('show'), 2200);
 }
+function debounce(fn, ms) { let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); }; }
 function optHeaders() {
   const h = {};
   const v = ($('version').value || '').trim();
   if (v) h['X-Krail-Version'] = v;
   return h;
 }
-function passthrough(url) { return `${base()}/internal/passthrough?url=${encodeURIComponent(url)}`; }
 
-async function rawFetch(url, { binary = false } = {}) {
-  const t0 = performance.now();
-  let response;
-  try { response = await fetch(url, { headers: optHeaders() }); }
-  catch (e) { return { url, error: e.message || String(e), elapsed: Math.round(performance.now() - t0) }; }
-  const elapsed = Math.round(performance.now() - t0);
-  const buf = await response.arrayBuffer();
-  const ct = response.headers.get('Content-Type') || '';
-  const decodedBytes = buf.byteLength;
-  let body;
-  if (binary || ct.includes('protobuf')) {
-    body = `<binary, ${decodedBytes} bytes>\n\n${hexPreview(new Uint8Array(buf))}`;
-  } else {
-    const text = new TextDecoder().decode(buf);
-    try { body = JSON.stringify(JSON.parse(text), null, 2); } catch { body = text; }
-  }
-  let encodedBodySize = null;
-  try {
-    const entries = performance.getEntriesByName(url);
-    const last = entries[entries.length - 1];
-    if (last && typeof last.encodedBodySize === 'number') encodedBodySize = last.encodedBodySize;
-  } catch {}
-  return { url, status: response.status, statusText: response.statusText, elapsed, decodedBytes, encodedBodySize, body };
+/* ═══════════════════ mode chips ═══════════════════ */
+const MODES = [
+  { id: 1, name: 'Train',      color: 'var(--train)' },
+  { id: 2, name: 'Metro',      color: 'var(--metro)' },
+  { id: 4, name: 'Light Rail', color: 'var(--lr)' },
+  { id: 5, name: 'Bus',        color: 'var(--bus)' },
+  { id: 7, name: 'Coach',      color: 'var(--coach)' },
+  { id: 9, name: 'Ferry',      color: 'var(--ferry)' },
+  { id: 11, name: 'School Bus', color: 'var(--school)' },
+];
+const excluded = new Set();
+function renderModeChips() {
+  $('modeChips').innerHTML = MODES.map(m => `
+    <span class="mchip ${excluded.has(m.id) ? 'off' : ''}" data-id="${m.id}">
+      <span class="mdot" style="background:${m.color}"></span>${m.name}
+    </span>`).join('');
+  $('modeChips').querySelectorAll('.mchip').forEach(el => el.addEventListener('click', () => {
+    const id = +el.dataset.id;
+    excluded.has(id) ? excluded.delete(id) : excluded.add(id);
+    renderModeChips();
+  }));
 }
 
-/* ─────────────────────── 1 · health board ──────────────────────────── */
-// One entry per upstream dependency. kind 'bff' hits the BFF directly;
-// kind 'nsw' goes via /internal/passthrough (auth added server-side).
+/* productClasses → mode colors for suggestion rows */
+const PRODUCT_COLOR = { 1:'var(--train)', 2:'var(--metro)', 4:'var(--lr)', 5:'var(--bus)', 7:'var(--coach)', 9:'var(--ferry)', 11:'var(--school)' };
+
+/* ═══════════════════ station autocomplete (NSW stop_finder) ═══════════════════ */
+const picked = { from: null, to: null }; // { id, name }
+
+function stopFinderUrl(q) {
+  // type_sf must be "any" for free-text queries — "stop" expects a stop ID and errors with "stop invalid".
+  return `${NSW}/v1/tp/stop_finder?outputFormat=rapidJSON&type_sf=any&name_sf=${encodeURIComponent(q)}&coordOutputFormat=EPSG:4326&TfNSWSF=true&version=10.2.1.42`;
+}
+
+async function searchStops(q) {
+  const resp = await fetch(passthrough(stopFinderUrl(q)), { headers: optHeaders() });
+  bumpNsw();
+  if (!resp.ok) throw new Error(`stop_finder ${resp.status}`);
+  const data = await resp.json();
+  const locs = (data.locations || [])
+    .filter(l => l.type === 'stop' || l.type === 'platform')
+    .sort((a, b) => (b.matchQuality || 0) - (a.matchQuality || 0))
+    .slice(0, 9);
+  return locs.map(l => ({
+    id: String(l.id),
+    name: l.disassembledName || l.name || String(l.id),
+    full: l.name || '',
+    modes: Array.isArray(l.modes) ? l.modes : (Array.isArray(l.productClasses) ? l.productClasses : []),
+  }));
+}
+
+function wireStation(which) {
+  const input = $(which === 'from' ? 'fromInput' : 'toInput');
+  const box = $(which === 'from' ? 'fromSuggest' : 'toSuggest');
+  const wrap = $(which === 'from' ? 'stFrom' : 'stTo');
+  const idEl = $(which === 'from' ? 'fromId' : 'toId');
+  let items = [], active = -1;
+
+  function close() { box.classList.remove('open'); active = -1; }
+  function renderRows() {
+    box.innerHTML = items.length
+      ? items.map((it, i) => `
+        <div class="srow ${i === active ? 'active' : ''}" data-i="${i}">
+          <span>
+            <div class="sname">${esc(it.name)}</div>
+            <div class="ssub">${esc(it.id)}${it.full && it.full !== it.name ? ' · ' + esc(it.full) : ''}</div>
+          </span>
+          <span class="smodes">${it.modes.map(m => PRODUCT_COLOR[m] ? `<span class="mdot" style="background:${PRODUCT_COLOR[m]}"></span>` : '').join('')}</span>
+        </div>`).join('')
+      : `<div class="note">no stops matched</div>`;
+    box.classList.add('open');
+    box.querySelectorAll('.srow').forEach(el => el.addEventListener('mousedown', (e) => {
+      e.preventDefault(); pick(+el.dataset.i);
+    }));
+  }
+  function pick(i) {
+    const it = items[i]; if (!it) return;
+    picked[which] = { id: it.id, name: it.name };
+    input.value = it.name;
+    idEl.textContent = it.id;
+    wrap.classList.add('picked');
+    ls.setItem(`stop:${which}`, JSON.stringify(picked[which]));
+    close();
+  }
+
+  const run = debounce(async () => {
+    const q = input.value.trim();
+    if (q.length < 2) { close(); return; }
+    box.innerHTML = `<div class="note">searching…</div>`; box.classList.add('open');
+    try { items = await searchStops(q); active = -1; renderRows(); }
+    catch (e) {
+      box.innerHTML = `<div class="note">search failed — ${esc(e.message)}. Is the BFF running with <b>BFF_DEV_PASSTHROUGH=true</b>?</div>`;
+    }
+  }, 300);
+
+  input.addEventListener('input', () => {
+    picked[which] = null; wrap.classList.remove('picked'); ls.removeItem(`stop:${which}`);
+    run();
+  });
+  input.addEventListener('keydown', (e) => {
+    if (!box.classList.contains('open')) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, items.length - 1); renderRows(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); renderRows(); }
+    else if (e.key === 'Enter') { e.preventDefault(); pick(active >= 0 ? active : 0); }
+    else if (e.key === 'Escape') close();
+  });
+  input.addEventListener('blur', () => setTimeout(close, 150));
+
+  // restore
+  const saved = ls.getItem(`stop:${which}`);
+  if (saved) {
+    try { picked[which] = JSON.parse(saved); input.value = picked[which].name; idEl.textContent = picked[which].id; wrap.classList.add('picked'); } catch {}
+  }
+}
+
+$('swapBtn').addEventListener('click', () => {
+  const f = picked.from, t = picked.to;
+  picked.from = t; picked.to = f;
+  const set = (which, v) => {
+    const input = $(which === 'from' ? 'fromInput' : 'toInput');
+    const idEl = $(which === 'from' ? 'fromId' : 'toId');
+    const wrap = $(which === 'from' ? 'stFrom' : 'stTo');
+    if (v) { input.value = v.name; idEl.textContent = v.id; wrap.classList.add('picked'); ls.setItem(`stop:${which}`, JSON.stringify(v)); }
+    else { input.value = ''; idEl.textContent = ''; wrap.classList.remove('picked'); ls.removeItem(`stop:${which}`); }
+  };
+  set('from', picked.from); set('to', picked.to);
+});
+
+/* ═══════════════════ endpoint catalog ═══════════════════ */
 const FEEDS = [
-  // [feed, vehiclepos version, tripupdates version] — mirrors the BFF's FeedRegistry.
-  ['sydneytrains', 2, 2, 'var(--train)'],
-  ['nswtrains', 1, 1, 'var(--train)'],
-  ['metro', 2, 2, 'var(--metro)'],
-  ['lightrail/innerwest', 2, 1, 'var(--lr)'],
-  ['buses', 1, 1, 'var(--bus)'],
-  ['ferries/sydneyferries', 2, 1, 'var(--ferry)'],
+  ['sydneytrains', 2, 2], ['nswtrains', 1, 1], ['metro', 2, 2],
+  ['lightrail/innerwest', 2, 1], ['lightrail/cbdandsoutheast', 2, 1],
+  ['buses', 1, 1], ['ferries/sydneyferries', 2, 1],
 ];
 const tuUrl = (feed, v) => v === 2 ? `${NSW}/v2/gtfs/tripupdate/${feed}` : `${NSW}/v1/gtfs/realtime/${feed}`;
 const vpUrl = (feed, v) => `${NSW}/v${v}/gtfs/vehiclepos/${feed}`;
 
-const HEALTH = [
-  { group: 'KRAIL-BFF (this machine)', items: [
-    { id: 'bff', name: 'BFF /health', powers: 'everything below goes through it', kind: 'bff', url: () => `${base()}/health` },
-  ]},
-  { group: 'NSW · journey APIs', items: [
-    { id: 'tp', name: 'Trip Planner', powers: 'trip search + journey cards', kind: 'nsw',
-      url: () => `${NSW}/v1/tp/trip?outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&depArrMacro=dep&type_origin=any&type_destination=any&name_origin=200060&name_destination=200070&calcNumberOfTrips=1&TfNSWTR=true&version=10.2.1.42` },
-    { id: 'dep', name: 'Departures monitor', powers: 'saved-trips departure times', kind: 'nsw',
-      url: () => `${NSW}/v1/tp/departure_mon?outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&mode=direct&type_dm=stop&name_dm=200060&departureMonitorMacro=true&TfNSWDM=true&version=10.2.1.42` },
-    { id: 'carpark', name: 'Car park occupancy', powers: 'park & ride cards', kind: 'nsw',
-      url: () => `${NSW}/v1/carpark` },
-  ]},
-  { group: 'NSW · realtime — trip updates (stop timelines, delays)', items:
-    FEEDS.map(([feed, , tu, color]) => ({
-      id: `tu:${feed}`, name: feed, powers: 'live stop times in tracking', kind: 'nsw', color,
-      url: () => tuUrl(feed, tu),
-    })),
-  },
-  { group: 'NSW · realtime — vehicle positions (the dot on the map)', items:
-    FEEDS.map(([feed, vp, , color]) => ({
-      id: `vp:${feed}`, name: feed, powers: 'live vehicle marker in tracking', kind: 'nsw', color,
-      url: () => vpUrl(feed, vp),
-    })),
-  },
+function tripQs(i) {
+  let q = `name_origin=${i.from}&name_destination=${i.to}&depArrMacro=${i.depArr}` +
+    `&type_origin=any&type_destination=any&calcNumberOfTrips=6&TfNSWTR=true&version=10.2.1.42` +
+    `&coordOutputFormat=EPSG:4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON`;
+  if (i.date) q += `&itdDate=${i.date}`;
+  if (i.time) q += `&itdTime=${i.time}`;
+  if (excluded.size) {
+    q += `&excludedMeans=checkbox`;
+    for (const m of excluded) q += `&exclMOT_${m}=1`;
+  }
+  return q;
+}
+function bffTripQs(i) {
+  let q = `origin=${i.from}&destination=${i.to}&depArr=${i.depArr}`;
+  if (i.date) q += `&date=${i.date}`;
+  if (i.time) q += `&time=${i.time}`;
+  if (excluded.size) q += `&excludedModes=${[...excluded].join(',')}`;
+  return q;
+}
+
+const ENDPOINTS = [
+  { group: 'Trip planning', id: 'trip-bff-json', name: 'Trip · BFF JSON', src: 'bff', binary: false,
+    path: '/api/v1/trip/plan', needs: ['from', 'to'],
+    build: (i) => `${base()}/api/v1/trip/plan?${bffTripQs(i)}` },
+  { group: 'Trip planning', id: 'trip-bff-proto', name: 'Trip · BFF proto', src: 'proto', binary: true,
+    path: '/api/v1/trip/plan-proto', needs: ['from', 'to'],
+    build: (i) => `${base()}/api/v1/trip/plan-proto?${bffTripQs(i)}` },
+  { group: 'Trip planning', id: 'trip-nsw', name: 'Trip · NSW direct', src: 'nsw', binary: false,
+    path: '/v1/tp/trip', needs: ['from', 'to'],
+    build: (i) => `${NSW}/v1/tp/trip?${tripQs(i)}` },
+
+  { group: 'Departures', id: 'dep-bff-json', name: 'Departures · BFF JSON', src: 'bff', binary: false,
+    path: '/v1/stops/{stop}/departures', needs: ['from'],
+    build: (i) => { let u = `${base()}/v1/stops/${i.from}/departures`; const q = []; if (i.date) q.push(`date=${i.date}`); if (i.time) q.push(`time=${i.time}`); return q.length ? `${u}?${q.join('&')}` : u; } },
+  { group: 'Departures', id: 'dep-bff-proto', name: 'Departures · BFF proto', src: 'proto', binary: true,
+    path: '/api/v1/stops/{stop}/departures-proto', needs: ['from'],
+    build: (i) => { let u = `${base()}/api/v1/stops/${i.from}/departures-proto`; const q = []; if (i.date) q.push(`date=${i.date}`); if (i.time) q.push(`time=${i.time}`); return q.length ? `${u}?${q.join('&')}` : u; } },
+  { group: 'Departures', id: 'dep-nsw', name: 'Departures · NSW direct', src: 'nsw', binary: false,
+    path: '/v1/tp/departure_mon', needs: ['from'],
+    build: (i) => { let u = `${NSW}/v1/tp/departure_mon?name_dm=${i.from}&type_dm=any&mode=direct&excludedMeans=checkbox&limit=20&outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&TfNSWDM=true&version=10.2.1.42`; if (i.date) u += `&itdDate=${i.date}`; if (i.time) u += `&itdTime=${i.time}`; return u; } },
+
+  { group: 'Park & Ride', id: 'park-bff-json', name: 'Parking · BFF JSON', src: 'bff', binary: false,
+    path: '/v1/parking/availability', needs: ['from'],
+    build: (i) => `${base()}/v1/parking/availability?stopIds=${i.from}` },
+  { group: 'Park & Ride', id: 'park-bff-proto', name: 'Parking · BFF proto', src: 'proto', binary: true,
+    path: '/api/v1/parking/availability-proto', needs: ['from'],
+    build: (i) => `${base()}/api/v1/parking/availability-proto?stopIds=${i.from}` },
+  { group: 'Park & Ride', id: 'park-nsw', name: 'Car parks · NSW direct', src: 'nsw', binary: false,
+    path: '/v1/carpark', needs: [],
+    build: () => `${NSW}/v1/carpark` },
+
+  { group: 'GTFS-Realtime', id: 'gtfs-bff', name: 'GTFS-RT · via BFF', src: 'bff', binary: true, gtfs: true,
+    path: '/v{1,2}/gtfs/…/{feed}', needs: [],
+    build: (i) => i.gtfsUrl.replace(NSW, base()) },
+  { group: 'GTFS-Realtime', id: 'gtfs-nsw', name: 'GTFS-RT · NSW direct', src: 'nsw', binary: true, gtfs: true,
+    path: '/v{1,2}/gtfs/…/{feed}', needs: [],
+    build: (i) => i.gtfsUrl },
+
+  { group: 'Utilities', id: 'stopfinder', name: 'Stop finder · NSW', src: 'nsw', binary: false,
+    path: '/v1/tp/stop_finder', needs: ['fromText'],
+    build: (i) => stopFinderUrl(i.fromText) },
+  { group: 'Utilities', id: 'any', name: 'Any URL / curl', src: 'nsw', binary: false, any: true,
+    path: 'paste below — NSW URLs auto-route via passthrough', needs: [],
+    build: (i) => i.anyUrl },
 ];
 
-let passthroughDown = false;
+let activeEp = ls.getItem('activeEp') || 'trip-bff-json';
 
-function renderHealthBoard() {
-  $('healthBoard').innerHTML = HEALTH.map(g => `
-    <div class="hgroup">
-      <h3>${esc(g.group)}</h3>
-      <div class="hgrid">
-        ${g.items.map(it => `
-          <div class="hcard pending" id="h-${cssId(it.id)}" data-id="${esc(it.id)}" title="click to re-check">
-            <span class="hdot" ${it.color ? `style="border-color:${it.color}"` : ''}></span>
-            <span><div class="hname">${esc(it.name)}</div><div class="hpowers">${esc(it.powers)}</div></span>
-            <span class="hmeta"><div class="hstatus">…</div><div class="hms"></div></span>
-          </div>`).join('')}
-      </div>
-    </div>`).join('');
-  document.querySelectorAll('.hcard').forEach(el =>
-    el.addEventListener('click', () => checkOne(findItem(el.dataset.id))));
-}
-function cssId(id) { return id.replace(/[^a-z0-9]/gi, '_'); }
-function findItem(id) { for (const g of HEALTH) { const f = g.items.find(i => i.id === id); if (f) return f; } }
-
-async function checkOne(item) {
-  const el = $(`h-${cssId(item.id)}`);
-  el.className = 'hcard pending';
-  el.querySelector('.hstatus').textContent = '…';
-  el.querySelector('.hms').textContent = '';
-  const target = item.kind === 'nsw' ? passthrough(item.url()) : item.url();
-  const t0 = performance.now();
-  let status = null, err = null;
-  try {
-    const resp = await fetch(target, { headers: optHeaders() });
-    status = resp.status;
-    await resp.arrayBuffer(); // drain so latency includes the body
-    // a 404 from the passthrough route itself means dev passthrough is off
-    if (item.kind === 'nsw' && resp.status === 404) {
-      const text = '' + (resp.headers.get('Content-Type') || '');
-      if (text.includes('json')) passthroughDown = true;
-    }
-  } catch (e) { err = e.message || 'network error'; }
-  const ms = Math.round(performance.now() - t0);
-  const ok = status != null && status >= 200 && status < 300;
-  el.className = `hcard ${ok ? 'ok' : 'bad'}`;
-  el.querySelector('.hstatus').textContent = err ? 'ERR' : status;
-  el.querySelector('.hms').textContent = err ? err.slice(0, 24) : `${ms} ms`;
-  return ok;
-}
-
-async function checkAll() {
-  passthroughDown = false;
-  $('recheck').disabled = true;
-  const items = HEALTH.flatMap(g => g.items);
-  // BFF first — if it's down, everything else will fail with noise.
-  const bffOk = await checkOne(items[0]);
-  $('bffDot').classList.toggle('live', bffOk);
-  // The rest with a small concurrency cap (kind to NSW).
-  const queue = items.slice(1);
-  const workers = Array.from({ length: 4 }, async () => {
-    while (queue.length) await checkOne(queue.shift());
-  });
-  await Promise.all(workers);
-  $('passthroughBanner').style.display = passthroughDown ? 'block' : 'none';
-  $('checkedAt').textContent = `checked ${new Date().toLocaleTimeString('en-AU', { hour12: false })} — counts as ~${items.length - 1} NSW calls`;
-  $('recheck').disabled = false;
-}
-
-/* ─────────────────────── 2 · test console ──────────────────────────── */
-const SCREENS = [
-  {
-    id: 'trip', title: 'Trip results',
-    desc: 'TimeTableScreen — searches the trip planner, draws journey cards + the journey-map polyline.',
-    inputs: [
-      { name: 'origin', label: 'Origin stop', default: '200070', placeholder: '200070 (Town Hall)' },
-      { name: 'destination', label: 'Destination stop', default: '215020', placeholder: '215020 (Bondi Junction)' },
-      { name: 'depArr', label: 'dep | arr', default: 'dep' },
-    ],
-    paths: [
-      { id: 'nsw', label: 'NSW direct', what: 'what the app does today', kind: 'nsw', binary: false,
-        build: ({ i }) => `${NSW}/v1/tp/trip?name_origin=${i.origin}&name_destination=${i.destination}&depArrMacro=${i.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON` },
-      { id: 'bff-json', label: 'BFF JSON', what: 'verbatim pass-through of the NSW shape', kind: 'bff', binary: false,
-        build: ({ b, i }) => `${b}/v1/tp/trip?name_origin=${i.origin}&name_destination=${i.destination}&depArrMacro=${i.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&itOptionsActive=1&computeMonomodalTripBicycle=false&cycleSpeed=16&useElevationData=1&outputFormat=rapidJSON` },
-      { id: 'bff-proto', label: 'BFF proto', what: 'screen-shaped binary the app is migrating to', kind: 'bff', binary: true,
-        build: ({ b, i }) => `${b}/api/v1/trip/plan-proto?name_origin=${i.origin}&name_destination=${i.destination}&depArrMacro=${i.depArr || 'dep'}&type_destination=any&calcNumberOfTrips=6&type_origin=any&TfNSWTR=true&version=10.2.1.42&coordOutputFormat=EPSG:4326&outputFormat=rapidJSON` },
-    ],
-  },
-  {
-    id: 'departures', title: 'Departures',
-    desc: 'Saved-trips card — next departures for a stop. Proto is screen-shaped (line + destination + time + platform).',
-    inputs: [
-      { name: 'stopId', label: 'Stop ID', default: '200060', placeholder: '200060 (Central)' },
-      { name: 'date', label: 'Date YYYYMMDD', default: '', placeholder: 'optional' },
-      { name: 'time', label: 'Time HHmm', default: '', placeholder: 'optional' },
-    ],
-    paths: [
-      { id: 'nsw', label: 'NSW direct', what: 'departure monitor, full NSW shape', kind: 'nsw', binary: false,
-        build: ({ i }) => { let u = `${NSW}/v1/tp/departure_mon?name_dm=${i.stopId}&type_dm=any&mode=direct&excludedMeans=checkbox&limit=20&outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&TfNSWDM=true&version=10.2.1.42`; if (i.date) u += `&itdDate=${i.date}`; if (i.time) u += `&itdTime=${i.time}`; return u; } },
-      { id: 'bff-json', label: 'BFF JSON', what: 'pass-through of the NSW shape', kind: 'bff', binary: false,
-        build: ({ b, i }) => { let u = `${b}/v1/stops/${i.stopId}/departures`; const q = []; if (i.date) q.push(`date=${i.date}`); if (i.time) q.push(`time=${i.time}`); return q.length ? `${u}?${q.join('&')}` : u; } },
-      { id: 'bff-proto', label: 'BFF proto', what: 'screen-shaped binary', kind: 'bff', binary: true,
-        build: ({ b, i }) => { let u = `${b}/api/v1/stops/${i.stopId}/departures-proto`; const q = []; if (i.date) q.push(`date=${i.date}`); if (i.time) q.push(`time=${i.time}`); return q.length ? `${u}?${q.join('&')}` : u; } },
-    ],
-  },
-  {
-    id: 'parking', title: 'Park & Ride',
-    desc: 'Home parking cards. No single NSW URL exists (each stop fans out to N upstream calls), so the comparison is BFF JSON vs BFF proto for the same batch.',
-    inputs: [
-      { name: 'stopIds', label: 'Stop IDs (comma)', default: '2155384,275010' },
-    ],
-    paths: [
-      { id: 'bff-json', label: 'BFF JSON', what: 'batched facilities, JSON', kind: 'bff', binary: false,
-        build: ({ b, i }) => `${b}/v1/parking/availability?stopIds=${encodeURIComponent(i.stopIds)}` },
-      { id: 'bff-proto', label: 'BFF proto', what: 'batched facilities, binary', kind: 'bff', binary: true,
-        build: ({ b, i }) => `${b}/api/v1/parking/availability-proto?stopIds=${encodeURIComponent(i.stopIds)}` },
-    ],
-  },
-  {
-    id: 'track', title: 'Live tracking',
-    desc: 'TrackTripScreen — POST /api/v1/track/snapshot is the app contract (use the live-tracking dashboard for the full experience). These GETs compare the raw GTFS-RT feeds the BFF consumes.',
-    inputs: [
-      { name: 'feed', label: 'Feed', default: 'sydneytrains', placeholder: 'sydneytrains | metro | buses…' },
-      { name: 'kind', label: 'vehiclepos | tripupdate', default: 'vehiclepos' },
-    ],
-    paths: [
-      { id: 'nsw', label: 'NSW direct', what: 'raw GTFS-RT protobuf feed', kind: 'nsw', binary: true,
-        build: ({ i }) => {
-          const f = FEEDS.find(x => x[0] === i.feed) || FEEDS[0];
-          return i.kind === 'tripupdate' ? tuUrl(f[0], f[2]) : vpUrl(f[0], f[1]);
-        } },
-      { id: 'bff', label: 'BFF pass-through', what: 'same bytes via the BFF', kind: 'bff', binary: true,
-        build: ({ b, i }) => {
-          const f = FEEDS.find(x => x[0] === i.feed) || FEEDS[0];
-          const raw = i.kind === 'tripupdate' ? tuUrl(f[0], f[2]) : vpUrl(f[0], f[1]);
-          return raw.replace(NSW, b);
-        } },
-    ],
-  },
-];
-
-let activeScreenId = ss.getItem('screen') || SCREENS[0].id;
-let lastResults = [];
-const activeScreen = () => SCREENS.find(s => s.id === activeScreenId) || SCREENS[0];
-
-function renderTabs() {
-  $('screens').innerHTML = SCREENS.map(s =>
-    `<button class="tab ${s.id === activeScreenId ? 'active' : ''}" data-id="${s.id}">${s.title}</button>`).join('');
-  $('screens').querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
-    activeScreenId = b.dataset.id; ss.setItem('screen', activeScreenId);
-    lastResults = []; renderConsole(); renderVerdict();
+function renderEndpoints() {
+  let html = '', lastGroup = '';
+  for (const ep of ENDPOINTS) {
+    if (ep.group !== lastGroup) { html += `<div class="epgroup">${esc(ep.group)}</div>`; lastGroup = ep.group; }
+    html += `
+      <div class="ep ${ep.id === activeEp ? 'active' : ''}" data-id="${ep.id}">
+        <span class="method">GET</span>
+        <span><div class="epname">${esc(ep.name)}</div><div class="eppath">${esc(ep.path)}</div></span>
+        <span class="src ${ep.src}">${ep.src.toUpperCase()}</span>
+      </div>`;
+  }
+  $('epList').innerHTML = html;
+  $('epList').querySelectorAll('.ep').forEach(el => el.addEventListener('click', () => {
+    activeEp = el.dataset.id; ls.setItem('activeEp', activeEp);
+    renderEndpoints(); syncAuxRows();
   }));
+  syncAuxRows();
+}
+const epById = (id) => ENDPOINTS.find(e => e.id === id);
+function syncAuxRows() {
+  const ep = epById(activeEp);
+  $('gtfsRow').style.display = ep && ep.gtfs ? 'flex' : 'none';
+  $('anyUrlRow').style.display = ep && ep.any ? 'block' : 'none';
+}
+$('gtfsFeed').innerHTML = FEEDS.map(f => `<option value="${f[0]}">${f[0]}</option>`).join('');
+
+/* ═══════════════════ request execution ═══════════════════ */
+let last = null; // { ep, url, finalUrl, status, statusText, elapsed, bytes, buf, text, headers, contentType, when }
+let lastCompare = null;
+
+function collectInputs() {
+  return {
+    from: picked.from ? picked.from.id : '',
+    to: picked.to ? picked.to.id : '',
+    fromText: $('fromInput').value.trim(),
+    depArr: $('depArrSeg').querySelector('.active').dataset.v,
+    date: $('dateInput').value.trim(),
+    time: $('timeInput').value.trim(),
+    gtfsUrl: (() => {
+      const f = FEEDS.find(x => x[0] === $('gtfsFeed').value) || FEEDS[0];
+      return $('gtfsKind').value === 'tripupdate' ? tuUrl(f[0], f[2]) : vpUrl(f[0], f[1]);
+    })(),
+    anyUrl: (() => {
+      let raw = $('anyInput').value.trim();
+      if (/^curl\s/i.test(raw)) {
+        const m = raw.match(/'(https?:\/\/[^']+)'|"(https?:\/\/[^"]+)"|(https?:\/\/\S+)/);
+        if (m) raw = m[1] || m[2] || m[3];
+      }
+      return raw;
+    })(),
+  };
 }
 
-function renderConsole() {
-  renderTabs();
-  const s = activeScreen();
-  $('screenDesc').textContent = s.desc;
-  $('inputs').innerHTML = s.inputs.map(inp => {
-    const stored = ss.getItem(`input:${s.id}:${inp.name}`);
-    const v = stored !== null ? stored : (inp.default || '');
-    return `<label>${esc(inp.label)}<input data-name="${inp.name}" value="${esc(v)}" placeholder="${esc(inp.placeholder || '')}"></label>`;
-  }).join('');
-  $('inputs').querySelectorAll('input').forEach(el =>
-    el.addEventListener('input', () => ss.setItem(`input:${s.id}:${el.dataset.name}`, el.value)));
-  $('results').innerHTML = s.paths.map(p => pathCardHtml(p, null)).join('');
-  bindPathCards();
+function validateFor(ep, i) {
+  if (ep.needs.includes('from') && !i.from) return 'Pick a FROM station first (type a name, choose from the list).';
+  if (ep.needs.includes('to') && !i.to) return 'Pick a TO station first.';
+  if (ep.needs.includes('fromText') && i.fromText.length < 2) return 'Type at least 2 characters of a station name in FROM.';
+  if (ep.any && !i.anyUrl) return 'Paste a URL or curl command first.';
+  return null;
 }
 
-function readInputs() {
-  const i = {};
-  $('inputs').querySelectorAll('input').forEach(el => { i[el.dataset.name] = el.value.trim(); });
-  return i;
+async function execute(ep, i) {
+  const url = ep.build(i);
+  const isNsw = url.startsWith(NSW);
+  const finalUrl = isNsw ? passthrough(url) : url;
+  if (isNsw) bumpNsw();
+  const t0 = performance.now();
+  let resp;
+  try { resp = await fetch(finalUrl, { headers: optHeaders() }); }
+  catch (e) {
+    return { ep, url, finalUrl, error: e.message || String(e), elapsed: Math.round(performance.now() - t0), when: new Date() };
+  }
+  const buf = await resp.arrayBuffer();
+  const elapsed = Math.round(performance.now() - t0);
+  const contentType = resp.headers.get('Content-Type') || '';
+  const headers = [...resp.headers.entries()];
+  let encodedBodySize = null;
+  try {
+    const entries = performance.getEntriesByName(finalUrl);
+    const e = entries[entries.length - 1];
+    if (e && typeof e.encodedBodySize === 'number' && e.encodedBodySize > 0) encodedBodySize = e.encodedBodySize;
+  } catch {}
+  const binary = ep.binary || contentType.includes('protobuf') || contentType.includes('octet-stream');
+  const text = binary ? null : new TextDecoder().decode(buf);
+  return { ep, url, finalUrl, status: resp.status, statusText: resp.statusText, elapsed,
+    bytes: buf.byteLength, encodedBodySize, buf, text, headers, contentType, binary, when: new Date() };
 }
 
-function pathCardHtml(p, r) {
-  const url = safeBuild(p);
-  let statsHtml = `<div class="pstats"><span>status <b>—</b></span><span>latency <b>—</b></span><span>size <b>—</b></span></div>`;
-  let pill = '', bodyHtml = '', cls = '';
-  if (r) {
-    if (r.error) {
-      cls = 'bad'; pill = `<span class="pill bad">ERR</span>`;
-      bodyHtml = `<details open><summary>Network error</summary><pre>${esc(r.error)}</pre></details>`;
-      statsHtml = `<div class="pstats"><span>status <b>network error</b></span><span>latency <b>${r.elapsed} ms</b></span></div>`;
-    } else {
-      const ok = r.status >= 200 && r.status < 400;
-      cls = ok ? 'ok' : 'bad';
-      pill = `<span class="pill ${ok ? 'ok' : 'bad'}">${r.status}</span>`;
-      const wire = r.encodedBodySize ? ` · wire ${fmtBytes(r.encodedBodySize)}` : '';
-      statsHtml = `<div class="pstats"><span>latency <b>${r.elapsed} ms</b></span><span>body <b>${fmtBytes(r.decodedBytes)}</b>${wire}</span></div>`;
-      bodyHtml = `<details><summary>response body (${fmtBytes(r.decodedBytes)})</summary><pre>${esc(r.body)}</pre></details>`;
+$('sendBtn').addEventListener('click', send);
+$('compareBtn').addEventListener('click', compare);
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); send(); }
+});
+
+async function send() {
+  const ep = epById(activeEp);
+  const i = collectInputs();
+  const err = validateFor(ep, i);
+  if (err) { toast(err); return; }
+  $('sendBtn').innerHTML = '<span class="spin"></span>'; $('sendBtn').disabled = true;
+  last = await execute(ep, i);
+  lastCompare = null;
+  $('sendBtn').textContent = 'Send'; $('sendBtn').disabled = false;
+  pushHistory(last);
+  renderResult('pretty');
+}
+
+async function compare() {
+  const i = collectInputs();
+  if (!i.from || !i.to) { toast('Compare needs FROM and TO stations picked.'); return; }
+  const trio = ['trip-nsw', 'trip-bff-json', 'trip-bff-proto'].map(epById);
+  $('compareBtn').innerHTML = '<span class="spin"></span>'; $('compareBtn').disabled = true;
+  const results = await Promise.all(trio.map(ep => execute(ep, i)));
+  $('compareBtn').textContent = 'Compare'; $('compareBtn').disabled = false;
+  lastCompare = results;
+  last = results.find(r => r.ep.id === 'trip-bff-json') || results[0];
+  pushHistory(last);
+  renderResult('compare');
+}
+
+/* ═══════════════════ result rendering ═══════════════════ */
+let activeView = 'pretty';
+
+function renderResult(view) {
+  $('bayEmpty').style.display = 'none';
+  $('bayFull').style.display = 'flex';
+  activeView = view;
+
+  // status bar
+  const r = last;
+  let s;
+  if (r.error) {
+    s = `<span class="spill bad">ERR</span><span class="stat">${esc(r.error)}</span>`;
+  } else {
+    const cls = r.status < 300 ? 'ok' : r.status < 500 ? 'warn' : 'bad';
+    s = `<span class="spill ${cls}">${r.status}</span>
+      <span class="stat">latency <b>${r.elapsed} ms</b></span>
+      <span class="stat">body <b>${fmtBytes(r.bytes)}</b></span>
+      ${r.encodedBodySize ? `<span class="stat">wire <b>${fmtBytes(r.encodedBodySize)}</b></span>` : ''}
+      <span class="stat">${esc(r.contentType.split(';')[0] || '—')}</span>
+      <span class="stat">${r.when.toLocaleTimeString('en-AU', { hour12: false })}</span>`;
+  }
+  s += `<span class="url" id="statusUrl" title="click to copy">${esc(r.url)}</span>`;
+  $('statusBar').innerHTML = s;
+  const su = $('statusUrl');
+  if (su) su.addEventListener('click', () => { navigator.clipboard.writeText(r.url); toast('URL copied'); });
+
+  // tab visibility
+  const protoTab = $('vtabs').querySelector('[data-v="proto"]');
+  const cmpTab = $('vtabs').querySelector('[data-v="compare"]');
+  protoTab.hidden = !(r.binary && !r.error);
+  cmpTab.hidden = !lastCompare;
+  if (view === 'pretty' && r.binary) view = activeView = 'proto';
+
+  $('vtabs').querySelectorAll('.vtab').forEach(b => {
+    b.classList.toggle('active', b.dataset.v === view);
+    b.onclick = () => renderResult(b.dataset.v);
+  });
+
+  const vp = $('viewport');
+  if (r.error && view !== 'compare') { vp.innerHTML = `<pre>${esc(r.error)}</pre>`; return; }
+
+  switch (view) {
+    case 'pretty': {
+      let parsed = null;
+      try { parsed = JSON.parse(r.text); } catch {}
+      if (parsed === null && r.text != null) { vp.innerHTML = `<pre>${esc(r.text)}</pre>`; break; }
+      vp.innerHTML = `<input class="jfilter" id="jfilter" placeholder="filter keys/values… e.g. platform, Central, legs">
+        <div class="jt" id="jtree"></div>`;
+      const tree = $('jtree');
+      tree.innerHTML = jsonTree(parsed, 0, '');
+      $('jfilter').addEventListener('input', debounce(() => {
+        const q = $('jfilter').value.trim().toLowerCase();
+        tree.innerHTML = jsonTree(q ? filterJson(parsed, q) : parsed, 0, q);
+        if (q) tree.querySelectorAll('details').forEach(d => d.open = true);
+      }, 200));
+      break;
+    }
+    case 'raw': {
+      if (r.binary) {
+        vp.innerHTML = `<pre class="hexpre">${esc(hexDump(new Uint8Array(r.buf), 2048))}</pre>`;
+      } else {
+        let out = r.text;
+        try { out = JSON.stringify(JSON.parse(r.text), null, 2); } catch {}
+        vp.innerHTML = `<pre>${esc(out)}</pre>`;
+      }
+      break;
+    }
+    case 'proto': {
+      let html = '';
+      try { html = `<div class="pt">${protoTree(new Uint8Array(r.buf), 0)}</div>`; }
+      catch (e) { html = `<pre>could not decode as protobuf: ${esc(e.message)}</pre>`; }
+      html += `<h2 class="sec" style="margin-top:20px"><span class="n">HEX</span> first 2 KB</h2>
+        <pre class="hexpre">${esc(hexDump(new Uint8Array(r.buf), 2048))}</pre>`;
+      vp.innerHTML = html;
+      break;
+    }
+    case 'headers': {
+      vp.innerHTML = `<table class="htab">${r.headers.map(([k, v]) =>
+        `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</table>`;
+      break;
+    }
+    case 'compare': {
+      renderCompare(vp);
+      break;
     }
   }
-  return `
-    <div class="pcard ${cls}" data-id="${p.id}">
-      <div class="phead"><span class="ptitle">${esc(p.label)}</span><span class="ptag">${p.binary ? 'proto' : 'json'}</span>${pill}</div>
-      <div class="pwhat">${esc(p.what)}</div>
-      <div class="purl">${esc(url)}</div>
-      ${statsHtml}
-      <div class="pacts">
-        <button class="minibtn fire" data-id="${p.id}">▶ Fire</button>
-        <button class="minibtn cp-url" data-url="${esc(url)}">copy URL</button>
-        <button class="minibtn cp-curl" data-id="${p.id}">copy curl</button>
-        ${r && !r.error ? `<button class="minibtn cp-body" data-id="${p.id}">copy body</button>` : ''}
-      </div>
-      ${bodyHtml}
-    </div>`;
 }
 
-function safeBuild(p) {
-  try { return p.build({ b: base(), i: readInputsOrDefaults() }); } catch { return '—'; }
-}
-function readInputsOrDefaults() {
-  const s = activeScreen();
-  const fromDom = readInputs();
-  const i = {};
-  s.inputs.forEach(inp => { i[inp.name] = fromDom[inp.name] !== undefined ? fromDom[inp.name] : (inp.default || ''); });
-  return i;
-}
-
-function bindPathCards() {
-  document.querySelectorAll('.fire').forEach(b => b.addEventListener('click', () => fireOne(b.dataset.id)));
-  document.querySelectorAll('.cp-url').forEach(b => b.addEventListener('click', () => navigator.clipboard.writeText(b.dataset.url)));
-  document.querySelectorAll('.cp-curl').forEach(b => b.addEventListener('click', () => {
-    const p = activeScreen().paths.find(x => x.id === b.dataset.id);
-    const raw = safeBuild(p);
-    const curl = p.kind === 'nsw'
-      ? `curl -H 'Authorization: apikey $NSW_API_KEY' '${raw}'`
-      : `curl '${raw}'`;
-    navigator.clipboard.writeText(curl);
-  }));
-  document.querySelectorAll('.cp-body').forEach(b => b.addEventListener('click', () => {
-    const found = lastResults.find(x => x.path.id === b.dataset.id);
-    if (found && found.r.body) navigator.clipboard.writeText(found.r.body);
-  }));
-}
-
-async function fireOne(pathId) {
-  const p = activeScreen().paths.find(x => x.id === pathId);
-  if (!p) return;
-  const raw = safeBuild(p);
-  const url = p.kind === 'nsw' ? passthrough(raw) : raw;
-  const card = document.querySelector(`.pcard[data-id="${pathId}"]`);
-  card.querySelector('.fire').textContent = '…';
-  const r = await rawFetch(url, { binary: p.binary });
-  const idx = lastResults.findIndex(x => x.path.id === pathId);
-  if (idx >= 0) lastResults[idx] = { path: p, r }; else lastResults.push({ path: p, r });
-  card.outerHTML = pathCardHtml(p, r);
-  bindPathCards();
-}
-
-async function runAll() {
-  const s = activeScreen();
-  $('runAll').disabled = true; $('runAll').textContent = 'Running…'; $('runHint').textContent = '';
-  lastResults = [];
-  await Promise.all(s.paths.map(p => fireOne(p.id)));
-  $('runAll').disabled = false; $('runAll').textContent = 'Run all paths';
-  renderVerdict();
-}
-
-/* ─────────────────────── 3 · verdict ───────────────────────────────── */
-function renderVerdict() {
-  const ok = lastResults.filter(({ r }) => r && !r.error && r.status >= 200 && r.status < 400);
-  if (ok.length < 2) {
-    $('verdict').innerHTML = `<div class="verdict-empty">Run all paths in the test console to populate the comparison.</div>`;
+function renderCompare(vp) {
+  if (!lastCompare) { vp.innerHTML = '<pre>run Compare first</pre>'; return; }
+  const ok = lastCompare.filter(r => !r.error && r.status >= 200 && r.status < 400);
+  const baseR = ok.find(r => r.ep.id === 'trip-nsw') || ok[0];
+  if (!baseR) {
+    vp.innerHTML = `<pre>${lastCompare.map(r => `${r.ep.name}: ${r.error || r.status}`).join('\n')}</pre>`;
     return;
   }
-  const baselineEntry = ok.find(o => o.path.id === 'nsw') || ok.find(o => o.path.id === 'bff-json') || ok[0];
-  const rows = ok.filter(o => o.path.id !== baselineEntry.path.id).map(({ path, r }) => {
-    const dRaw = pct(baselineEntry.r.decodedBytes, r.decodedBytes);
-    const dWire = (baselineEntry.r.encodedBodySize && r.encodedBodySize) ? pct(baselineEntry.r.encodedBodySize, r.encodedBodySize) : null;
-    const dLat = r.elapsed - baselineEntry.r.elapsed;
-    return { label: path.label, dRaw, dWire, dLat, thisRaw: r.decodedBytes, baseRaw: baselineEntry.r.decodedBytes };
-  });
+  const pct = (b, c) => b ? Math.round((c / b - 1) * 100) : null;
+  const fmtP = (p) => p == null ? '—' : (p > 0 ? `+${p}%` : `${p}%`);
   const cls = (v, t) => v == null ? 'neutral' : (v <= -t ? 'win' : v >= t ? 'loss' : 'neutral');
-  $('verdict').innerHTML = `
-    <table class="verdict">
-      <thead><tr><th>vs ${esc(baselineEntry.path.label)}</th><th>Body size</th><th>Wire (gz)</th><th>Latency Δ</th></tr></thead>
-      <tbody>${rows.map(r => `
-        <tr>
-          <td>${esc(r.label)}</td>
-          <td class="${cls(r.dRaw, 5)}">${fmtSavings(r.dRaw)} <span class="neutral">(${fmtBytes(r.thisRaw)} vs ${fmtBytes(r.baseRaw)})</span></td>
-          <td class="${cls(r.dWire, 5)}">${fmtSavings(r.dWire)}</td>
-          <td class="${cls(r.dLat, 25)}">${r.dLat >= 0 ? '+' : ''}${r.dLat} ms</td>
-        </tr>`).join('')}
-      </tbody>
+  const rows = lastCompare.map(r => {
+    if (r.error || !(r.status >= 200 && r.status < 400)) {
+      return `<tr><td>${esc(r.ep.name)}</td><td colspan="4" class="loss">${esc(r.error || 'HTTP ' + r.status)}</td></tr>`;
+    }
+    const isBase = r === baseR;
+    const dB = isBase ? null : pct(baseR.bytes, r.bytes);
+    const dW = isBase || !baseR.encodedBodySize || !r.encodedBodySize ? null : pct(baseR.encodedBodySize, r.encodedBodySize);
+    const dL = isBase ? null : r.elapsed - baseR.elapsed;
+    return `<tr>
+      <td>${esc(r.ep.name)}${isBase ? ' <span class="neutral">(baseline)</span>' : ''}</td>
+      <td>${fmtBytes(r.bytes)} ${isBase ? '' : `<span class="${cls(dB, 5)}">${fmtP(dB)}</span>`}</td>
+      <td>${r.encodedBodySize ? fmtBytes(r.encodedBodySize) : '—'} ${dW == null ? '' : `<span class="${cls(dW, 5)}">${fmtP(dW)}</span>`}</td>
+      <td>${r.elapsed} ms ${dL == null ? '' : `<span class="${cls(dL, 25)}">${dL >= 0 ? '+' : ''}${dL} ms</span>`}</td>
+      <td>${r.status}</td>
+    </tr>`;
+  }).join('');
+  vp.innerHTML = `
+    <table class="cmp">
+      <thead><tr><th>Path</th><th>Body</th><th>Wire (gz)</th><th>Latency</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
     </table>
-    <div class="verdict-note">${verdictNote()}</div>`;
-}
-function verdictNote() {
-  switch (activeScreen().id) {
-    case 'trip': return 'BFF JSON equals NSW direct by design (verbatim pass-through). Proto reshapes to a smaller, screen-shaped binary that also carries the journey-map polylines.';
-    case 'departures': return 'BFF JSON is byte-equal to NSW. Proto carries only what the card renders (line + destination + time + platform).';
-    case 'parking': return 'No NSW baseline exists — the BFF fans one request out to N upstream calls. The delta shown is encoding-only for the same batch.';
-    case 'track': return 'GTFS-RT is byte-for-byte pass-through; zero delta expected. The real tracking contract is POST /api/v1/track/snapshot — see the live-tracking dashboard.';
-    default: return '';
-  }
+    <div class="cmp-note">BFF JSON equals NSW direct by design (verbatim pass-through). Proto is the screen-shaped
+    binary the app is migrating to — smaller body, carries journey-map polylines. Click a row's path in History to reload it.</div>`;
 }
 
-/* ─────────────────────── 4 · any url ───────────────────────────────── */
-async function fireAny() {
-  let raw = $('anyInput').value.trim();
-  if (!raw) return;
-  if (/^curl\s/i.test(raw)) {
-    const m = raw.match(/'(https?:\/\/[^']+)'|"(https?:\/\/[^"]+)"|(https?:\/\/\S+)/);
-    if (m) raw = m[1] || m[2] || m[3];
+/* ═══════════════════ JSON tree ═══════════════════ */
+function hlWrap(str, q) {
+  if (!q) return esc(str);
+  const i = str.toLowerCase().indexOf(q);
+  if (i < 0) return esc(str);
+  return `${esc(str.slice(0, i))}<span class="hl">${esc(str.slice(i, i + q.length))}</span>${esc(str.slice(i + q.length))}`;
+}
+function jsonLeaf(v, q) {
+  if (v === null) return `<span class="z">null</span>`;
+  switch (typeof v) {
+    case 'string': return `<span class="s">"${hlWrap(v, q)}"</span>`;
+    case 'number': return `<span class="n">${v}</span>`;
+    case 'boolean': return `<span class="b">${v}</span>`;
+    default: return esc(String(v));
   }
-  const url = raw.startsWith(NSW) ? passthrough(raw) : raw;
-  $('anyRun').disabled = true; $('anyRun').textContent = '…';
-  const r = await rawFetch(url, { binary: false });
-  const ok = !r.error && r.status >= 200 && r.status < 400;
-  $('anyResult').innerHTML = `
-    <div class="pcard ${r.error ? 'bad' : ok ? 'ok' : 'bad'}">
-      <div class="phead"><span class="ptitle">Result</span>${r.error ? '<span class="pill bad">ERR</span>' : `<span class="pill ${ok ? 'ok' : 'bad'}">${r.status}</span>`}</div>
-      <div class="purl">${esc(url)}</div>
-      <div class="pstats"><span>latency <b>${r.elapsed} ms</b></span>${r.decodedBytes != null ? `<span>body <b>${fmtBytes(r.decodedBytes)}</b></span>` : ''}</div>
-      <details open><summary>body</summary><pre>${esc(r.error || r.body)}</pre></details>
-    </div>`;
-  $('anyRun').disabled = false; $('anyRun').textContent = 'Fire';
+}
+function jsonTree(v, depth, q) {
+  if (v === null || typeof v !== 'object') return `<div class="leaf">${jsonLeaf(v, q)}</div>`;
+  const isArr = Array.isArray(v);
+  const entries = isArr ? v.map((x, i) => [i, x]) : Object.entries(v);
+  const open = depth < 2 ? ' open' : '';
+  const inner = entries.map(([k, val]) => {
+    const key = isArr ? `<span class="p">[${k}]</span>` : `<span class="k">"${hlWrap(String(k), q)}"</span>`;
+    if (val !== null && typeof val === 'object') {
+      const n = Array.isArray(val) ? val.length : Object.keys(val).length;
+      const brack = Array.isArray(val) ? `[…] <span class="cnt">${n}</span>` : `{…} <span class="cnt">${n} keys</span>`;
+      return `<details${open}><summary>${key}<span class="p">: </span>${brack}</summary>${jsonTree(val, depth + 1, q)}</details>`;
+    }
+    return `<div>${key}<span class="p">: </span>${jsonLeaf(val, q)}</div>`;
+  }).join('');
+  return inner || `<div class="p">${isArr ? '[]' : '{}'}</div>`;
+}
+function filterJson(v, q) {
+  if (v === null || typeof v !== 'object') {
+    return String(v).toLowerCase().includes(q) ? v : undefined;
+  }
+  const isArr = Array.isArray(v);
+  const out = isArr ? [] : {};
+  let kept = false;
+  for (const [k, val] of (isArr ? v.map((x, i) => [i, x]) : Object.entries(v))) {
+    if (String(k).toLowerCase().includes(q)) { isArr ? out.push(val) : out[k] = val; kept = true; continue; }
+    const sub = filterJson(val, q);
+    if (sub !== undefined) { isArr ? out.push(sub) : out[k] = sub; kept = true; }
+  }
+  return kept ? out : undefined;
 }
 
-/* ─────────────────────── boot ──────────────────────────────────────── */
-$('baseUrl').value = ss.getItem('baseUrl') || 'http://localhost:8080';
-$('baseUrl').addEventListener('input', () => ss.setItem('baseUrl', $('baseUrl').value));
-$('recheck').addEventListener('click', checkAll);
-$('runAll').addEventListener('click', runAll);
-$('anyRun').addEventListener('click', fireAny);
-renderHealthBoard();
-renderConsole();
-checkAll();
+/* ═══════════════════ generic protobuf wire decoder ═══════════════════ */
+function protoTree(bytes, depth) {
+  if (depth > 6) return `<div class="pv">… (max depth)</div>`;
+  const fields = decodeProtoFields(bytes);
+  if (!fields) throw new Error('not valid wire format');
+  return fields.map(f => {
+    const head = `<span class="fnum">#${f.num}</span> <span class="wt">${f.wtName}</span>`;
+    if (f.wt === 2) {
+      // try nested message first, then utf-8 string, then hex
+      const nested = decodeProtoFields(f.bytes);
+      if (nested && f.bytes.length > 0 && nested.length > 0) {
+        return `<details${depth < 1 ? ' open' : ''}><summary>${head} <span class="wt">message · ${f.bytes.length} B</span></summary>${protoTree(f.bytes, depth + 1)}</details>`;
+      }
+      const str = tryUtf8(f.bytes);
+      if (str !== null) return `<div>${head} <span class="pv">"${esc(str)}"</span></div>`;
+      return `<div>${head} <span class="pv">0x${[...f.bytes.slice(0, 24)].map(b => b.toString(16).padStart(2, '0')).join('')}${f.bytes.length > 24 ? '…' : ''}</span> <span class="wt">${f.bytes.length} B</span></div>`;
+    }
+    return `<div>${head} <span class="pnum">${f.value}</span></div>`;
+  }).join('');
+}
+function decodeProtoFields(bytes) {
+  const out = []; let i = 0;
+  try {
+    while (i < bytes.length) {
+      const [tag, n1] = readVarint(bytes, i); i = n1;
+      const num = Number(tag >> 3n), wt = Number(tag & 7n);
+      if (num === 0 || num > 536870911) return null;
+      if (wt === 0) { const [v, n] = readVarint(bytes, i); i = n; out.push({ num, wt, wtName: 'varint', value: v.toString() }); }
+      else if (wt === 1) { if (i + 8 > bytes.length) return null; out.push({ num, wt, wtName: 'fixed64', value: new DataView(bytes.buffer, bytes.byteOffset + i, 8).getFloat64(0, true).toPrecision(8) }); i += 8; }
+      else if (wt === 2) { const [len, n] = readVarint(bytes, i); i = n; const L = Number(len); if (L < 0 || i + L > bytes.length) return null; out.push({ num, wt, wtName: 'len', bytes: bytes.subarray(i, i + L) }); i += L; }
+      else if (wt === 5) { if (i + 4 > bytes.length) return null; out.push({ num, wt, wtName: 'fixed32', value: new DataView(bytes.buffer, bytes.byteOffset + i, 4).getFloat32(0, true).toPrecision(7) }); i += 4; }
+      else return null;
+      if (out.length > 5000) break;
+    }
+  } catch { return null; }
+  return out;
+}
+function readVarint(bytes, i) {
+  let result = 0n, shift = 0n;
+  while (true) {
+    if (i >= bytes.length || shift > 63n) throw new Error('varint overflow');
+    const b = bytes[i++];
+    result |= BigInt(b & 0x7f) << shift;
+    if ((b & 0x80) === 0) return [result, i];
+    shift += 7n;
+  }
+}
+function tryUtf8(bytes) {
+  if (bytes.length === 0) return '';
+  try {
+    const s = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    // Heuristic: printable text only
+    return /^[\x20-\x7E -￿\n\r\t]*$/.test(s) ? s : null;
+  } catch { return null; }
+}
+function hexDump(bytes, max) {
+  const rows = [];
+  for (let i = 0; i < Math.min(bytes.length, max); i += 16) {
+    const chunk = [...bytes.subarray(i, i + 16)];
+    const hex = chunk.map(b => b.toString(16).padStart(2, '0')).join(' ');
+    const ascii = chunk.map(b => b >= 32 && b < 127 ? String.fromCharCode(b) : '·').join('');
+    rows.push(`${i.toString(16).padStart(6, '0')}  ${hex.padEnd(47)}  ${ascii}`);
+  }
+  if (bytes.length > max) rows.push(`… ${bytes.length - max} more bytes (${fmtBytes(bytes.length)} total)`);
+  return rows.join('\n');
+}
+
+/* ═══════════════════ copy / curl / export ═══════════════════ */
+$('copyBody').addEventListener('click', () => {
+  if (!last) return;
+  if (last.binary) { toast('binary body — use export instead'); return; }
+  let out = last.text;
+  try { out = JSON.stringify(JSON.parse(last.text), null, 2); } catch {}
+  navigator.clipboard.writeText(out); toast('body copied');
+});
+$('copyUrl').addEventListener('click', () => { if (last) { navigator.clipboard.writeText(last.url); toast('URL copied'); } });
+$('copyCurl').addEventListener('click', () => {
+  if (!last) return;
+  const curl = last.url.startsWith(NSW)
+    ? `curl -H 'Authorization: apikey $NSW_API_KEY' '${last.url}'`
+    : `curl '${last.url}'`;
+  navigator.clipboard.writeText(curl); toast('curl copied');
+});
+
+/* Export → File System Access API. Directory handle persisted in IndexedDB so the
+   folder only needs picking once. Suggest the repo's api-exports/ (git-ignored). */
+const idb = {
+  open: () => new Promise((res, rej) => {
+    const r = indexedDB.open('krail-dispatch', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }),
+  get: async (k) => { const db = await idb.open(); return new Promise((res, rej) => {
+    const t = db.transaction('kv').objectStore('kv').get(k); t.onsuccess = () => res(t.result); t.onerror = () => rej(t.error); }); },
+  set: async (k, v) => { const db = await idb.open(); return new Promise((res, rej) => {
+    const t = db.transaction('kv', 'readwrite').objectStore('kv').put(v, k); t.onsuccess = () => res(); t.onerror = () => rej(t.error); }); },
+};
+
+let dirHandle = null;
+async function ensureDir(forcePick) {
+  if (!('showDirectoryPicker' in window)) return null;
+  if (!dirHandle && !forcePick) {
+    try { dirHandle = await idb.get('exportDir'); } catch {}
+  }
+  if (dirHandle && !forcePick) {
+    const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') return dirHandle;
+    if ((await dirHandle.requestPermission({ mode: 'readwrite' })) === 'granted') return dirHandle;
+  }
+  try {
+    dirHandle = await window.showDirectoryPicker({ id: 'krail-exports', mode: 'readwrite' });
+    await idb.set('exportDir', dirHandle);
+    renderExportDir();
+    return dirHandle;
+  } catch { return null; }
+}
+function renderExportDir() {
+  $('exportDir').innerHTML = dirHandle
+    ? `exports → <b>${esc(dirHandle.name)}/</b> · <span style="cursor:pointer;text-decoration:underline" id="repick">change</span>`
+    : `<span style="cursor:pointer;text-decoration:underline" id="repick">choose export folder</span> (suggest: KRAIL-BFF/api-exports)`;
+  const rp = $('repick');
+  if (rp) rp.addEventListener('click', () => ensureDir(true));
+}
+
+function exportName() {
+  const ep = last.ep;
+  const i = collectInputs();
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const parts = [ep.id];
+  if (i.from) parts.push(i.from);
+  if (i.to && ep.needs.includes('to')) parts.push(i.to);
+  parts.push(ts);
+  const extension = last.binary ? 'bin' : 'json';
+  return `${parts.join('_')}.${extension}`;
+}
+
+$('exportBtn').addEventListener('click', async () => {
+  if (!last || last.error) { toast('nothing to export'); return; }
+  const name = exportName();
+  const data = last.binary ? last.buf : (() => {
+    try { return JSON.stringify(JSON.parse(last.text), null, 2); } catch { return last.text; }
+  })();
+  const dir = await ensureDir(false);
+  if (dir) {
+    try {
+      const fh = await dir.getFileHandle(name, { create: true });
+      const w = await fh.createWritable();
+      await w.write(data); await w.close();
+      toast(`saved ${dir.name}/${name}`);
+      return;
+    } catch (e) { toast(`folder write failed (${e.message}) — downloading instead`); }
+  }
+  // Fallback: plain download
+  const blob = new Blob([data], { type: last.binary ? 'application/octet-stream' : 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  URL.revokeObjectURL(a.href);
+  toast(`downloaded ${name}`);
+});
+
+/* ═══════════════════ history ═══════════════════ */
+const HIST_KEY = 'dispatch:history';
+function loadHistory() { try { return JSON.parse(ls.getItem(HIST_KEY) || '[]'); } catch { return []; } }
+function pushHistory(r) {
+  const h = loadHistory();
+  h.unshift({
+    epId: r.ep.id, epName: r.ep.name, url: r.url, status: r.error ? 'ERR' : r.status,
+    when: Date.now(),
+    from: picked.from, to: picked.to,
+  });
+  ls.setItem(HIST_KEY, JSON.stringify(h.slice(0, 40)));
+  renderHistory();
+}
+function renderHistory() {
+  const h = loadHistory();
+  $('histBody').innerHTML = h.length ? h.map((e, i) => `
+    <div class="hrow" data-i="${i}">
+      <span class="hst ${e.status === 'ERR' || e.status >= 400 ? 'bad' : 'ok'}">${e.status}</span>
+      <span class="hname">${esc(e.epName)}</span>
+      <span class="hurl">${esc(e.url)}</span>
+      <span class="hts">${new Date(e.when).toLocaleTimeString('en-AU', { hour12: false })}</span>
+    </div>`).join('') : `<div class="hrow" style="cursor:default;color:var(--dim)">no requests yet</div>`;
+  $('histBody').querySelectorAll('.hrow[data-i]').forEach(el => el.addEventListener('click', () => {
+    const e = loadHistory()[+el.dataset.i]; if (!e) return;
+    activeEp = e.epId; ls.setItem('activeEp', activeEp);
+    if (e.from) { picked.from = e.from; $('fromInput').value = e.from.name; $('fromId').textContent = e.from.id; $('stFrom').classList.add('picked'); }
+    if (e.to) { picked.to = e.to; $('toInput').value = e.to.name; $('toId').textContent = e.to.id; $('stTo').classList.add('picked'); }
+    renderEndpoints();
+    toast('request restored — hit Send');
+  }));
+}
+$('histHead').addEventListener('click', (e) => {
+  if (e.target.id === 'histClear') return;
+  $('histWrap').classList.toggle('open');
+});
+$('histClear').addEventListener('click', () => { ls.removeItem(HIST_KEY); renderHistory(); });
+
+/* ═══════════════════ health LEDs (cheap — no NSW quota burned) ═══════════════════ */
+async function checkHealth() {
+  // BFF /health — free.
+  try {
+    const r = await fetch(`${base()}/health`);
+    $('ledBff').className = `led ${r.ok ? 'ok' : 'bad'}`;
+  } catch { $('ledBff').className = 'led bad'; }
+  // Passthrough probe: missing ?url → 400 when enabled, 404 when disabled. No NSW call.
+  try {
+    const r = await fetch(`${base()}/internal/passthrough`);
+    const on = r.status === 400;
+    $('ledPass').className = `led ${on ? 'ok' : 'warn'}`;
+    $('passBanner').classList.toggle('show', !on);
+  } catch { $('ledPass').className = 'led bad'; $('passBanner').classList.add('show'); }
+}
+
+/* ═══════════════════ boot ═══════════════════ */
+$('baseUrl').value = ls.getItem('baseUrl') || 'http://localhost:8080';
+$('baseUrl').addEventListener('input', debounce(() => { ls.setItem('baseUrl', $('baseUrl').value); checkHealth(); }, 400));
+$('version').value = ls.getItem('version') || '';
+$('version').addEventListener('input', () => ls.setItem('version', $('version').value));
+$('depArrSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  $('depArrSeg').querySelectorAll('button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+}));
+
+renderModeChips();
+wireStation('from');
+wireStation('to');
+renderEndpoints();
+renderHistory();
+renderExportDir();
+bumpNsw(0);
+checkHealth();
 </script>
 </body>
 </html>
