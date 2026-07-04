@@ -33,6 +33,39 @@
 - [ ] **App switchover** — point the KRAIL app at the BFF per
       `docs/reference/BFF_ADOPTION_GUIDE.md` (own rollout, own day).
 
+## 🧑‍💻 Manual actions — only you can do these (Claude has no access)
+
+**GitHub — repo Settings → Code security:**
+- [ ] Enable **Dependabot alerts** (currently DISABLED — dependabot.yml's
+      security-PR intent does nothing without it)
+- [ ] Enable **Dependabot security updates** (auto-PRs for CVEs)
+- [ ] Enable **secret scanning** + **push protection**
+- [ ] (Recommended) Main ruleset: add `PR Build` as a required status check so
+      direct pushes can't land with failing tests
+
+**GitHub — secrets (Settings → Secrets and variables → Actions):**
+- [ ] `NSW_API_KEY_CI` — a second, CI-only NSW key for the nightly drift check
+
+**NSW Open Data (opendata.transport.nsw.gov.au):**
+- [ ] Create the production BFF-only API key (never reuse the app's key)
+- [ ] Create the CI-only key above
+
+**DigitalOcean (deploy day):**
+- [ ] Create account → set billing alert (~A$10) BEFORE creating the app
+- [ ] `doctl apps create --spec .do/app.yaml`; set secrets `NSW_API_KEY`,
+      `CF_ORIGIN_TOKEN` in the console
+- [ ] Enable alerts: deploy failed / CPU / memory
+
+**Cloudflare (deploy day):**
+- [ ] Move krail.app DNS (website on GitHub Pages must keep working)
+- [ ] `bff.krail.app` → DO app, proxied; Transform Rule adding
+      `CF-Origin-Token: <same value as DO secret>` (this IS the origin lockdown)
+- [ ] Edge-cache rules: `/v*/gtfs/*` 15–30s, `/v1/parking/facilities` 60s
+
+**After deploy verifies:**
+- [ ] `gh workflow enable post-deploy-smoke.yml && gh workflow enable synthetic.yml`
+      (both disabled 2026-07-04 — they probe prod, which doesn't exist yet)
+
 ## Now: pipeline automation ("know about stuff without watching")
 
 All alerts land as GitHub issues → GitHub mobile push. Build order:
