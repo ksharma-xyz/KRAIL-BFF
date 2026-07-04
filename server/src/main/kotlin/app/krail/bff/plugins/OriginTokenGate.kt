@@ -47,7 +47,11 @@ fun Application.configureOriginTokenGate() {
         if (path in EXEMPT_PATHS) return@intercept
 
         val actual = call.request.header(HEADER_NAME)
-        if (actual != expected) {
+        // Constant-time comparison — a plain != short-circuits on the first
+        // differing byte and can leak token prefixes through response timing.
+        val matches = actual != null &&
+            java.security.MessageDigest.isEqual(actual.toByteArray(), expected.toByteArray())
+        if (!matches) {
             val envelope = ErrorEnvelope(
                 error = ErrorDetails(code = "forbidden", message = "Forbidden"),
                 correlationId = call.correlationIdOrNull()

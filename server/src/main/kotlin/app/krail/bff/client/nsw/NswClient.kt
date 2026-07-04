@@ -204,17 +204,21 @@ class NswClientImpl(
         return try {
             val baseUrl = "${config.baseUrl.trimEnd('/')}/v1/tp/trip"
 
-            logger.info(LOG_SEPARATOR)
-            logger.info("🚀 NSW TRIP API REQUEST")
-            logger.info(LOG_SEPARATOR)
-            logger.info("📋 Input Parameters:")
-            logger.info("   Origin Stop ID: {}", originStopId)
-            logger.info("   Destination Stop ID: {}", destinationStopId)
-            logger.info("   DepArr Mode: {}", depArr)
-            logger.info("   Date: {}", date ?: "not set")
-            logger.info("   Time: {}", time ?: "not set")
-            logger.info("   Excluded Modes: {}", excludedModes)
-            logger.info("   Base URL: {}", baseUrl)
+            // Full request/response diagnostics are DEBUG-only: at INFO they log
+            // complete URLs, headers and 2 KB response bodies per call — log-volume
+            // cost on a basic-xxs instance and needless retention of user journey
+            // patterns in platform logs.
+            logger.debug(LOG_SEPARATOR)
+            logger.debug("🚀 NSW TRIP API REQUEST")
+            logger.debug(LOG_SEPARATOR)
+            logger.debug("📋 Input Parameters:")
+            logger.debug("   Origin Stop ID: {}", originStopId)
+            logger.debug("   Destination Stop ID: {}", destinationStopId)
+            logger.debug("   DepArr Mode: {}", depArr)
+            logger.debug("   Date: {}", date ?: "not set")
+            logger.debug("   Time: {}", time ?: "not set")
+            logger.debug("   Excluded Modes: {}", excludedModes)
+            logger.debug("   Base URL: {}", baseUrl)
 
             val response = http.get(baseUrl) {
                 // Add Authorization header for NSW Transport API
@@ -256,46 +260,49 @@ class NswClientImpl(
             }
 
             // Log the actual request URL from the response
-            logger.info("📍 Complete Request URL: {}", response.call.request.url.toString())
+            logger.debug("📍 Complete Request URL: {}", response.call.request.url.toString())
 
             // Log request headers; Authorization fully redacted (public repo + public CI logs).
-            logger.info("📤 REQUEST HEADERS:")
-            response.call.request.headers.entries().forEach { entry ->
-                val displayValue = if (entry.key.equals("Authorization", ignoreCase = true)) {
-                    "[REDACTED]"
-                } else {
-                    entry.value.joinToString(", ")
+            if (logger.isDebugEnabled) {
+                logger.debug("📤 REQUEST HEADERS:")
+                response.call.request.headers.entries().forEach { entry ->
+                    val displayValue = if (entry.key.equals("Authorization", ignoreCase = true)) {
+                        "[REDACTED]"
+                    } else {
+                        entry.value.joinToString(", ")
+                    }
+                    logger.debug("   {} = {}", entry.key, displayValue)
                 }
-                logger.info("   {} = {}", entry.key, displayValue)
-            }
-            logger.info("   Method: {}", response.call.request.method.value)
+                logger.debug("   Method: {}", response.call.request.method.value)
 
-            logger.info(LOG_SEPARATOR)
-            logger.info("📥 NSW TRIP API RESPONSE")
-            logger.info(LOG_SEPARATOR)
-            logger.info("HTTP Status: {}", response.status.value)
-            logger.info("HTTP Status Description: {}", response.status.description)
+                logger.debug(LOG_SEPARATOR)
+                logger.debug("📥 NSW TRIP API RESPONSE")
+                logger.debug(LOG_SEPARATOR)
+                logger.debug("HTTP Status: {}", response.status.value)
+                logger.debug("HTTP Status Description: {}", response.status.description)
 
-            // Log all response headers
-            logger.info("📦 RESPONSE HEADERS:")
-            response.headers.entries().forEach { entry ->
-                logger.info("   {} = {}", entry.key, entry.value.joinToString(", "))
+                logger.debug("📦 RESPONSE HEADERS:")
+                response.headers.entries().forEach { entry ->
+                    logger.debug("   {} = {}", entry.key, entry.value.joinToString(", "))
+                }
             }
 
             // Get raw response body as text for logging
             val responseText = response.bodyAsText()
-            logger.info("📄 RAW RESPONSE BODY (length: {} bytes):", responseText.length)
-            logger.info(responseText.take(2000))
-            if (responseText.length > 2000) {
-                logger.info("... (truncated, showing first 2000 of {} chars)", responseText.length)
+            if (logger.isDebugEnabled) {
+                logger.debug("📄 RAW RESPONSE BODY (length: {} bytes):", responseText.length)
+                logger.debug(responseText.take(2000))
+                if (responseText.length > 2000) {
+                    logger.debug("... (truncated, showing first 2000 of {} chars)", responseText.length)
+                }
+                logger.debug(LOG_SEPARATOR)
             }
-            logger.info(LOG_SEPARATOR)
 
             // Check HTTP status code before parsing.
             // Counter is incremented in the outer catch block — don't double-count here.
             if (!response.status.isSuccess()) {
                 logger.error("❌ NSW API returned error status: {} - {}", response.status.value, response.status.description)
-                logger.error("Error response body: {}", responseText)
+                logger.error("Error response body: {}", responseText.take(500))
                 throw NswUpstreamException(
                     statusCode = response.status.value,
                     message = "NSW API returned ${response.status.value} ${response.status.description}",
@@ -308,7 +315,9 @@ class NswClientImpl(
 
             tripSuccess.inc()
 
-            logger.info("✅ Parsed Trip Response - journeys count: {}, has error: {}",
+            // Single concise INFO line per successful call — stop IDs only, no URLs/bodies.
+            logger.info("NSW trip OK — origin={}, destination={}, journeys={}, hasError={}",
+                originStopId, destinationStopId,
                 tripResponse.journeys?.size ?: 0,
                 tripResponse.error != null
             )
@@ -422,34 +431,38 @@ class NswClientImpl(
         // Convert to proto and log
         val journeyList = JourneyListMapper.toProto(jsonResponse)
 
-        logger.info(LOG_SEPARATOR)
-        logger.info("🚊 PROTOBUF JOURNEY LIST")
-        logger.info(LOG_SEPARATOR)
-        logger.info("Number of journeys: {}", journeyList.journeys.size)
-        journeyList.journeys.forEachIndexed { index, journey ->
-            logger.info("\n--- Journey #{} ---", index + 1)
-            logger.info("  Time Text: {}", journey.time_text)
-            logger.info("  Origin Time: {} ({})", journey.origin_time, journey.origin_utc_date_time)
-            logger.info("  Destination Time: {} ({})", journey.destination_time, journey.destination_utc_date_time)
-            logger.info("  Travel Time: {}", journey.travel_time)
-            journey.total_walk_time?.let { logger.info("  Total Walk Time: {}", it) }
-            journey.platform_text?.let { logger.info("  Platform: {}", it) }
-            logger.info("  Transport Modes: {}", journey.transport_mode_lines.joinToString(", ") {
-                "${it.line_name} (type=${it.transport_mode_type})"
-            })
-            logger.info("  Number of Legs: {}", journey.legs.size)
-            logger.info("  Service Alerts: {}", journey.total_unique_service_alerts)
-            journey.departure_deviation?.let { deviation ->
-                val deviationText = when {
-                    deviation.late != null -> "Late: ${deviation.late}"
-                    deviation.early != null -> "Early: ${deviation.early}"
-                    deviation.on_time == true -> "On Time"
-                    else -> "Unknown"
+        // Per-journey dump is DEBUG-only — same log-volume rationale as the request
+        // diagnostics in getTrip().
+        if (logger.isDebugEnabled) {
+            logger.debug(LOG_SEPARATOR)
+            logger.debug("🚊 PROTOBUF JOURNEY LIST")
+            logger.debug(LOG_SEPARATOR)
+            logger.debug("Number of journeys: {}", journeyList.journeys.size)
+            journeyList.journeys.forEachIndexed { index, journey ->
+                logger.debug("\n--- Journey #{} ---", index + 1)
+                logger.debug("  Time Text: {}", journey.time_text)
+                logger.debug("  Origin Time: {} ({})", journey.origin_time, journey.origin_utc_date_time)
+                logger.debug("  Destination Time: {} ({})", journey.destination_time, journey.destination_utc_date_time)
+                logger.debug("  Travel Time: {}", journey.travel_time)
+                journey.total_walk_time?.let { logger.debug("  Total Walk Time: {}", it) }
+                journey.platform_text?.let { logger.debug("  Platform: {}", it) }
+                logger.debug("  Transport Modes: {}", journey.transport_mode_lines.joinToString(", ") {
+                    "${it.line_name} (type=${it.transport_mode_type})"
+                })
+                logger.debug("  Number of Legs: {}", journey.legs.size)
+                logger.debug("  Service Alerts: {}", journey.total_unique_service_alerts)
+                journey.departure_deviation?.let { deviation ->
+                    val deviationText = when {
+                        deviation.late != null -> "Late: ${deviation.late}"
+                        deviation.early != null -> "Early: ${deviation.early}"
+                        deviation.on_time == true -> "On Time"
+                        else -> "Unknown"
+                    }
+                    logger.debug("  Departure Deviation: {}", deviationText)
                 }
-                logger.info("  Departure Deviation: {}", deviationText)
             }
+            logger.debug(LOG_SEPARATOR)
         }
-        logger.info(LOG_SEPARATOR)
 
         // Convert to proto
         return journeyList
