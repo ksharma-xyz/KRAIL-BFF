@@ -3,6 +3,34 @@
 > The one planning file. Everything predating 2026-07-04 (PLAN / START / STATUS /
 > old TODO) is archived under [`docs/archive/`](docs/archive/) — history, not truth.
 
+## 🚀 Deploy day — first production deploy (nothing is deployed yet)
+
+> No DO account exists as of 2026-07-04. `deploy_on_push` in `.do/app.yaml` is
+> inert until the app is created, so pushes to main deploy nothing. Detailed
+> runbook: [`docs/guides/FIRST_DEPLOY.md`](docs/guides/FIRST_DEPLOY.md) — the
+> list below is the order of operations.
+
+- [ ] **NSW keys** — create a fresh BFF-only production key at
+      opendata.transport.nsw.gov.au (never reuse the app's key), plus an
+      optional second CI-only key for the drift workflow.
+- [ ] **DigitalOcean** — create account, set a billing alert (~A$10) first;
+      then `doctl apps create --spec .do/app.yaml`; set encrypted secrets
+      `NSW_API_KEY` and `CF_ORIGIN_TOKEN` in the app console.
+- [ ] **Cloudflare** — move krail.app DNS to Cloudflare (GitHub Pages website
+      must keep working — FIRST_DEPLOY.md §2); `bff.krail.app` → DO app
+      (proxied); Transform Rule adding `CF-Origin-Token: <same value as the DO
+      secret>`. Note: App Platform has NO IP firewall — the token gate IS the
+      origin lockdown (direct origin hits get 403).
+- [ ] **Verify** — `curl https://bff.krail.app/health` shows
+      `{"status":"up",...}`; one trip plan through Cloudflare returns journeys.
+- [ ] **Arm monitoring** (disabled 2026-07-04 because prod didn't exist):
+      `gh workflow enable post-deploy-smoke.yml && gh workflow enable synthetic.yml`;
+      add `NSW_API_KEY_CI` repo secret; enable secret scanning + push
+      protection (repo Settings → Code security); enable DO alerts
+      (deploy failed / CPU / memory).
+- [ ] **App switchover** — point the KRAIL app at the BFF per
+      `docs/reference/BFF_ADOPTION_GUIDE.md` (own rollout, own day).
+
 ## Now: pipeline automation ("know about stuff without watching")
 
 All alerts land as GitHub issues → GitHub mobile push. Build order:
