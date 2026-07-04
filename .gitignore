@@ -72,6 +72,9 @@ docs/private/
 *.postman_collection.json
 *.postman_environment.json
 
+### API tester exports — raw NSW/BFF response captures (docs/tools/api-tester.html) ###
+api-exports/
+
 ### macOS ###
 .DS_Store
 
