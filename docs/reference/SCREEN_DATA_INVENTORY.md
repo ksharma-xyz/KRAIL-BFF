@@ -94,7 +94,7 @@ off-peak.
 **Mapper:** `StopResultMapper`
 
 **Confirmed scope:** search stays **local** in the app. The BFF distributes a versioned stops dataset via a manifest
-pattern (per [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) §1.1). This screen's data therefore comes from the local
+pattern (per [MODERNIZATION_PLAN.md](../archive/MODERNIZATION_PLAN.md) §1.1). This screen's data therefore comes from the local
 dataset only — no per-keystroke BFF call.
 
 | UI element | Source                         | Transformation                                    |

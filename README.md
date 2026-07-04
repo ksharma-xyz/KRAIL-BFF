@@ -8,8 +8,8 @@ Backend-for-Frontend service for the KRAIL mobile app, providing trip planning a
 
 ### Quick Links
 
-- 🗺️ **[PLAN.md](PLAN.md)** - Master plan: what to work on, in what order (start here)
-- 📋 **[TODO.md](TODO.md)** - The ordered work queue
+- 📋 **[TODO.md](TODO.md)** - The live work queue (start here)
+- 🔒 **[SECURITY.md](SECURITY.md)** - Security guidelines + pre-merge checklist
 - 🚨 **[Emergency Runbook](docs/guides/EMERGENCY.md)** - Something's wrong in production: exact steps
 - 🚀 **[Local Development Guide](docs/guides/LOCAL_DEVELOPMENT.md)** - Get started with local development
 - 🔐 **[Configuration Guide](docs/reference/CONFIGURATION.md)** - Managing API keys and secrets

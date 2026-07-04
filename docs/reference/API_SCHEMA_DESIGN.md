@@ -2,7 +2,7 @@
 
 > Design proposal for screen-shaped BFF responses, reusable shared types, and KMP-shared proto contracts between
 > KRAIL-BFF and the KRAIL app. Pairs with [SCREEN_DATA_INVENTORY.md](SCREEN_DATA_INVENTORY.md). Lives
-> under [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) Phase 1.
+> under [MODERNIZATION_PLAN.md](../archive/MODERNIZATION_PLAN.md) Phase 1.
 
 This is a **review doc**. Nothing here is implemented yet. Sign off on the shape first; the build follows.
 
@@ -336,7 +336,7 @@ feed-name lookup-by-iconId currently in `GtfsRealtimeMatcher` move server-side.
 
 ### 2.6 `GET /v1/data/stops/manifest` and `/v1/data/stops/{version}.pb`
 
-Already specified in [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) §1.1. The `.pb` proto:
+Already specified in [MODERNIZATION_PLAN.md](../archive/MODERNIZATION_PLAN.md) §1.1. The `.pb` proto:
 
 ```proto
 message StopsDataset {

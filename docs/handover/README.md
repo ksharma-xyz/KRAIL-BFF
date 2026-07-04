@@ -27,7 +27,7 @@ to a real host — Phase B (production rollout) is blocked on that step.
 - ✅ Departures proto endpoint with screen-shaped response.
 - ✅ **Phase C on the KRAIL side** — all three proto endpoints
   consumed via Wire 6.2.0 codegen on Android + iOS, 23 mapper tests
-  green ([report](PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md), 2026-05-11).
+  green ([report](../archive/PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md), 2026-05-11).
 - ⏳ Phase B (production rollout, Firebase RC cohort) — blocked on BFF deploy.
 - ⏳ Phase C (KRAIL adopts proto endpoint) — foundation laid in KRAIL repo.
 - ❌ Phase D (local stop search via dataset) — **dropped**. KRAIL stays on NSW direct for `stop_finder` indefinitely. The stops-dataset manifest endpoint stays in the BFF but unused.
@@ -37,10 +37,10 @@ to a real host — Phase B (production rollout) is blocked on that step.
 
 | Goal | Read |
 |---|---|
-| "What endpoints exist? What's the request / response shape? What does the wire look like?" | [`API_REFERENCE.md`](API_REFERENCE.md) |
-| "How do I test endpoint X — JSON or proto?" | [`TESTING_GUIDE.md`](TESTING_GUIDE.md) |
+| "What endpoints exist? What's the request / response shape? What does the wire look like?" | [`API_REFERENCE.md`](../archive/API_REFERENCE.md) |
+| "How do I test endpoint X — JSON or proto?" | [`TESTING_GUIDE.md`](../archive/TESTING_GUIDE.md) |
 | "I'm doing the Phase A migration in KRAIL" / "What's Phase B / C / D / E?" | [`MIGRATION_GUIDE.md`](MIGRATION_GUIDE.md) |
-| "What did KRAIL find / decide during Phase C integration?" | [`PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md`](PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md) |
+| "What did KRAIL find / decide during Phase C integration?" | [`PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md`](../archive/PHASE_C_INTEGRATION_REPORT_FROM_KRAIL.md) |
 If you read just two of the three, **API_REFERENCE.md + the section
 of MIGRATION_GUIDE.md for your current phase** covers most needs.
 

@@ -9,7 +9,7 @@
 > - `DEPLOY_CHECKLIST.template.md` (repo root) — copy it to a gitignored
 >   working file and tick boxes as you go:
 >   `cp DEPLOY_CHECKLIST.template.md DEPLOY_CHECKLIST.md`
-> - [`SECURITY_AUDIT_2026-06.md`](../reference/SECURITY_AUDIT_2026-06.md)
+> - [`SECURITY_AUDIT_2026-06.md`](../archive/SECURITY_AUDIT_2026-06.md)
 >   — read §5 (pre-deploy gate) before you start; you'll re-run it at the
 >   end.
 >
@@ -195,7 +195,7 @@ doctl apps logs $DO_APP_ID --type RUN --tail 100 | grep -iE 'authorization|apike
 ```
 
 Then run the whole **pre-deploy gate** in
-[SECURITY_AUDIT_2026-06.md §5](../reference/SECURITY_AUDIT_2026-06.md).
+[SECURITY_AUDIT_2026-06.md §5](../archive/SECURITY_AUDIT_2026-06.md).
 All boxes ticked = you are live.
 
 ---

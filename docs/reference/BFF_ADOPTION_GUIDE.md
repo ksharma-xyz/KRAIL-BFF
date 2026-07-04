@@ -2,7 +2,7 @@
 
 > Operational playbook for migrating a KRAIL feature from "calls NSW directly" to "calls KRAIL-BFF." Audience: future
 > contributors (human or LLM) starting work on a specific BFF migration. Pairs
-> with [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md), [SCREEN_DATA_INVENTORY.md](SCREEN_DATA_INVENTORY.md),
+> with [MODERNIZATION_PLAN.md](../archive/MODERNIZATION_PLAN.md), [SCREEN_DATA_INVENTORY.md](SCREEN_DATA_INVENTORY.md),
 > and [API_SCHEMA_DESIGN.md](API_SCHEMA_DESIGN.md).
 
 This doc tells you *how* to do a migration. The other docs tell you *what* to migrate and *what shape* it takes.
@@ -249,8 +249,8 @@ Do not redeploy the BFF as a panic move — flag flips are faster and reversible
 | Schema source of truth    | `krail-api-proto` repo, tagged version                          |
 | BFF endpoint contracts    | [API_SCHEMA_DESIGN.md](API_SCHEMA_DESIGN.md)                    |
 | Field-level inventory     | [SCREEN_DATA_INVENTORY.md](SCREEN_DATA_INVENTORY.md)            |
-| Deploy & infra            | [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) 0.3             |
-| Cost cap & defenders      | [MODERNIZATION_PLAN.md](MODERNIZATION_PLAN.md) "Hard cost cap" |
+| Deploy & infra            | [MODERNIZATION_PLAN.md](../archive/MODERNIZATION_PLAN.md) 0.3             |
+| Cost cap & defenders      | [MODERNIZATION_PLAN.md](../archive/MODERNIZATION_PLAN.md) "Hard cost cap" |
 | Per-endpoint feature flag | Firebase Remote Config, `bff_use_for_<endpoint>`                |
 | Kill switch               | Firebase Remote Config, `bff_kill_switch`                       |
 | Server-side version floor | BFF env var `MIN_APP_VERSION`                                   |
