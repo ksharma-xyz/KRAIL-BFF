@@ -1,0 +1,85 @@
+name: NSW contract drift
+
+# Nightly: fire fixed queries at the NSW API with a CI-only key and assert the
+# response shapes the BFF's mappers depend on. NSW changing their schema is the
+# biggest silent-breakage risk — this turns it into an issue instead of app
+# crashes.
+#
+# Requires repo secret NSW_API_KEY_CI (a second, CI-scoped NSW key — never the
+# production BFF key). Skips cleanly when the secret is absent.
+
+on:
+  schedule:
+    # 17:30 UTC ≈ 03:30 Sydney — quiet hours, fresh daily quota
+    - cron: '30 17 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NSW: https://api.transport.nsw.gov.au
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check secret present
+        id: gate
+        run: |
+          if [ -z "${{ secrets.NSW_API_KEY_CI }}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::NSW_API_KEY_CI secret not set — drift check skipped. Create a CI-only key at opendata.transport.nsw.gov.au and add it as a repo secret."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trip planner shape
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          body=$(curl -sf -m 30 -H "Authorization: apikey ${{ secrets.NSW_API_KEY_CI }}" \
+            "$NSW/v1/tp/trip?outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&depArrMacro=dep&type_origin=any&type_destination=any&name_origin=200070&name_destination=202210&calcNumberOfTrips=2&TfNSWTR=true&version=10.2.1.42")
+          # Fields JourneyListMapper + TripResponse depend on:
+          echo "$body" | jq -e '
+            (.journeys | type == "array" and length > 0) and
+            (.journeys[0].legs | type == "array" and length > 0) and
+            (.journeys[0].legs[0].origin | has("departureTimePlanned") and has("name")) and
+            (.journeys[0].legs[0].destination | has("arrivalTimePlanned")) and
+            (.journeys[0].legs[0] | has("transportation"))' > /dev/null
+          echo "trip shape OK"
+
+      - name: Stop finder shape
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          body=$(curl -sf -m 30 -H "Authorization: apikey ${{ secrets.NSW_API_KEY_CI }}" \
+            "$NSW/v1/tp/stop_finder?outputFormat=rapidJSON&type_sf=any&name_sf=Town%20Hall&coordOutputFormat=EPSG:4326&TfNSWSF=true&version=10.2.1.42")
+          echo "$body" | jq -e '
+            [.locations[] | select(.type == "stop")] | length > 0 and
+            (.[0] | has("id") and has("disassembledName") and has("modes"))' > /dev/null
+          echo "stop_finder shape OK"
+
+      - name: Departure monitor shape
+        if: steps.gate.outputs.skip == 'false'
+        run: |
+          body=$(curl -sf -m 30 -H "Authorization: apikey ${{ secrets.NSW_API_KEY_CI }}" \
+            "$NSW/v1/tp/departure_mon?outputFormat=rapidJSON&coordOutputFormat=EPSG:4326&mode=direct&type_dm=stop&name_dm=200060&departureMonitorMacro=true&TfNSWDM=true&version=10.2.1.42")
+          echo "$body" | jq -e '
+            (.stopEvents | type == "array" and length > 0) and
+            (.stopEvents[0] | has("departureTimePlanned") and has("transportation"))' > /dev/null
+          echo "departure_mon shape OK"
+
+      - name: Open issue on drift
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🚨 NSW API contract drift detected" \
+            --label monitor \
+            --body "A nightly shape assertion failed — NSW may have changed a response schema the mappers depend on.
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Check which step failed, diff the live response against \`TripResponse\`/mappers, and fix before the app notices."

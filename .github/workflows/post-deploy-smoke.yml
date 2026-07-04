@@ -1,0 +1,78 @@
+name: Post-deploy smoke
+
+# DO redeploys on every push to main (deploy_on_push). This workflow waits for
+# the new container to come up (fresh `startedAt` in /health) and then smoke-
+# tests the production surface through Cloudflare. Failure → opens an issue.
+#
+# /health `version` is "dev" on DO (no .git in build context), so freshness is
+# detected via startedAt > commit time.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: post-deploy-smoke
+  cancel-in-progress: true
+
+env:
+  BASE: https://bff.krail.app
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Wait for new container (startedAt after commit)
+        run: |
+          commit_ts=$(date -u -d "${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}" +%s 2>/dev/null || date -u +%s)
+          echo "commit epoch: $commit_ts"
+          for i in $(seq 1 60); do
+            started=$(curl -sf -m 10 "$BASE/health" | jq -r '.startedAt // empty' || true)
+            if [ -n "$started" ]; then
+              started_ts=$(date -u -d "$started" +%s 2>/dev/null || echo 0)
+              echo "attempt $i: startedAt=$started"
+              if [ "$started_ts" -ge "$commit_ts" ]; then
+                echo "new container is live"; exit 0
+              fi
+            fi
+            sleep 20
+          done
+          echo "::error::deploy did not come up within 20 minutes"; exit 1
+
+      - name: Smoke — trip plan
+        run: |
+          # X-Krail-Version future-proofs against the version gate being enabled.
+          body=$(curl -sf -m 20 -H "X-Krail-Version: 99.0.0" "$BASE/api/v1/trip/plan?origin=200070&destination=202210&depArr=dep")
+          echo "$body" | jq -e '.journeys | length > 0' > /dev/null
+          echo "trip plan OK ($(echo "$body" | jq '.journeys | length') journeys)"
+
+      - name: Smoke — departures
+        run: |
+          curl -sf -m 20 -H "X-Krail-Version: 99.0.0" "$BASE/v1/stops/200060/departures" | jq -e 'has("stopEvents")' > /dev/null
+          echo "departures OK"
+
+      - name: Smoke — GTFS-RT bytes
+        run: |
+          size=$(curl -sf -m 20 -H "X-Krail-Version: 99.0.0" "$BASE/v2/gtfs/realtime/sydneytrains" -o /tmp/feed.pb -w '%{size_download}')
+          test "$size" -gt 500
+          echo "GTFS-RT OK ($size bytes)"
+
+      - name: Open issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🚨 Post-deploy smoke failed on $(echo ${{ github.sha }} | cut -c1-7)" \
+            --label "monitor" \
+            --body "Smoke test failed after deploy of ${{ github.sha }}.
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Check DO deploy logs and \`$BASE/health\`. Rollback: redeploy previous commit from the DO console."

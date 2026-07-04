@@ -1,0 +1,50 @@
+name: GTFS dataset freshness
+
+# The track datasets (platform names + shapes) are rebuilt weekly by KRAIL-GTFS
+# into the rolling `track-latest` release. If that pipeline dies silently the
+# BFF keeps serving stale data. Alert when the newest asset is older than 9 days.
+
+on:
+  schedule:
+    # Mondays 20:00 UTC ≈ Tue 07:00 Sydney
+    - cron: '0 20 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check track-latest age
+        id: age
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          newest=$(gh api repos/ksharma-xyz/KRAIL-GTFS/releases/tags/track-latest \
+            --jq '[.assets[].updated_at] | max // empty')
+          if [ -z "$newest" ]; then
+            echo "days=999" >> "$GITHUB_OUTPUT"
+            echo "::error::track-latest release or assets not found"; exit 1
+          fi
+          age_days=$(( ( $(date -u +%s) - $(date -u -d "$newest" +%s) ) / 86400 ))
+          echo "newest asset: $newest (${age_days}d old)"
+          echo "days=$age_days" >> "$GITHUB_OUTPUT"
+          test "$age_days" -le 9
+
+      - name: Open issue when stale
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="⚠️ KRAIL-GTFS track-latest is stale"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label monitor --state open --search "$title" --json number --jq '.[0].number // empty')
+          body="track-latest assets are ${{ steps.age.outputs.days }} days old (expected ≤9). Check the track-dataset workflow in KRAIL-GTFS."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label monitor --body "$body"
+          fi

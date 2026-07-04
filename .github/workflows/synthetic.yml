@@ -1,0 +1,71 @@
+name: Synthetic monitor
+
+# Every 30 min: prod /health + NSW budget position via /internal/metrics.
+# Two health failures in a row (one retry inside the run) or budget ≥ 80%
+# → one "monitor" issue, updated not duplicated.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  BASE: https://bff.krail.app
+  BUDGET_ALERT_PCT: 80
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Health probe (with one retry)
+        id: health
+        run: |
+          ok=false
+          for i in 1 2; do
+            if curl -sf -m 15 "$BASE/health" | jq -e '.status == "up"' > /dev/null; then
+              ok=true; break
+            fi
+            sleep 30
+          done
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+          $ok
+
+      - name: NSW budget check
+        id: budget
+        if: steps.health.outputs.ok == 'true'
+        run: |
+          # X-Krail-Version future-proofs against the version gate being enabled.
+          m=$(curl -sf -m 15 -H "X-Krail-Version: 99.0.0" "$BASE/internal/metrics" || echo '{}')
+          used=$(echo "$m" | jq -r '.nswBudget.used // 0')
+          limit=$(echo "$m" | jq -r '.nswBudget.limit // 0')
+          pct=0
+          [ "$limit" -gt 0 ] && pct=$(( used * 100 / limit ))
+          echo "used=$used limit=$limit pct=$pct"
+          echo "pct=$pct" >> "$GITHUB_OUTPUT"
+          echo "used=$used" >> "$GITHUB_OUTPUT"
+          echo "limit=$limit" >> "$GITHUB_OUTPUT"
+          # /internal/metrics may 404 if not yet deployed/enabled — treat as 0, don't fail.
+
+      - name: Alert (single reusable issue)
+        if: always() && (steps.health.outputs.ok != 'true' || fromJSON(steps.budget.outputs.pct || '0') >= fromJSON(env.BUDGET_ALERT_PCT))
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ steps.health.outputs.ok }}" != "true" ]; then
+            title="🚨 Synthetic monitor: prod /health failing"
+            body="Two consecutive health probes failed at $(date -u +%FT%TZ). Check $BASE/health and the DO console."
+          else
+            title="⚠️ NSW daily budget at ${{ steps.budget.outputs.pct }}%"
+            body="NSW budget: ${{ steps.budget.outputs.used }}/${{ steps.budget.outputs.limit }} (${{ steps.budget.outputs.pct }}%) at $(date -u +%FT%TZ). Resets Sydney midnight."
+          fi
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label monitor --state open --search "$title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label monitor --body "$body"
+          fi
