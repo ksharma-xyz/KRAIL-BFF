@@ -25,10 +25,11 @@ updates:
     schedule:
       interval: "weekly"
       day: "sunday"
-    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "gradle"
     # Keep the version-bump noise on Renovate; only let Dependabot file
     # security PRs (i.e. when the GitHub advisory database flags a CVE).
+    # (Security-update PRs are not capped by this limit — it only gates
+    # version-update PRs, which Renovate owns.)
     open-pull-requests-limit: 0

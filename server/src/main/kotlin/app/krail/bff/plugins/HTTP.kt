@@ -54,7 +54,9 @@ fun Application.configureHTTP() {
         exposeHeader(HttpHeaders.ContentType)
         exposeHeader("X-Request-Id")
 
-        allowCredentials = corsOrigins.isNotEmpty()
+        // The BFF is cookie-less and unauthenticated per-user; never allow
+        // credentialed cross-origin requests.
+        allowCredentials = false
         maxAgeInSeconds = 3600
     }
 
@@ -68,6 +70,8 @@ fun Application.configureHTTP() {
     // (CORS still does that).
     intercept(ApplicationCallPipeline.Plugins) {
         call.response.headers.append("Timing-Allow-Origin", "*")
+        // API responses must never be MIME-sniffed into something executable.
+        call.response.headers.append("X-Content-Type-Options", "nosniff")
     }
 
     // Global aggregate rate limiter — backstop only. Per-IP limiter is the primary

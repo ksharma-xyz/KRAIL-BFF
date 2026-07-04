@@ -79,10 +79,12 @@ private class PerIpLimiter(
 
         // Drop buckets that are full (== nobody's spent a token in capacity/rps seconds).
         // Bounds memory without an LRU.
+        buckets.entries.removeIf { it.value.isFull() }
+        // Hard cap: under a spoofed-IP flood the buckets are all actively draining,
+        // so the sweep above removes nothing. Resetting momentarily refills everyone's
+        // bucket, which is a far smaller failure than unbounded map growth.
         if (buckets.size > maxIps) {
-            buckets.entries.removeIf { it.value.isFull() }
-        } else {
-            buckets.entries.removeIf { it.value.isFull() }
+            buckets.clear()
         }
     }
 }
