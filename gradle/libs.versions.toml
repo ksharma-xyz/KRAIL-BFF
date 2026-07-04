@@ -3,7 +3,6 @@ jdk = "17"
 kotlin = "2.3.20"
 ktor = "3.4.1"
 logback = "1.5.32"
-khealth = "3.0.2"
 logstashEncoder = "9.0"
 koin = "4.2.0"
 wire = "5.5.1"
@@ -40,7 +39,6 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstashEncoder" }
 
 # Health
-khealth = { module = "dev.hayden:khealth", version.ref = "khealth" }
 
 # DI
 koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }

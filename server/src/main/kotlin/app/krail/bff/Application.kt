@@ -16,6 +16,7 @@ import app.krail.bff.routes.configureDataRoutes
 import app.krail.bff.routes.configureDepartureRoutes
 import app.krail.bff.routes.configureGtfsRoutes
 import app.krail.bff.routes.configureInternalRoutes
+import app.krail.bff.routes.configureMetricsRoutes
 import app.krail.bff.routes.configureParkingRoutes
 import app.krail.bff.routes.configureRouting
 import app.krail.bff.routes.configureTrackRoutes
@@ -48,4 +49,5 @@ fun Application.module() {
     configureTrackRoutes()
     configureDataRoutes()
     configureInternalRoutes()
+    configureMetricsRoutes()
 }

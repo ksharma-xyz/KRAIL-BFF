@@ -68,6 +68,11 @@ services:
       - key: BFF_RATE_LIMIT_BURST
         scope: RUN_TIME
         value: "100"
+      # Read-only metrics snapshot for the synthetic-monitor workflow.
+      # Protected by the Cloudflare origin-token gate like every route.
+      - key: BFF_METRICS_ENABLED
+        scope: RUN_TIME
+        value: "true"
       # Tracking datasets (platform stop names + map polylines), built
       # weekly by KRAIL-GTFS (track-dataset.yml -> rolling track-latest
       # release); fetched lazily, sha256-verified, hot-swapped in memory.

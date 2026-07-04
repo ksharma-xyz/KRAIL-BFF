@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference
  * convert that into a 503.
  */
 class NswDailyBudget(
-    private val limit: Long,
+    val limit: Long,
     private val zone: ZoneId = ZoneId.of("Australia/Sydney"),
     private val clock: Clock = Clock.systemUTC(),
 ) {

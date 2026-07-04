@@ -1,6 +1,7 @@
 package app.krail.bff.routes
 
 import app.krail.bff.client.nsw.NswClient
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.response.*
@@ -38,16 +39,33 @@ fun Application.configureAdministration() {
         }
     }
 
+    // GIT_SHA is set by CI/local Docker builds (build arg). DO's builder strips
+    // .git (see .dockerignore) so prod reports "dev" — the post-deploy smoke test
+    // keys off startedAt instead: a fresh timestamp after a push ⇒ new container.
+    val buildVersion = System.getenv("GIT_SHA")?.takeIf { it.isNotBlank() } ?: "dev"
+    val startedAt = java.time.Instant.now().toString()
+
+    // Explicit JSON bodies — kotlinx ContentNegotiation renders a plain mapOf()
+    // as "{}" (no serializer for Map<String, String> at runtime), which the
+    // smoke test and synthetic monitor would read as missing fields.
+    val healthBody =
+        """{"status":"up","version":"$buildVersion","startedAt":"$startedAt"}"""
+
     routing {
         get("/health") {
-            call.respond(HttpStatusCode.OK, mapOf("status" to "up"))
+            call.respondText(healthBody, ContentType.Application.Json, HttpStatusCode.OK)
         }
         get("/ready") {
-            val upstreamOk = upstreamOkCached()
-            if (upstreamOk) {
-                call.respond(HttpStatusCode.OK, mapOf("status" to "ready", "nsw" to "up"))
+            if (upstreamOkCached()) {
+                call.respondText(
+                    """{"status":"ready","nsw":"up"}""",
+                    ContentType.Application.Json, HttpStatusCode.OK
+                )
             } else {
-                call.respond(HttpStatusCode.ServiceUnavailable, mapOf("status" to "degraded", "nsw" to "down"))
+                call.respondText(
+                    """{"status":"degraded","nsw":"down"}""",
+                    ContentType.Application.Json, HttpStatusCode.ServiceUnavailable
+                )
             }
         }
     }

@@ -63,6 +63,8 @@ tasks.named<JavaExec>("run") {
             "bff.perIp.maxIps" to "BFF_PER_IP_MAX",
             // Dev-only API-tester passthrough (NEVER set in production)
             "bff.devPassthrough" to "BFF_DEV_PASSTHROUGH",
+            // Read-only metrics snapshot endpoint
+            "bff.metricsEnabled" to "BFF_METRICS_ENABLED",
             // Static data manifests
             "data.stops.manifestUrl" to "STOPS_MANIFEST_URL",
             "data.routes.manifestUrl" to "ROUTES_MANIFEST_URL",
@@ -128,7 +130,6 @@ wire {
 val nettyVersion = "4.2.12.Final"
 
 dependencies {
-    implementation(libs.khealth)
 
     implementation(libs.ktor.server.metrics)
     implementation(libs.ktor.server.content.negotiation)

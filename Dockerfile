@@ -21,6 +21,11 @@ RUN ./gradlew --no-daemon :server:installDist
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
+# Build SHA for /health `version`. CI passes --build-arg GIT_SHA=$GITHUB_SHA;
+# DO's builder can't (no .git in context) and reports "dev".
+ARG GIT_SHA=dev
+ENV GIT_SHA=$GIT_SHA
+
 RUN addgroup -S krail && adduser -S krail -G krail
 
 COPY --from=builder --chown=krail:krail /app/server/build/install/server /app/

@@ -41,6 +41,10 @@ bff:
     # API tester to fire NSW-direct calls for comparison without browser CORS.
     # MUST stay false in production. Override via BFF_DEV_PASSTHROUGH=true.
     devPassthrough: "false"
+    # Read-only /internal/metrics JSON (counters, timers, NSW budget position).
+    # Safe to enable in production — sits behind the origin-token gate.
+    # Override via BFF_METRICS_ENABLED=true.
+    metricsEnabled: "false"
 
 data:
     stops:
