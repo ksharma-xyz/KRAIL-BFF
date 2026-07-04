@@ -33,11 +33,14 @@ fun Application.configureCorrelation() {
         // Put in MDC for logging (deviceId is handled elsewhere and not logged)
         MDC.put("correlationId", correlationId)
 
+        // Append BEFORE proceed(): after proceed() the response is already
+        // committed and a late append is silently dropped — clients never saw
+        // the header until this moved. safeOnly=true guards header injection.
+        call.response.headers.append(Headers.REQUEST_ID, correlationId, safeOnly = true)
+
         try {
             proceed()
         } finally {
-            // Ensure header always present on responses; safeOnly=true guards against header injection
-            call.response.headers.append(Headers.REQUEST_ID, correlationId, safeOnly = true)
             MDC.remove("correlationId")
         }
     }

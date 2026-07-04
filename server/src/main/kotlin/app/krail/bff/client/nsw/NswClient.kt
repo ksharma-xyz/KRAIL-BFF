@@ -202,9 +202,17 @@ class NswClientImpl(
 
         val ctx = timer.time()
         return try {
-            val url = config.baseUrl.trimEnd('/') + "/"
+            // Authenticated probe against the cheapest real endpoint. The NSW
+            // root answers 500 to anonymous GETs, so it can't distinguish
+            // "NSW down" from "NSW fine" — /v1/carpark with the API key checks
+            // reachability AND key validity in one small call. Only /ready uses
+            // this, and Administration caches the result for 30s, so the quota
+            // cost is negligible (and intentionally outside the daily budget).
+            val url = config.baseUrl.trimEnd('/') + "/v1/carpark"
             logger.debug("Performing health check to: {}", url)
-            val response: HttpResponse = http.get(url)
+            val response: HttpResponse = http.get(url) {
+                headers.append("Authorization", "apikey ${config.apiKey}")
+            }
             val ok = response.status.isSuccess()
             if (ok) {
                 failures.set(0)
@@ -212,7 +220,7 @@ class NswClientImpl(
                 logger.debug("Health check succeeded")
                 true
             } else {
-                // count failure and maybe trip breaker
+                // 401/403 = key problem, 5xx = NSW outage — both are "not ready".
                 logger.warn("Health check failed with status: {}", response.status.value)
                 onFailure(response.status.value)
                 false

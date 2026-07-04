@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # Stage 1: build
-FROM eclipse-temurin:17-jdk-alpine AS builder
+FROM eclipse-temurin:17-jdk-alpine@sha256:638937c54b6d63f0973a20501973e7c433a36b1f22262bd2b25afa7be5ff8c4a AS builder
 WORKDIR /app
 
 # Copy gradle wrapper + build descriptors first to maximise layer caching.
@@ -18,7 +18,7 @@ COPY server ./server
 RUN ./gradlew --no-daemon :server:installDist
 
 # Stage 2: runtime
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre-alpine@sha256:02320dd4ce20e243dfb915c686089cf9315c763084fafbb12d5c9993aee18b57
 WORKDIR /app
 
 # Build SHA for /health `version`. CI passes --build-arg GIT_SHA=$GITHUB_SHA;

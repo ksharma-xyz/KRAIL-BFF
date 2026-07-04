@@ -57,11 +57,20 @@ rebuild (KRAIL Dispatch), docs consolidation.
 
 ## Next (unordered backlog)
 
-- [ ] Fix `/ready` upstream probe — `NswClient.healthCheck()` GETs the bare NSW
-      root unauthenticated and reports down, so /ready is permanently "degraded".
-      (Hidden until 2026-07-04: the KHealth plugin was shadowing /health + /ready
-      with empty `{}` responses; now removed.) Probe a cheap authenticated
-      endpoint instead.
+From the 2026-07 review ([docs/archive/CODE_REVIEW_2026-07.md](docs/archive/CODE_REVIEW_2026-07.md)):
+
+- [ ] Parking fan-out concurrency cap — Semaphore(4) in
+      `ParkingRoutes.fetchAllFacilities` (today: up to ~60 parallel NSW calls
+      vs their 5 req/s limit)
+- [ ] Kill the Slf4jReporter gauge spam in `Monitoring.kt` (logs every JVM
+      gauge at INFO every 10s; `/internal/metrics` replaces it)
+- [ ] Parking JSON: emit `upstream_malformed` error instead of silently
+      dropping facilities whose NSW body fails to parse
+- [ ] Cloudflare edge-cache rules on deploy day: `/v*/gtfs/*` 15–30s,
+      `/v1/parking/facilities` 60s (biggest NSW-quota lever, zero code)
+- [ ] Remove demo route `GET /json/kotlinx-serialization` (Serialization.kt)
+- [ ] `/ready` cache vars → AtomicLong/AtomicBoolean (visibility nit)
+- [ ] Filter `/health` out of CallLogging noise
 
 - [ ] Exact build SHA in prod `/health` (needs `.git` in Docker context + git in
       builder image; DO strips it today — smoke test uses `startedAt` instead)
