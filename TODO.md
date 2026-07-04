@@ -25,8 +25,10 @@
       `{"status":"up",...}`; one trip plan through Cloudflare returns journeys.
 - [ ] **Arm monitoring** (disabled 2026-07-04 because prod didn't exist):
       `gh workflow enable post-deploy-smoke.yml && gh workflow enable synthetic.yml`;
-      add `NSW_API_KEY_CI` repo secret; enable secret scanning + push
-      protection (repo Settings → Code security); enable DO alerts
+      add `NSW_API_KEY_CI` repo secret; in repo Settings → Code security enable
+      **Dependabot alerts + security updates** (currently DISABLED — the
+      dependabot.yml "security-only PRs" intent does nothing without it),
+      secret scanning, and push protection; enable DO alerts
       (deploy failed / CPU / memory).
 - [ ] **App switchover** — point the KRAIL app at the BFF per
       `docs/reference/BFF_ADOPTION_GUIDE.md` (own rollout, own day).
