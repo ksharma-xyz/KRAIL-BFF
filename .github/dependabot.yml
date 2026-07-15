@@ -18,6 +18,12 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    groups:
+      # codeql-action init/analyze must always be on the same version —
+      # split bumps leave the pair mismatched and fail the Analyze job.
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
 
   # Gradle ecosystem — security advisories. Version bumps come via Renovate.
   - package-ecosystem: "gradle"
