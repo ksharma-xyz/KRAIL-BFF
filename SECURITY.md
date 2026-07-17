@@ -1,3 +1,24 @@
+# Security Policy
+
+## Reporting a Vulnerability
+
+If you believe you have found a security vulnerability in KRAIL-BFF, please report it
+privately. **Do not open a public issue, pull request, or discussion for security
+problems.**
+
+- **Preferred:** Use GitHub's [private vulnerability reporting](https://github.com/ksharma-xyz/KRAIL-BFF/security/advisories/new)
+  ("Report a vulnerability" under the repository's **Security** tab).
+- **Email:** [hey@krail.app](mailto:hey@krail.app) if you cannot use GitHub's reporting flow.
+
+Please include a description of the issue and its impact, steps to reproduce, and the
+affected route or component. We aim to acknowledge new reports within 5 business days and
+support coordinated disclosure: please give us reasonable time to ship a fix before
+disclosing publicly.
+
+The rest of this document is internal engineering guidance for contributors.
+
+---
+
 # KRAIL-BFF Security Guidelines
 
 Rules to follow when adding or modifying code. Grounded in the July 2026 security
