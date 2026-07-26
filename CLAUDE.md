@@ -61,6 +61,19 @@ no submodule — it reads tags via `git ls-remote`.
 - The artifact for a version must be published to GitHub Packages before the BFF
   can resolve it — a tag with no published artifact will fail the Gradle build.
 
+### Any CI job that runs Gradle needs GITHUB_TOKEN
+
+Resolving `xyz.ksharma.krail:api-proto` hits GitHub Packages, and
+`settings.gradle.kts` reads the credentials from `GITHUB_ACTOR` /
+`GITHUB_TOKEN`. A workflow step that runs `./gradlew` without
+`env: GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` fails with
+`Received status code 401 from server: Unauthorized`, not a compile error.
+
+This is why GitHub's built-in **Automatic dependency submission** cannot be
+used here — it runs Gradle in a GitHub-generated workflow with no way to inject
+the token. `.github/workflows/dependency-submission.yml` replaces it. Keep the
+built-in feature disabled in repo settings.
+
 ### Mapper ↔ proto coupling
 
 Files under `server/src/main/kotlin/app/krail/bff/mapper/` build proto messages
