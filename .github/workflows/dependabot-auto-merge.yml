@@ -13,13 +13,53 @@ jobs:
     steps:
       - name: Dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
+      # GROUPED updates carry no update-type at all. Dependabot's commit trailer
+      # for a group is only:
+      #     dependency-name / dependency-version / dependency-type /
+      #     dependency-group
+      # with no update-type and no previous version, so fetch-metadata reports
+      # `update-type: null`. The old gate tested `!= semver-major`, and
+      # null != major, so every grouped PR was waved through regardless of what
+      # it contained — that is how a major wire-runtime bump (5.5.1 -> 6.4.5)
+      # got auto-merge enabled on PR #93.
+      #
+      # This is an allowlist: merge only when every entry is EXPLICITLY tagged
+      # patch or minor. Missing, null, or unrecognised update types block.
+      # Consequence: grouped PRs never auto-merge and need a human. That is
+      # deliberate — the metadata to classify them safely does not exist.
+      - name: Gate on update type (group-aware)
+        id: gate
+        env:
+          UPDATES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        run: |
+          set -euo pipefail
+          allow=$(jq -r '
+            if (type == "array")
+               and (length > 0)
+               and (all(.[]; .updateType == "version-update:semver-patch"
+                             or .updateType == "version-update:semver-minor"))
+            then "true" else "false" end
+          ' <<< "${UPDATES:-[]}")
+          echo "allow=$allow" >> "$GITHUB_OUTPUT"
+          echo "update-type=${{ steps.metadata.outputs.update-type }} group=${{ steps.metadata.outputs.dependency-group }} allow=$allow"
+
       - name: Enable auto-merge (patch/minor only, waits on required checks)
-        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        if: steps.gate.outputs.allow == 'true'
         run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # pull_request_target re-runs on `synchronize`, so a rebase of an
+      # already-open PR would otherwise leave a previously-enabled auto-merge
+      # in place even after it stops qualifying.
+      - name: Disable auto-merge when it does not qualify
+        if: steps.gate.outputs.allow != 'true'
+        run: gh pr merge --disable-auto "$PR_URL" || true
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
