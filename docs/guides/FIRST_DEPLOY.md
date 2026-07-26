@@ -230,13 +230,24 @@ branch → push → PR → CI (pr.yml: build + tests; CodeQL) → merge to main
    → health check gates the swap → smoke /health
 ```
 
-What exists today (verified 2026-06-11):
+What exists today (verified 2026-07-26):
 
 - **`pr.yml`** — builds + runs `:server:test` on every PR to `main`
-  and on pushes to `main`.
+  and on pushes to `main`. This is the `build` check required by branch
+  protection.
 - **CodeQL** (PRs + weekly) and **Dependabot** (CVE alerts).
-- **GitHub ruleset on `main`** — PR required, linear history, no
-  force-push, no deletion.
+- **`dependency-submission.yml`** — on pushes to `main`, submits the Gradle
+  dependency graph so Dependabot can see transitive deps. Replaces GitHub's
+  built-in *Automatic dependency submission*, which cannot resolve
+  `xyz.ksharma.krail:api-proto` from GitHub Packages (it runs Gradle without
+  `GITHUB_TOKEN`, so every run 401s). **That built-in feature must stay off**
+  — Settings → Code security → Dependency graph → Automatic dependency
+  submission. If it is re-enabled, it will run alongside this workflow and
+  post a permanent red `submit-gradle` check on every PR.
+- **`dependabot-auto-merge.yml`** — enables auto-merge on Dependabot
+  patch/minor PRs; the merge still waits on the required `build` check.
+- **GitHub ruleset on `main`** — PR required, status check `build` required,
+  no force-push, no deletion, enforced for admins.
 - **DO auto-deploy** — `.do/app.yaml` has `deploy_on_push: true`; any
   merge to `main` rebuilds the Docker image and rolls it out. The app's
   health check must pass before the new container takes traffic, so a
@@ -245,12 +256,9 @@ What exists today (verified 2026-06-11):
   publishes the tracking datasets weekly); `proto-bump.yml` here PRs proto
   submodule updates.
 
-**One gap to close (2 min, GitHub UI):** the `main` ruleset requires a
-PR but does **not** require status checks to pass — a red CI run
-doesn't block the merge button. Fix: repo → Settings → Rules → `main`
-→ add **Require status checks to pass** → select the `pr.yml` build
-job. After that, broken code physically cannot reach `main` (and
-therefore cannot deploy).
+**Closed 2026-07-26:** the `main` ruleset now requires the `build` status
+check to pass, so broken code physically cannot reach `main` (and therefore
+cannot deploy).
 
 **Why no prod/release branch (decided 2026-06-11):** release branches
 exist for mobile because app releases are irreversible — store review,
