@@ -5,7 +5,7 @@ ktor = "3.4.1"
 logback = "1.5.32"
 logstashEncoder = "9.0"
 koin = "4.2.0"
-wire = "5.5.1"
+wire = "6.4.5"
 krail-api-proto = "0.4.2"
 
 [plugins]
