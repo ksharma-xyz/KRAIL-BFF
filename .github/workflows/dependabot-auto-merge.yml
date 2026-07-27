@@ -17,20 +17,21 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      # GROUPED updates carry no update-type at all. Dependabot's commit trailer
-      # for a group is only:
-      #     dependency-name / dependency-version / dependency-type /
-      #     dependency-group
-      # with no update-type and no previous version, so fetch-metadata reports
-      # `update-type: null`. The old gate tested `!= semver-major`, and
-      # null != major, so every grouped PR was waved through regardless of what
-      # it contained — that is how a major wire-runtime bump (5.5.1 -> 6.4.5)
-      # got auto-merge enabled on PR #93.
+      # `update-type` can come back null. Dependabot's commit trailer sometimes
+      # carries only dependency-name / dependency-version / dependency-type /
+      # dependency-group, with no update-type and no previous version, leaving
+      # fetch-metadata nothing to compute a semver level from. The old gate
+      # tested `!= semver-major`, and null != major, so those PRs were waved
+      # through regardless of content — that is how a major wire-runtime bump
+      # (5.5.1 -> 6.4.5) got auto-merge enabled on PR #93.
       #
       # This is an allowlist: merge only when every entry is EXPLICITLY tagged
       # patch or minor. Missing, null, or unrecognised update types block.
-      # Consequence: grouped PRs never auto-merge and need a human. That is
-      # deliberate — the metadata to classify them safely does not exist.
+      #
+      # Grouped PRs are NOT categorically excluded — when a group's members
+      # share a level, fetch-metadata reports it and the group auto-merges
+      # normally (observed on the all-patch codeql-action group, PR #95).
+      # Only genuinely unclassifiable PRs fall through to a human.
       - name: Gate on update type (group-aware)
         id: gate
         env:
