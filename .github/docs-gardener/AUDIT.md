@@ -1,60 +1,55 @@
-# Docs Gardener Audit — 2026-07-26
+# Docs Gardener Audit — 2026-08-02
 
 Run mode: **report-only** (per charter Part B). No doc content was changed by this
 run. This file records the classification, staleness re-verification, and proposed
 actions for a future `active` run.
 
-## What changed since the last audit (2026-07-19)
+## What changed since the last audit (2026-07-26)
 
 ```
-$ git diff --stat 07f6f5d..HEAD
- .github/workflows/codeql.yml                |  6 +--
- .github/workflows/dependabot-auto-merge.yml | 65 +++++++++++++++++++++++++++++
- .github/workflows/dependency-submission.yml | 42 +++++++++++++++++++
- .github/workflows/pr.yml                    |  2 +-
- CLAUDE.md                                   | 13 ++++++
- docs/guides/FIRST_DEPLOY.md                 | 28 ++++++++-----
- 6 files changed, 142 insertions(+), 14 deletions(-)
+$ git diff --stat 1caeff0..HEAD
+ .github/workflows/codeql.yml | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 ```
 
-Two markdown files changed. `CLAUDE.md` (protected) grew by 13 lines documenting
-the `GITHUB_TOKEN` requirement for Gradle CI jobs — informational only, no action
-taken on a protected file. `docs/guides/FIRST_DEPLOY.md` (guide, not protected) was
-edited by the human today to record that the `main` ruleset now requires the
-`build` status check — this introduced one new staleness finding (#8 below); see
-Proposed actions.
-
-All seven findings from 2026-07-17/07-19 were re-verified against the current tree
-and still hold, unaddressed across three consecutive report-only audits.
+No markdown doc changed since the last audit. Two commits landed:
+`939a16b` (docs(ci): correct overstated claim about grouped PRs — edited a
+comment in `.github/workflows/dependabot-auto-merge.yml`, not a tracked
+markdown doc) and `2033b85` (dependency bump touching `.github/workflows/codeql.yml`
+only). Neither is in scope for this agent's mission (markdown docs only), and
+neither is a protected file whose drift needs flagging. All prior findings were
+re-verified fresh against today's tree rather than carried forward untested.
 
 ## Feedback ingested
 
-Last 5 `docs-gardener`-labeled PRs (only 4 exist): #90, #85, #84, #82. All merged
-(none closed-unmerged, no reverted files). Checked issue comments, review comments,
-and reviews on all four — zero on every one. No `charter:` instructions found. No
-Steering Log entries added this run.
+Checked the last 5 PRs labeled `docs-gardener`: #98, #90, #85, #84, #82. All
+merged (none closed-unmerged, no reverted files). Issue comments, review
+comments, and reviews: zero on every one (`"comments":0` on all five in the
+GitHub API response). No `charter:` instructions found. No Steering Log entries
+added this run.
 
 ## Charter Part A drift
 
-Diffed this repo's `.github/docs-gardener/CHARTER.md` against `ksharma-xyz/KRAIL`'s
-copy (fresh shallow clone, `8f57039`). **No drift** — every line above `## Part B:
-Repo Overrides` is byte-identical between the two repos.
+Diffed this repo's `.github/docs-gardener/CHARTER.md` against
+`ksharma-xyz/KRAIL`'s copy (fresh shallow clone, `6ed9290`). **No drift** —
+every line above `## Part B: Repo Overrides` is byte-identical between the two
+repos (`diff` exit code 0).
 
 ## Classification table
 
 | File | Class | Notes |
 |---|---|---|
-| `CLAUDE.md` | reference (protected) | No action — protected file; grew by 13 lines since last audit (GITHUB_TOKEN note), still protected. |
+| `CLAUDE.md` | reference (protected) | No action — protected file, unchanged since last audit. |
 | `SECURITY.md` | reference (protected) | No action — protected file, unchanged since last audit. |
-| `TODO.md` | ledger (protected) | No action — protected file; used as ground truth for staleness checks. Line 43 now disagrees with `FIRST_DEPLOY.md`'s new "Closed 2026-07-26" claim — see Informational note below. |
-| `README.md` | guide | All linked docs resolve. No action. |
+| `TODO.md` | ledger (protected) | No action — protected file. Line 43 still disagrees with `FIRST_DEPLOY.md`'s "Closed 2026-07-26" claim — see Informational note below. |
+| `README.md` | guide | Links resolve. No action. |
 | `DEPLOY_CHECKLIST.template.md` | guide | **Broken link, unresolved** — see Proposed actions #1. |
 | `docs/README.md` | reference (index) | Index gaps — see Index/README gaps. |
 | `docs/index.md` | reference (index) | Index gaps — see Index/README gaps. |
 | `docs/guides/index.md` | reference (nav stub) | Fine. |
 | `docs/guides/DEBUGGING.md` | guide | Links resolve. No action. |
 | `docs/guides/EMERGENCY.md` | guide | Links resolve. Consistent with current (pre-deploy) state. No action. |
-| `docs/guides/FIRST_DEPLOY.md` | guide | Edited today; consistent with `TODO.md` "nothing deployed yet" except one point (see Informational note). **New stale-content finding** — see Proposed actions #8. |
+| `docs/guides/FIRST_DEPLOY.md` | guide | Unchanged since last audit. Still disagrees with `TODO.md` — see Informational note. Still has the stale "submodule" wording — see Proposed actions #8. |
 | `docs/guides/LOCAL_DEVELOPMENT.md` | guide | Project-structure listing accurate but incomplete (see Coverage gaps). No action needed. |
 | `docs/guides/TESTING.md` | guide | **Broken link, unresolved** — see Proposed actions #2. |
 | `docs/handover/README.md` | guide | **Broken links + stale content, unresolved** — see Proposed actions #3. |
@@ -66,12 +61,12 @@ Repo Overrides` is byte-identical between the two repos.
 | `docs/reference/CONFIGURATION.md` | reference | Re-spot-checked `NSW_API_KEY`, `NSW_DAILY_BUDGET`, `MIN_APP_VERSION`, `BFF_PER_IP_RPS`, `CF_ORIGIN_TOKEN`, `STOPS_MANIFEST_URL` against `server/src/main/resources/application.yaml` — all present and consistent. No action. |
 | `docs/reference/DEPLOYMENT.md` | guide | **Broken link, unresolved** — see Proposed actions #7. |
 | `docs/reference/ROADMAP.md` | plan | Forward-looking, post-deploy roadmap; deploy hasn't happened yet per `TODO.md`. No action. |
-| `docs/reference/SCREEN_DATA_INVENTORY.md` | reference | Cross-repo re-check: named KRAIL-side mapper classes (`TripResponseMapper`, `DepartureMonitorMapper`, `JourneyMapMapper`, `GtfsRealtimeMatcher`, `JourneyListMapper`, etc.) re-verified present in `ksharma-xyz/KRAIL` (fresh shallow clone, `8f57039`). Both repos confirmed pinned to `krail-api-proto = "0.4.2"`. No action. |
+| `docs/reference/SCREEN_DATA_INVENTORY.md` | reference | Cross-repo re-check: both repos confirmed pinned to `krail-api-proto = "0.4.2"` (fresh shallow clone, `6ed9290`). No action. |
 | `docs/reference/TRACKING_DESIGN.md` | ux-contract | No broken links or dated claims found. Still silent on the injected-clock testing invariant CLAUDE.md calls out — plausibly out of scope (design-rationale doc, not a testing doc). Flagged, no action proposed. |
 | `docs/tools/README.md` | guide (protected: `docs/tools/**`) | `./scripts/tester.sh` exists. No action — protected. |
 | `docs/tools/bruno/README.md` | guide (protected: `docs/tools/**`) | No action — protected. |
 | `scripts/README.md` | guide | Coverage gap, unresolved — see Coverage gaps. |
-| `docs/archive/*.md` (11 files) + `docs/archive/README.md` | archive | All moved into archive on 2026-07-04 (22 days ago) — still well under the 90-day hard-delete threshold, and all have live inbound references from non-archive docs. No delete candidates this run. |
+| `docs/archive/*.md` (11 files) + `docs/archive/README.md` | archive | All moved into archive on 2026-07-04 (29 days ago) — still well under the 90-day hard-delete threshold, and all have live inbound references from non-archive docs. No delete candidates this run. |
 | `.github/docs-gardener/CHARTER.md` | **unclassifiable** | Same as prior runs: doesn't fit the taxonomy (it's the gardener's own operating policy). Taxonomy addition (e.g. `policy`) still proposed for a future run; no action taken on the file. |
 | `.github/docs-gardener/AUDIT.md` | **unclassifiable** | This file itself — same reasoning as `CHARTER.md`. Overwritten each run by design, not archived. |
 
@@ -162,10 +157,10 @@ DepartureMapper.kt  JourneyListMapper.kt  ParkingProtoMapper.kt
 $ git log --diff-filter=A --format=%cd --date=short -- server/src/main/kotlin/app/krail/bff/mapper/ | tail -1
 2026-06-11
 ```
-The mapper layer this doc proposes has been shipped for over a month, and the
-proto is consumed via Maven/GitHub Packages (same evidence as #4). Recommendation
-unchanged: archive with a tombstone noting it's superseded by the shipped mapper
-layer and the Maven-artifact proto flow documented in `CLAUDE.md`.
+The mapper layer this doc proposes has been shipped for nearly two months, and
+the proto is consumed via Maven/GitHub Packages (same evidence as #4).
+Recommendation unchanged: archive with a tombstone noting it's superseded by the
+shipped mapper layer and the Maven-artifact proto flow documented in `CLAUDE.md`.
 
 ### 6. Stale proto-consumption description — `docs/reference/BFF_ADOPTION_GUIDE.md`
 ```
@@ -186,9 +181,8 @@ The correct target is `docs/archive/MODERNIZATION_PLAN.md`, as every sibling doc
 in `docs/reference/` already links it (`../archive/MODERNIZATION_PLAN.md`) — this
 file remains the one outlier.
 
-### 8. NEW — stale "submodule" wording — `docs/guides/FIRST_DEPLOY.md:256-257`
-Edited today (verified-as-of date bumped to 2026-07-26), this line was left
-untouched and now reads:
+### 8. Stale "submodule" wording — `docs/guides/FIRST_DEPLOY.md:256-258`
+Still reads:
 ```
 256: - **Dataset pipeline** — lives in the KRAIL-GTFS repo (`track-dataset.yml`
 257:   publishes the tracking datasets weekly); `proto-bump.yml` here PRs proto
@@ -244,24 +238,25 @@ re-touching these tables twice.
   inside `track/`. Re-confirmed today, unchanged from prior audits:
   ```
   $ find server/src/main/kotlin/app/krail/bff -maxdepth 1 -type d
-  .../client .../config .../data .../di .../mapper .../model .../plugins .../routes .../tools .../track .../util
+  .../model .../util .../config .../data .../tools .../track .../mapper
+  .../client .../di .../plugins .../routes
   $ find server -iname "*trackdata*"
   server/src/main/kotlin/app/krail/bff/track/TrackDatasetStore.kt
   ```
-- **New this run:** `TODO.md` (protected, ledger — no action taken) line 43
-  still lists, as an open manual action, *"(Recommended) Main ruleset: add `PR
-  Build` as a required status check so direct pushes can't land with failing
-  tests."* `docs/guides/FIRST_DEPLOY.md` (not protected) was edited today to say
-  *"Closed 2026-07-26: the `main` ruleset now requires the `build` status check
-  to pass."* These two docs now disagree on whether this item is open or done.
-  This agent has no access to the actual GitHub branch-protection settings to
-  arbitrate, and `TODO.md` is off-limits to edit regardless — flagged for the
-  human to reconcile (tick the `TODO.md` item, or correct `FIRST_DEPLOY.md`,
-  whichever reflects the true ruleset state).
+- `TODO.md` (protected, ledger — no action taken) line 43 still lists, as an
+  open manual action, *"(Recommended) Main ruleset: add `PR Build` as a
+  required status check so direct pushes can't land with failing tests."*
+  `docs/guides/FIRST_DEPLOY.md` (not protected) still says *"Closed
+  2026-07-26: the `main` ruleset now requires the `build` status check to
+  pass."* These two docs still disagree on whether this item is open or done,
+  unresolved across two consecutive audits (2026-07-26, 2026-08-02). This agent
+  has no access to the actual GitHub branch-protection settings to arbitrate,
+  and `TODO.md` is off-limits to edit regardless — flagged again for the human
+  to reconcile.
 
 ## Deferred to next run
 
 Nothing deferred for budget reasons (report-only mode produces no content edits).
 The eight proposed actions above, plus the two coverage gaps, remain candidates
-for the first `active`-mode run — none have been applied yet across three
-consecutive report-only audits (2026-07-17, 2026-07-19, 2026-07-26).
+for the first `active`-mode run — none have been applied yet across four
+consecutive report-only audits (2026-07-17, 2026-07-19, 2026-07-26, 2026-08-02).
