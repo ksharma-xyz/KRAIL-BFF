@@ -1,55 +1,66 @@
-# Docs Gardener Audit — 2026-08-02
+# Docs Gardener Audit — 2026-08-09
 
 Run mode: **report-only** (per charter Part B). No doc content was changed by this
 run. This file records the classification, staleness re-verification, and proposed
 actions for a future `active` run.
 
-## What changed since the last audit (2026-07-26)
+## What changed since the last audit
+
+The most recent docs-gardener run was PR #101 (2026-08-02), which re-verified the
+full tree against commit `2033b85`. That PR is still **open, unmerged** — not
+closed-unmerged (so not a Steering Log rejection under the charter's feedback
+rule), just pending. Nothing under this agent's remit has changed since it ran:
+
+```
+$ git diff --stat 2033b85..HEAD
+ .github/workflows/codeql.yml                | 6 +++---
+ .github/workflows/dependency-submission.yml | 2 +-
+ .github/workflows/pr.yml                    | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+```
+
+Three CI workflow files, all Dependabot version bumps — no markdown doc touched.
+Same picture back to the last *merged* audit, #98 (2026-07-26, `1caeff0`):
 
 ```
 $ git diff --stat 1caeff0..HEAD
- .github/workflows/codeql.yml | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ .github/workflows/codeql.yml                | 6 +++---
+ .github/workflows/dependency-submission.yml | 2 +-
+ .github/workflows/pr.yml                    | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 ```
 
-No markdown doc changed since the last audit. Two commits landed:
-`939a16b` (docs(ci): correct overstated claim about grouped PRs — edited a
-comment in `.github/workflows/dependabot-auto-merge.yml`, not a tracked
-markdown doc) and `2033b85` (dependency bump touching `.github/workflows/codeql.yml`
-only). Neither is in scope for this agent's mission (markdown docs only), and
-neither is a protected file whose drift needs flagging. All prior findings were
-re-verified fresh against today's tree rather than carried forward untested.
+Every finding below was re-verified fresh against today's tree rather than carried
+forward untested; none changed.
 
 ## Feedback ingested
 
-Checked the last 5 PRs labeled `docs-gardener`: #98, #90, #85, #84, #82. All
-merged (none closed-unmerged, no reverted files). Issue comments, review
-comments, and reviews: zero on every one (`"comments":0` on all five in the
-GitHub API response). No `charter:` instructions found. No Steering Log entries
+Last 5 `docs-gardener`-labeled PRs: #101 (open), #98, #90, #85, #84 (all merged).
+Checked issue comments, review comments, and reviews on all five — zero on every
+one, including #101. No `charter:` instructions found. No Steering Log entries
 added this run.
 
 ## Charter Part A drift
 
-Diffed this repo's `.github/docs-gardener/CHARTER.md` against
-`ksharma-xyz/KRAIL`'s copy (fresh shallow clone, `6ed9290`). **No drift** —
-every line above `## Part B: Repo Overrides` is byte-identical between the two
-repos (`diff` exit code 0).
+Diffed this repo's `.github/docs-gardener/CHARTER.md` against `ksharma-xyz/KRAIL`'s
+copy (fresh shallow clone, `3cebfdf`). **No drift** — every line above `## Part B:
+Repo Overrides` is byte-identical between the two repos.
 
 ## Classification table
 
 | File | Class | Notes |
 |---|---|---|
-| `CLAUDE.md` | reference (protected) | No action — protected file, unchanged since last audit. |
+| `CLAUDE.md` | reference (protected) | No action — protected file; unchanged since last audit. |
 | `SECURITY.md` | reference (protected) | No action — protected file, unchanged since last audit. |
 | `TODO.md` | ledger (protected) | No action — protected file. Line 43 still disagrees with `FIRST_DEPLOY.md`'s "Closed 2026-07-26" claim — see Informational note below. |
-| `README.md` | guide | Links resolve. No action. |
+| `README.md` | guide | All linked docs resolve. No action. |
 | `DEPLOY_CHECKLIST.template.md` | guide | **Broken link, unresolved** — see Proposed actions #1. |
 | `docs/README.md` | reference (index) | Index gaps — see Index/README gaps. |
 | `docs/index.md` | reference (index) | Index gaps — see Index/README gaps. |
 | `docs/guides/index.md` | reference (nav stub) | Fine. |
 | `docs/guides/DEBUGGING.md` | guide | Links resolve. No action. |
-| `docs/guides/EMERGENCY.md` | guide | Links resolve. Consistent with current (pre-deploy) state. No action. |
-| `docs/guides/FIRST_DEPLOY.md` | guide | Unchanged since last audit. Still disagrees with `TODO.md` — see Informational note. Still has the stale "submodule" wording — see Proposed actions #8. |
+| `docs/guides/EMERGENCY.md` | guide | Links resolve. No action. |
+| `docs/guides/FIRST_DEPLOY.md` | guide | **Stale content, unresolved** — see Proposed actions #8. |
 | `docs/guides/LOCAL_DEVELOPMENT.md` | guide | Project-structure listing accurate but incomplete (see Coverage gaps). No action needed. |
 | `docs/guides/TESTING.md` | guide | **Broken link, unresolved** — see Proposed actions #2. |
 | `docs/handover/README.md` | guide | **Broken links + stale content, unresolved** — see Proposed actions #3. |
@@ -58,16 +69,16 @@ repos (`diff` exit code 0).
 | `docs/reference/index.md` | reference (nav stub) | Fine. |
 | `docs/reference/API_SCHEMA_DESIGN.md` | plan | **Stale — describes a superseded design, unresolved** — see Proposed actions #5. |
 | `docs/reference/BFF_ADOPTION_GUIDE.md` | guide | **Stale proto-consumption description, unresolved** — see Proposed actions #6. |
-| `docs/reference/CONFIGURATION.md` | reference | Re-spot-checked `NSW_API_KEY`, `NSW_DAILY_BUDGET`, `MIN_APP_VERSION`, `BFF_PER_IP_RPS`, `CF_ORIGIN_TOKEN`, `STOPS_MANIFEST_URL` against `server/src/main/resources/application.yaml` — all present and consistent. No action. |
+| `docs/reference/CONFIGURATION.md` | reference | No action. |
 | `docs/reference/DEPLOYMENT.md` | guide | **Broken link, unresolved** — see Proposed actions #7. |
 | `docs/reference/ROADMAP.md` | plan | Forward-looking, post-deploy roadmap; deploy hasn't happened yet per `TODO.md`. No action. |
-| `docs/reference/SCREEN_DATA_INVENTORY.md` | reference | Cross-repo re-check: both repos confirmed pinned to `krail-api-proto = "0.4.2"` (fresh shallow clone, `6ed9290`). No action. |
-| `docs/reference/TRACKING_DESIGN.md` | ux-contract | No broken links or dated claims found. Still silent on the injected-clock testing invariant CLAUDE.md calls out — plausibly out of scope (design-rationale doc, not a testing doc). Flagged, no action proposed. |
-| `docs/tools/README.md` | guide (protected: `docs/tools/**`) | `./scripts/tester.sh` exists. No action — protected. |
+| `docs/reference/SCREEN_DATA_INVENTORY.md` | reference | No action. |
+| `docs/reference/TRACKING_DESIGN.md` | ux-contract | No broken links or dated claims found. Flagged (silent on the injected-clock testing invariant), no action proposed. |
+| `docs/tools/README.md` | guide (protected: `docs/tools/**`) | No action — protected. |
 | `docs/tools/bruno/README.md` | guide (protected: `docs/tools/**`) | No action — protected. |
 | `scripts/README.md` | guide | Coverage gap, unresolved — see Coverage gaps. |
-| `docs/archive/*.md` (11 files) + `docs/archive/README.md` | archive | All moved into archive on 2026-07-04 (29 days ago) — still well under the 90-day hard-delete threshold, and all have live inbound references from non-archive docs. No delete candidates this run. |
-| `.github/docs-gardener/CHARTER.md` | **unclassifiable** | Same as prior runs: doesn't fit the taxonomy (it's the gardener's own operating policy). Taxonomy addition (e.g. `policy`) still proposed for a future run; no action taken on the file. |
+| `docs/archive/*.md` (11 files) + `docs/archive/README.md` | archive | All moved into archive on 2026-07-04 (36 days ago) — still well under the 90-day hard-delete threshold, and all have live inbound references. No delete candidates this run. |
+| `.github/docs-gardener/CHARTER.md` | **unclassifiable** | Doesn't fit the taxonomy (it's the gardener's own operating policy). Taxonomy addition (e.g. `policy`) still proposed for a future run; no action taken. |
 | `.github/docs-gardener/AUDIT.md` | **unclassifiable** | This file itself — same reasoning as `CHARTER.md`. Overwritten each run by design, not archived. |
 
 ## Proposed actions (priority order, none applied — report-only)
@@ -92,7 +103,7 @@ archive tombstone table) instead.
 No `PROTOBUF.md` (or any protobuf-named doc) exists anywhere in the repo.
 Re-confirmed today:
 ```
-$ find docs -iname "*protobuf*"
+$ git ls-files | grep -i protobuf
 (no output)
 ```
 Proposed fix (unchanged): remove the dead link or point it at
@@ -157,10 +168,10 @@ DepartureMapper.kt  JourneyListMapper.kt  ParkingProtoMapper.kt
 $ git log --diff-filter=A --format=%cd --date=short -- server/src/main/kotlin/app/krail/bff/mapper/ | tail -1
 2026-06-11
 ```
-The mapper layer this doc proposes has been shipped for nearly two months, and
-the proto is consumed via Maven/GitHub Packages (same evidence as #4).
-Recommendation unchanged: archive with a tombstone noting it's superseded by the
-shipped mapper layer and the Maven-artifact proto flow documented in `CLAUDE.md`.
+The mapper layer this doc proposes has been shipped for two months, and the proto
+is consumed via Maven/GitHub Packages (same evidence as #4). Recommendation
+unchanged: archive with a tombstone noting it's superseded by the shipped mapper
+layer and the Maven-artifact proto flow documented in `CLAUDE.md`.
 
 ### 6. Stale proto-consumption description — `docs/reference/BFF_ADOPTION_GUIDE.md`
 ```
@@ -182,7 +193,6 @@ in `docs/reference/` already links it (`../archive/MODERNIZATION_PLAN.md`) — t
 file remains the one outlier.
 
 ### 8. Stale "submodule" wording — `docs/guides/FIRST_DEPLOY.md:256-258`
-Still reads:
 ```
 256: - **Dataset pipeline** — lives in the KRAIL-GTFS repo (`track-dataset.yml`
 257:   publishes the tracking datasets weekly); `proto-bump.yml` here PRs proto
@@ -207,9 +217,10 @@ Unchanged from prior runs: `docs/README.md` and `docs/index.md` both list a
 "Design & planning" table that includes the now-archived `MODERNIZATION_PLAN.md`
 but omits `docs/reference/TRACKING_DESIGN.md`, `docs/reference/ROADMAP.md`, and
 all of `docs/handover/`. `docs/README.md`'s "Guides" table also omits
-`FIRST_DEPLOY.md` and `EMERGENCY.md`. Deferred to a future run under priority 3
-once the higher-priority broken links (#1, #3, #7) are resolved, to avoid
-re-touching these tables twice.
+`FIRST_DEPLOY.md` and `EMERGENCY.md` (confirmed present in `docs/index.md`'s
+equivalent table, so this is a `docs/README.md`-specific gap, not a repo-wide
+one). Deferred to a future run under priority 3 once the higher-priority broken
+links (#1, #3, #7) are resolved, to avoid re-touching these tables twice.
 
 ## Coverage gaps
 
@@ -235,28 +246,35 @@ re-touching these tables twice.
 - `CLAUDE.md`'s module-layout table (protected, no action taken) lists `route/`
   (singular) and a separate `trackdata/` directory. Actual structure still has
   `routes/` (plural) and no standalone `trackdata/` — `TrackDatasetStore.kt` lives
-  inside `track/`. Re-confirmed today, unchanged from prior audits:
+  inside `track/`. Re-confirmed today, unchanged across six consecutive audits:
   ```
   $ find server/src/main/kotlin/app/krail/bff -maxdepth 1 -type d
-  .../model .../util .../config .../data .../tools .../track .../mapper
-  .../client .../di .../plugins .../routes
+  .../client .../config .../data .../di .../mapper .../model .../plugins .../routes .../tools .../track .../util
   $ find server -iname "*trackdata*"
   server/src/main/kotlin/app/krail/bff/track/TrackDatasetStore.kt
   ```
-- `TODO.md` (protected, ledger — no action taken) line 43 still lists, as an
-  open manual action, *"(Recommended) Main ruleset: add `PR Build` as a
-  required status check so direct pushes can't land with failing tests."*
-  `docs/guides/FIRST_DEPLOY.md` (not protected) still says *"Closed
-  2026-07-26: the `main` ruleset now requires the `build` status check to
-  pass."* These two docs still disagree on whether this item is open or done,
-  unresolved across two consecutive audits (2026-07-26, 2026-08-02). This agent
-  has no access to the actual GitHub branch-protection settings to arbitrate,
-  and `TODO.md` is off-limits to edit regardless — flagged again for the human
-  to reconcile.
+- `TODO.md` (protected, ledger — no action taken) line 43 still lists, as an open
+  manual action, *"(Recommended) Main ruleset: add `PR Build` as a required status
+  check so direct pushes can't land with failing tests."* `docs/guides/FIRST_DEPLOY.md`
+  (not protected) still says *"Closed 2026-07-26: the `main` ruleset now requires
+  the `build` status check to pass."* These two docs still disagree on whether
+  this item is open or done, unresolved across three consecutive audits
+  (2026-07-26, 2026-08-02, 2026-08-09). This agent has no access to the actual
+  GitHub branch-protection settings to arbitrate, and `TODO.md` is off-limits to
+  edit regardless — flagged for the human to reconcile.
 
 ## Deferred to next run
 
 Nothing deferred for budget reasons (report-only mode produces no content edits).
 The eight proposed actions above, plus the two coverage gaps, remain candidates
-for the first `active`-mode run — none have been applied yet across four
-consecutive report-only audits (2026-07-17, 2026-07-19, 2026-07-26, 2026-08-02).
+for the first `active`-mode run — none have been applied yet across five
+consecutive report-only audits (2026-07-17, 2026-07-19, 2026-07-26, 2026-08-02,
+2026-08-09).
+
+## Note on PR #101
+
+PR #101 (2026-08-02 audit) is still open at the time of this run, seven days
+after it was opened, with zero comments or reviews. This run's findings are
+identical to #101's — nothing changed in between. The human may prefer to merge
+or close #101 rather than carry two near-duplicate open audit PRs; that decision
+is outside this agent's authority (it never merges, approves, or closes PRs).
