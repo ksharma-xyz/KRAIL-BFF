@@ -1,4 +1,4 @@
-# Docs Gardener Audit — 2026-08-16
+# Docs Gardener Audit — 2026-08-23
 
 Run mode: **report-only** (per charter Part B). No doc content was changed by this
 run. This file records the classification, staleness re-verification, and proposed
@@ -6,44 +6,38 @@ actions for a future `active` run.
 
 ## What changed since the last audit
 
-The most recent docs-gardener run was PR #106 (2026-08-09), itself a near-duplicate
-of the still-open PR #101 (2026-08-02). Both remain **open, unmerged** at the time
-of this run. Nothing under this agent's remit has changed since PR #106:
+The last docs-gardener run was PR #108 (2026-08-16), merged 2026-08-20 as
+`c9365e4`. That commit is the current tip of `main`:
 
 ```
-$ git diff --stat 2033b85..HEAD
- .github/workflows/codeql.yml                | 8 ++++----
- .github/workflows/dependency-submission.yml | 4 ++--
- .github/workflows/pr.yml                    | 4 ++--
- 3 files changed, 8 insertions(+), 8 deletions(-)
+$ git rev-parse HEAD
+c9365e4ec644af01f14e05035b668142255325ae
+$ git rev-parse origin/main
+c9365e4ec644af01f14e05035b668142255325ae
 ```
 
-Same three CI workflow files as last run, all further Dependabot version bumps
-(`da3a877`, `3983f72`) — zero markdown files touched. Back to the last *merged*
-audit, #98 (2026-07-26, `1caeff0`):
-
-```
-$ git diff --stat 1caeff0..HEAD -- '*.md'
-(no output)
-```
-
-No markdown file has changed anywhere in the repo since the last merged
-docs-gardener PR, three weeks ago. Every finding below was re-verified fresh
-against today's tree (grep/`ls`/`git log` output quoted per finding) rather than
-carried forward untested; none changed.
+**Nothing has changed in the repository at all since the last audit** — not a
+single commit, markdown or otherwise, in the three days since #108 merged. Every
+finding below was still re-verified fresh against today's tree (grep/`ls`/`git log`
+output quoted per finding) rather than carried forward untested, per the charter's
+staleness protocol. All findings reproduce identically; one piece of evidence
+(the mapper "shipped since" date in finding #5) is corrected below — the prior
+audit's shallow-clone `git log` truncated history and understated the date.
 
 ## Feedback ingested
 
-Last 5 `docs-gardener`-labeled PRs: #106 (open), #101 (open), #98, #90, #85 (all
-merged). Checked issue comments, review comments, and reviews on all five —
-zero on every one, including both open PRs. No `charter:` instructions found. No
-Steering Log entries added this run.
+Last 5 `docs-gardener`-labeled PRs: #108, #106, #101, #98, #90 — all now
+**merged** (the human cleared the #101/#106/#108 backlog flagged in the last
+audit's note, merging all three on 2026-08-20). Checked issue comments, review
+comments, and reviews on all five: zero on every one. No `charter:` instructions
+found. No Steering Log entries added this run.
 
 ## Charter Part A drift
 
 Diffed this repo's `.github/docs-gardener/CHARTER.md` against `ksharma-xyz/KRAIL`'s
-copy (fresh shallow clone, `7474fb9`). **No drift** — every line above `## Part B:
-Repo Overrides` is byte-identical between the two repos.
+copy (fresh shallow clone, `2761e50`). **No drift** — every line above `## Part B:
+Repo Overrides` is byte-identical between the two repos (confirmed with `diff`,
+zero output).
 
 ## Classification table
 
@@ -71,12 +65,12 @@ Repo Overrides` is byte-identical between the two repos.
 | `docs/reference/CONFIGURATION.md` | reference | No action. |
 | `docs/reference/DEPLOYMENT.md` | guide | **Broken link, unresolved** — see Proposed actions #7. |
 | `docs/reference/ROADMAP.md` | plan | Forward-looking, post-deploy roadmap; deploy hasn't happened yet per `TODO.md`. No action. |
-| `docs/reference/SCREEN_DATA_INVENTORY.md` | reference | Cross-repo re-check: named KRAIL-side mapper classes (`TripResponseMapper`, `DepartureMonitorMapper`, `JourneyMapMapper`, `GtfsRealtimeMatcher`, `JourneyListMapper`) re-verified present in `ksharma-xyz/KRAIL` (fresh shallow clone, `7474fb9`). Both repos confirmed pinned to `krail-api-proto = "0.4.2"`. No action. |
+| `docs/reference/SCREEN_DATA_INVENTORY.md` | reference | Cross-repo re-check: named KRAIL-side mapper classes (`TripResponseMapper`, `DepartureMonitorMapper`, `JourneyMapMapper`, `GtfsRealtimeMatcher`, `JourneyListMapper`) re-verified present in `ksharma-xyz/KRAIL` (fresh shallow clone, `2761e50`). Both repos confirmed pinned to `krail-api-proto = "0.4.2"`. No action. |
 | `docs/reference/TRACKING_DESIGN.md` | ux-contract | No broken links or dated claims found. Flagged (silent on the injected-clock testing invariant), no action proposed. |
 | `docs/tools/README.md` | guide (protected: `docs/tools/**`) | No action — protected. |
 | `docs/tools/bruno/README.md` | guide (protected: `docs/tools/**`) | No action — protected. |
 | `scripts/README.md` | guide | Coverage gap, unresolved — see Coverage gaps. |
-| `docs/archive/*.md` (11 files) + `docs/archive/README.md` | archive | All moved into archive on 2026-07-04 (43 days ago) — still well under the 90-day hard-delete threshold, and all have live inbound references. No delete candidates this run. |
+| `docs/archive/*.md` (11 files) + `docs/archive/README.md` | archive | All moved into archive on 2026-07-04 (50 days ago) — still well under the 90-day hard-delete threshold, and all have live inbound references. No delete candidates this run. |
 | `.github/docs-gardener/CHARTER.md` | **unclassifiable** | Doesn't fit the taxonomy (it's the gardener's own operating policy). Taxonomy addition (e.g. `policy`) still proposed for a future run; no action taken. |
 | `.github/docs-gardener/AUDIT.md` | **unclassifiable** | This file itself — same reasoning as `CHARTER.md`. Overwritten each run by design, not archived. |
 
@@ -160,14 +154,16 @@ Still opens: *"This is a **review doc**. Nothing here is implemented yet."* — 
 still describes proto vendoring via git submodule (line 420,
 `// settings.gradle.kts — vendor via git submodule at krail-api-proto/`).
 
-Both claims are still verifiably false. Re-confirmed today:
+Both claims are still verifiably false. Re-confirmed today, with a corrected date
+(the previous audit's shallow-clone `git log` truncated history and understated
+this — this run's clone has full history):
 ```
 $ ls server/src/main/kotlin/app/krail/bff/mapper/
 DepartureMapper.kt  JourneyListMapper.kt  ParkingProtoMapper.kt
 $ git log --diff-filter=A --format=%cd --date=short -- server/src/main/kotlin/app/krail/bff/mapper/ | tail -1
-2026-06-11
+2025-11-06
 ```
-The mapper layer this doc proposes has been shipped for over two months, and the
+The mapper layer this doc proposes has been shipped for over nine months, and the
 proto is consumed via Maven/GitHub Packages (same evidence as #4). Recommendation
 unchanged: archive with a tombstone noting it's superseded by the shipped mapper
 layer and the Maven-artifact proto flow documented in `CLAUDE.md`.
@@ -215,18 +211,18 @@ Proposed fix: reword to "PRs `gradle/libs.versions.toml` proto-version bumps"
 Unchanged from prior runs: `docs/README.md` and `docs/index.md` both list a
 "Design & planning" table that includes the now-archived `MODERNIZATION_PLAN.md`
 but omits `docs/reference/TRACKING_DESIGN.md`, `docs/reference/ROADMAP.md`, and
-all of `docs/handover/`. `docs/README.md`'s "Guides" table also omits
-`FIRST_DEPLOY.md` and `EMERGENCY.md` (confirmed present in `docs/index.md`'s
-equivalent table, so this is a `docs/README.md`-specific gap, not a repo-wide
-one). Deferred to a future run under priority 3 once the higher-priority broken
-links (#1, #3, #7) are resolved, to avoid re-touching these tables twice.
+all of `docs/handover/`. `docs/README.md`'s table also has no `FIRST_DEPLOY.md`/
+`EMERGENCY.md` entries at all (confirmed present in `docs/index.md`'s equivalent
+table, so this is a `docs/README.md`-specific gap, not a repo-wide one). Deferred
+to a future run under priority 3 once the higher-priority broken links (#1, #3,
+#7) are resolved, to avoid re-touching these tables twice.
 
 ## Coverage gaps
 
-- `scripts/README.md`'s "Available Scripts" section still documents only
-  `dev.sh` and `test-trip-planning.sh`. Still-undocumented in that file:
-  `check-size.sh`, `compare-json-vs-proto.sh`, `quick-debug.sh`,
-  `test-proto-endpoint.sh`, `tester.sh`. Re-confirmed today:
+- `scripts/README.md`'s documented sections still cover only `dev.sh` and
+  `test-trip-planning.sh`. Still-undocumented in that file: `check-size.sh`,
+  `compare-json-vs-proto.sh`, `quick-debug.sh`, `test-proto-endpoint.sh`,
+  `tester.sh`. Re-confirmed today:
   ```
   $ ls scripts/*.sh
   scripts/check-size.sh scripts/compare-json-vs-proto.sh scripts/dev.sh
@@ -245,10 +241,10 @@ links (#1, #3, #7) are resolved, to avoid re-touching these tables twice.
 - `CLAUDE.md`'s module-layout table (protected, no action taken) lists `route/`
   (singular) and a separate `trackdata/` directory. Actual structure still has
   `routes/` (plural) and no standalone `trackdata/` — `TrackDatasetStore.kt` lives
-  inside `track/`. Re-confirmed today, unchanged across seven consecutive audits:
+  inside `track/`. Re-confirmed today, unchanged across eight consecutive audits:
   ```
   $ find server/src/main/kotlin/app/krail/bff -maxdepth 1 -type d
-  .../client .../config .../data .../di .../mapper .../model .../plugins .../routes .../tools .../track .../util
+  .../client .../config .../data .../di .../mapper .../model .../plugins .../routes .../track .../tools .../util
   $ find server -iname "*trackdata*"
   server/src/main/kotlin/app/krail/bff/track/TrackDatasetStore.kt
   ```
@@ -257,34 +253,32 @@ links (#1, #3, #7) are resolved, to avoid re-touching these tables twice.
   check so direct pushes can't land with failing tests."* `docs/guides/FIRST_DEPLOY.md`
   (not protected) still says *"Closed 2026-07-26: the `main` ruleset now requires
   the `build` status check to pass."* These two docs still disagree on whether
-  this item is open or done, unresolved across four consecutive audits
-  (2026-07-26, 2026-08-02, 2026-08-09, 2026-08-16). This agent has no access to the
-  actual GitHub branch-protection settings to arbitrate, and `TODO.md` is
-  off-limits to edit regardless — flagged for the human to reconcile.
+  this item is open or done, unresolved across five consecutive audits
+  (2026-07-26, 2026-08-02, 2026-08-09, 2026-08-16, 2026-08-23). This agent has no
+  access to the actual GitHub branch-protection settings to arbitrate, and
+  `TODO.md` is off-limits to edit regardless — flagged for the human to reconcile.
 
 ## Deferred to next run
 
 Nothing deferred for budget reasons (report-only mode produces no content edits).
 The eight proposed actions above, plus the two coverage gaps, remain candidates
-for the first `active`-mode run — none have been applied yet across six
+for the first `active`-mode run — none have been applied yet across seven
 consecutive report-only audits (2026-07-17, 2026-07-19, 2026-07-26, 2026-08-02,
-2026-08-09, 2026-08-16).
+2026-08-09, 2026-08-16, 2026-08-23).
 
-## Note on open duplicate audit PRs (#101, #106)
+## Note for the human
 
-Both PR #101 (2026-08-02) and PR #106 (2026-08-09) are still open, unreviewed, and
-unmerged at the time of this run — 14 and 7 days respectively. This run's findings
-are, again, identical to both: nothing in the repo's markdown or the code it
-describes has changed in three weeks. This is now the **third** consecutive
-report-only run producing substantively the same audit while two earlier copies
-sit unreviewed.
+The last audit (#108) flagged three near-duplicate open report-only PRs sitting
+unreviewed. All three (#101, #106, #108) were merged in a single batch on
+2026-08-20 — thank you. No `charter:` comment was left on any of them, so this
+run followed the same process as before and opened another report-only PR.
 
-This agent has no authority to merge, close, or supersede those PRs, and the
-charter's feedback mechanism (Steering Log via `charter:` PR comments) has not
-been used to change this behavior, so this run followed the same process as
-#106 rather than unilaterally skipping the PR. But three near-identical open PRs
-is a signal worth the human's attention: either merge #101 or #106 (they're
-equivalent; either closes the gap), or add a `charter:` comment telling this
-agent to skip opening a new PR when no markdown has changed since the last
-*open* (not just last *merged*) gardener PR. Absent that instruction, the next
-run will very likely produce a fourth near-duplicate.
+Worth naming directly: the repository has now had **zero commits of any kind**
+in the three days since the last audit, and the same 8 findings plus 2 coverage
+gaps have been re-verified, unchanged, across all seven audits since 2026-07-17
+(five weeks). Every one of those findings is a small, mechanical, low-risk fix
+(dead links, a one-line archive tombstone, a couple of "submodule" -> "Maven
+artifact" wording corrections). If useful, a `charter:` comment switching Part
+B's run mode to `active` would let the next run apply all eight in one PR — it
+would land comfortably inside the 500-line budget. Absent that, this agent will
+keep re-verifying and reporting the same findings on schedule.
