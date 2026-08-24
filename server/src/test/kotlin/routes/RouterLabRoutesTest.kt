@@ -47,10 +47,11 @@ class RouterLabRoutesTest {
         runCatching { GlobalContext.stopKoin() }
     }
 
-    // ---- Accept-header JSON switch ----------------------------------------
+    // ---- Accept-header JSON switch (dev-gated) -----------------------------
 
     @Test
-    fun `vic plan-proto returns json mirror when accept is json`() = testApplication {
+    fun `vic plan-proto returns json mirror when accept is json and gate on`() = testApplication {
+        environment { config = MapApplicationConfig("bff.devPassthrough" to "true") }
         val svc = vicService()
         application { vicTripRoutes(svc) }
 
@@ -72,6 +73,7 @@ class RouterLabRoutesTest {
 
     @Test
     fun `vic plan-proto still defaults to protobuf`() = testApplication {
+        environment { config = MapApplicationConfig("bff.devPassthrough" to "true") }
         val svc = vicService()
         application { vicTripRoutes(svc) }
 
@@ -83,7 +85,24 @@ class RouterLabRoutesTest {
     }
 
     @Test
-    fun `nsw plan-proto returns json mirror when accept is json`() = testApplication {
+    fun `accept json without dev gate still returns protobuf`() = testApplication {
+        // Production safety: client-side ContentNegotiation may append
+        // application/json to Accept — the encoding must not change when the
+        // dev gate is off (all production configs).
+        val svc = vicService()
+        application { vicTripRoutes(svc) }
+
+        val response = client.get(
+            "/api/v1/vic/trip/plan-proto?origin=VIC:A&destination=VIC:D&date=20260302&time=0755"
+        ) { header("Accept", "application/json") }
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.contentType()?.match(ContentType.Application.ProtoBuf) == true)
+        assertEquals(2, JourneyList.ADAPTER.decode(response.readRawBytes()).journeys.size)
+    }
+
+    @Test
+    fun `nsw plan-proto returns json mirror when accept is json and gate on`() = testApplication {
+        environment { config = MapApplicationConfig("bff.devPassthrough" to "true") }
         application {
             install(Koin) { modules(module { single<NswClient> { StubNswClient() } }) }
             configureTripRoutes()

@@ -130,6 +130,9 @@ tasks.register<JavaExec>("routerBench") {
 // test-worker heap can't hold the ~10M-row build.
 tasks.named<Test>("test") {
     maxHeapSize = "3g"
+    // Gate tests assert both states of the Router Lab dev flag; a developer
+    // shell exporting it would invert them. Blank = unset (see AppConfig).
+    environment("BFF_DEV_PASSTHROUGH", "")
 }
 
 // Separate configuration so Gradle resolves the proto JAR independently from

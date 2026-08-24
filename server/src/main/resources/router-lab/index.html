@@ -62,7 +62,9 @@
   .ac-item .id { color: var(--muted); font-size: 11px; }
 
   #results { overflow-y: auto; padding: 18px 22px; }
-  .status-row { text-align: center; color: var(--muted); padding: 10px; font-size: 12px; }
+  /* Fixed height so status text changes never shift the scroll anchor. */
+  .status-row { text-align: center; color: var(--muted); padding: 10px; font-size: 12px;
+    min-height: 38px; }
   .card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
     margin-bottom: 10px; overflow: hidden;
@@ -149,7 +151,8 @@ const state = {
   journeys: new Map(),      // key -> journey json
   pendingLater: false, pendingEarlier: false,
   emptyLater: 0, emptyEarlier: 0,   // consecutive fetches adding nothing
-  earliestQuery: null,      // Date of the earliest window queried
+  earliestAnchor: null,     // {date:"YYYYMMDD", time:"HHmm"} of the earliest window queried (region-local)
+  origin: "", destination: "", // captured at search time so paging can't drift
   region: "VIC",
 };
 
@@ -166,22 +169,37 @@ nowDefaults();
 function localParts(iso, tz) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", hour12: false,
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
   }).formatToParts(new Date(iso));
   const p = {}; parts.forEach(x => p[x.type] = x.value);
-  const hour = p.hour === "24" ? "00" : p.hour; // some engines emit 24:00
-  return { date: `${p.year}${p.month}${p.day}`, time: `${hour}${p.minute}` };
+  return { date: `${p.year}${p.month}${p.day}`, time: `${p.hour}${p.minute}` };
 }
 
+// Step a region-local {date, time} anchor back N minutes. Pure calendar
+// math — no Date parsing in the browser's timezone.
+function stepBack(anchor, minutes) {
+  let total = +anchor.time.slice(0, 2) * 60 + +anchor.time.slice(2) - minutes;
+  let dayShift = 0;
+  while (total < 0) { total += 1440; dayShift -= 1; }
+  const d = new Date(Date.UTC(+anchor.date.slice(0, 4), +anchor.date.slice(4, 6) - 1, +anchor.date.slice(6, 8)));
+  d.setUTCDate(d.getUTCDate() + dayShift);
+  const date = `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}`;
+  return { date, time: `${String(Math.floor(total / 60)).padStart(2, "0")}${String(total % 60).padStart(2, "0")}` };
+}
+
+// Full leg signature: journeys sharing a first trip but diverging later, or
+// with absent trip ids, must not collapse into one card.
 function journeyKey(j) {
-  const t = (j.legs || []).map(l => l.transport_leg).find(Boolean);
-  return (t && t.trip_id ? t.trip_id : "?") + "@" + j.origin_utc_date_time;
+  const legSig = (j.legs || [])
+    .map(l => l.transport_leg ? (l.transport_leg.trip_id || "?") : "w")
+    .join("|");
+  return legSig + "@" + j.origin_utc_date_time + "-" + j.destination_utc_date_time;
 }
 function depMs(j) { return Date.parse(j.origin_utc_date_time) || 0; }
 
-function planUrl(origin, destination, date, time) {
+function planUrl(date, time) {
   const base = state.region === "VIC" ? "/api/v1/vic/trip/plan-proto" : "/api/v1/trip/plan-proto";
-  return `${base}?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&date=${date}&time=${time}`;
+  return `${base}?origin=${encodeURIComponent(state.origin)}&destination=${encodeURIComponent(state.destination)}&date=${date}&time=${time}`;
 }
 
 function showError(status, body) {
@@ -199,10 +217,7 @@ function showError(status, body) {
 function clearError() { $("error").style.display = "none"; }
 
 async function fetchJourneys(date, time) {
-  const origin = $("origin").value.trim();
-  const destination = $("destination").value.trim();
-  const res = await fetch(planUrl(origin, destination, date, time),
-    { headers: { "Accept": "application/json" } });
+  const res = await fetch(planUrl(date, time), { headers: { "Accept": "application/json" } });
   const text = await res.text();
   if (!res.ok) { showError(res.status, text); return null; }
   clearError();
@@ -224,7 +239,7 @@ function merge(journeys) {
 // ---- rendering -------------------------------------------------------------
 
 function chip(type) {
-  const [label, cls] = MODE[type] || [`type ${type}`, "mw"];
+  const [label, cls] = MODE[type] || [`type ${esc(type)}`, "mw"];
   return `<span class="chip ${cls}">${label}</span>`;
 }
 
@@ -303,15 +318,20 @@ async function search() {
   if (!origin || !destination) { showError(400, '{"error":{"code":"missing_input","message":"origin and destination required"}}'); return; }
   state.journeys.clear(); state.emptyLater = 0; state.emptyEarlier = 0;
   state.region = $("region").value;
+  state.origin = origin; state.destination = destination;
   $("find").disabled = true;
+  $("top-status").textContent = "";
   $("bottom-status").textContent = "Loading…";
   try {
     const date = $("date").value.replaceAll("-", "");
     const time = $("time").value.replace(":", "");
-    state.earliestQuery = new Date(`${$("date").value}T${$("time").value}:00`);
+    state.earliestAnchor = { date, time };
     const journeys = await fetchJourneys(date, time);
     if (journeys) { merge(journeys); renderList(); $("results").scrollTop = 0; }
     else { $("bottom-status").textContent = "Request failed — see error panel."; }
+  } catch (e) {
+    showError(0, `{"error":{"code":"network_error","message":"${String(e).replaceAll('"', "'")}"}}`);
+    $("bottom-status").textContent = "Request failed — see error panel.";
   } finally { $("find").disabled = false; }
 }
 
@@ -329,8 +349,12 @@ async function loadLater() {
       const added = merge(journeys);
       state.emptyLater = added === 0 ? state.emptyLater + 1 : 0;
       if (added > 0) renderList();
-      if (state.emptyLater >= 3) $("bottom-status").textContent = "No more later journeys.";
+      $("bottom-status").textContent =
+        state.emptyLater >= 3 ? "No more later journeys." : "Scroll for later journeys…";
     } else { $("bottom-status").textContent = "Request failed — see error panel."; }
+  } catch (e) {
+    $("bottom-status").textContent = "Request failed — see error panel.";
+    showError(0, `{"error":{"code":"network_error","message":"${String(e).replaceAll('"', "'")}"}}`);
   } finally { state.pendingLater = false; }
 }
 
@@ -339,15 +363,20 @@ async function loadEarlier() {
   state.pendingEarlier = true;
   $("top-status").textContent = "Loading earlier journeys…";
   try {
-    state.earliestQuery = new Date(state.earliestQuery.getTime() - 30 * 60_000); // shift 30 min back
-    const p = localParts(state.earliestQuery.toISOString(), TZ[state.region]);
-    const journeys = await fetchJourneys(p.date, p.time);
+    // Commit the shifted anchor only after a successful fetch so a failed
+    // window is retried, not skipped.
+    const candidate = stepBack(state.earliestAnchor, 30);
+    const journeys = await fetchJourneys(candidate.date, candidate.time);
     if (journeys) {
+      state.earliestAnchor = candidate;
       const added = merge(journeys);
       state.emptyEarlier = added === 0 ? state.emptyEarlier + 1 : 0;
       if (added > 0) renderList({ anchor: "top" });
       $("top-status").textContent = state.emptyEarlier >= 3 ? "No earlier journeys." : "";
     } else { $("top-status").textContent = ""; }
+  } catch (e) {
+    $("top-status").textContent = "";
+    showError(0, `{"error":{"code":"network_error","message":"${String(e).replaceAll('"', "'")}"}}`);
   } finally { state.pendingEarlier = false; }
 }
 

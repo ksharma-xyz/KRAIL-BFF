@@ -180,9 +180,12 @@ earlier windows, scroll-anchored, deduped by trip id + board time).
 
 Supporting pieces:
 - Both plan-proto endpoints (NSW `/api/v1/trip/plan-proto`, VIC
-  `/api/v1/vic/trip/plan-proto`) now honour `Accept: application/json` with a
+  `/api/v1/vic/trip/plan-proto`) honour `Accept: application/json` with a
   JSON mirror of the JourneyList proto (`mapper/JourneyListJson.kt`, TrackJson
-  precedent; shared by both regions). Default stays protobuf — additive only.
+  precedent; shared by both regions). The JSON branch is additionally keyed on
+  the dev gate — client-side ContentNegotiation can append application/json to
+  Accept, so with the gate off (all production configs) the encoding is
+  protobuf regardless of Accept (regression-tested).
 - Gated exactly like `/internal/passthrough`: `BFF_DEV_PASSTHROUGH=true`
   (env or `bff.devPassthrough` in local.properties). Off by default; both
   `/internal/*` lab routes 404 in production config. The stop-search endpoint
@@ -204,8 +207,9 @@ it writes `<gtfsDir>/router-snapshot.bin`.)
 
 Files: `routes/RouterLabRoutes.kt`, `mapper/JourneyListJson.kt`,
 `resources/router-lab/index.html`, `vic/VicTripService.searchStops`,
-`routes/RouterLabRoutesTest.kt` (9 tests: JSON switch both regions, protobuf
-default unchanged, search valid/injection/gated-off, lab gate on/off).
+`routes/RouterLabRoutesTest.kt` (10 tests: JSON switch both regions gated,
+protobuf default unchanged, Accept-json-with-gate-off stays protobuf, search
+valid/injection/gated-off, lab gate on/off).
 
 ## Recommended next steps
 

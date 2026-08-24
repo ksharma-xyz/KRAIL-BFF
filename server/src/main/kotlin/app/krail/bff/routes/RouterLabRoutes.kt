@@ -16,8 +16,9 @@ import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("app.krail.bff.routes.RouterLabRoutes")
 
-// Stop names contain spaces, '/', '#', '&', ''', '(', ')', '.' — allow those,
-// nothing else. Reject, don't sanitize.
+// Allowlist for stop-name search text: letters, digits, spaces and the
+// punctuation VIC stop names actually use (. , ' & / # ( ) _ : -). Reject,
+// don't sanitize.
 private val SEARCH_QUERY_REGEX = Regex("^[A-Za-z0-9 .,'&/#()_:-]{1,64}$")
 
 private const val INVALID_QUERY_BODY =

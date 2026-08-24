@@ -3,9 +3,10 @@ package app.krail.bff.routes
 import app.krail.bff.client.nsw.NswClient
 import app.krail.bff.mapper.JourneyListJson
 import app.krail.bff.model.TripRequestError
-import app.krail.bff.proto.JourneyList
 import app.krail.bff.model.parseTripRequest
 import app.krail.bff.model.validate
+import app.krail.bff.proto.JourneyList
+import app.krail.bff.util.boolean
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
@@ -170,9 +171,18 @@ suspend fun ApplicationCall.handleTripProtoRequest(nswClient: NswClient) {
     respondJourneyList(journeyList)
 }
 
-/** Accept: application/json → JSON mirror; default → protobuf (unchanged). */
+/**
+ * Accept: application/json → JSON mirror; default → protobuf (unchanged).
+ *
+ * The JSON branch is additionally keyed on the Router Lab dev gate: Ktor
+ * client ContentNegotiation can append application/json to Accept, so an
+ * ungated switch could silently flip the released KMP client from protobuf
+ * to JSON. With the gate off (all production configs) the encoding is
+ * protobuf regardless of Accept.
+ */
 internal suspend fun ApplicationCall.respondJourneyList(journeyList: JourneyList) {
-    if (request.headers["Accept"]?.contains("application/json") == true) {
+    val devGate = application.environment.config.boolean("BFF_DEV_PASSTHROUGH", "bff.devPassthrough", false)
+    if (devGate && request.headers["Accept"]?.contains("application/json") == true) {
         respondText(
             text = JourneyListJson.render(journeyList).toString(),
             contentType = ContentType.Application.Json,
