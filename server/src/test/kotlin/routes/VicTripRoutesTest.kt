@@ -1,5 +1,7 @@
 package app.krail.bff.routes
 
+import app.krail.bff.plugins.configureErrorHandling
+import app.krail.bff.plugins.configureSerialization
 import app.krail.bff.proto.JourneyList
 import app.krail.bff.router.MiniNetworkFixture
 import app.krail.bff.vic.VicTripService
@@ -96,12 +98,17 @@ class VicTripRoutesTest {
     }
 
     @Test
-    fun `unknown stop id returns 404`() = testApplication {
+    fun `unknown stop id returns 404 with the standard envelope`() = testApplication {
         val svc = service()
-        application { vicTripRoutes(svc) }
+        // Mirror production: StatusPages owns 404 bodies (ErrorEnvelope).
+        application {
+            configureSerialization()
+            configureErrorHandling()
+            vicTripRoutes(svc)
+        }
 
         val response = client.get("/api/v1/vic/trip/plan-proto?origin=VIC:ZZZZ&destination=VIC:D")
         assertEquals(HttpStatusCode.NotFound, response.status)
-        assertContains(response.bodyAsText(), "unknown_stop")
+        assertContains(response.bodyAsText(), "not_found")
     }
 }

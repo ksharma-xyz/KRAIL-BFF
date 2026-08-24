@@ -18,8 +18,6 @@ private val VIC_TIME_REGEX = Regex("^([01]\\d|2[0-3])[0-5]\\d$")
 private const val INVALID_STOP_ID_BODY =
     "{\"error\":{\"code\":\"invalid_stop_id\"," +
         "\"message\":\"origin and destination must be stop ids (letters, digits, ':', '_', '-'), 1-48 chars\"}}"
-private const val UNKNOWN_STOP_BODY =
-    "{\"error\":{\"code\":\"unknown_stop\",\"message\":\"origin or destination not in the VIC dataset\"}}"
 private const val INVALID_DATE_BODY =
     "{\"error\":{\"code\":\"invalid_date\",\"message\":\"date must be YYYYMMDD\"}}"
 private const val INVALID_TIME_BODY =
@@ -93,11 +91,8 @@ internal fun Application.vicTripRoutes(service: VicTripService) {
             val originId = origin.removePrefix("VIC:")
             val destinationId = destination.removePrefix("VIC:")
             if (!service.knowsStop(originId) || !service.knowsStop(destinationId)) {
-                return@get call.respondText(
-                    text = UNKNOWN_STOP_BODY,
-                    contentType = ContentType.Application.Json,
-                    status = HttpStatusCode.NotFound,
-                )
+                // StatusPages owns 404 bodies app-wide (ErrorEnvelope + correlationId).
+                return@get call.respond(HttpStatusCode.NotFound)
             }
 
             val journeyList = service.planProto(originId, destinationId, date, time)
