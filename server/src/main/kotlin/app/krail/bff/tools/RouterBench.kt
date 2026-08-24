@@ -79,8 +79,14 @@ private fun runQueries(model: RouterModel, date: LocalDate) {
         Triple("Flinders St -> Melbourne Central", "vic:rail:FSS", "vic:rail:MCE"),
         Triple("Flagstaff -> Parliament (City Loop)", "vic:rail:FGS", "vic:rail:PAR"),
         Triple("Southern Cross -> Flinders St", "vic:rail:SSS", "vic:rail:FSS"),
+        // V/Line pair — only present when folder 1 is ingested.
+        Triple("Southern Cross -> Geelong (V/Line)", "vic:rail:SSS", "vic:rail:GEL"),
     )
     for ((label, from, to) in canonical) {
+        if (model.stopsForId(from).isEmpty() || model.stopsForId(to).isEmpty()) {
+            println("canonical [$label]: skipped (stop ids not in this dataset)")
+            continue
+        }
         val start = System.nanoTime()
         val journeys = router.plan(from, to, date, 8 * 3600 + 30 * 60)
         val us = (System.nanoTime() - start) / 1000
