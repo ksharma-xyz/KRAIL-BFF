@@ -168,6 +168,45 @@ listed below or in next steps).
   Bus) not ingested tonight; folder 1 (V/Line) verified via bench but has no
   golden tests.
 
+## Router Lab (dev debug dashboard)
+
+`GET /internal/router-lab` — a self-contained HTML dashboard for debugging
+the journey planner: region select (NSW / VIC), origin/destination inputs
+(VIC gets stop-name autocomplete via `GET /internal/vic/stops/search?q=`),
+date/time defaulting to now, journey cards sorted by departure with expandable
+legs showing every intermediate stop + stop ids, and bidirectional infinite
+scroll (down = later journeys from last departure + 1 min; up = 30-min
+earlier windows, scroll-anchored, deduped by trip id + board time).
+
+Supporting pieces:
+- Both plan-proto endpoints (NSW `/api/v1/trip/plan-proto`, VIC
+  `/api/v1/vic/trip/plan-proto`) now honour `Accept: application/json` with a
+  JSON mirror of the JourneyList proto (`mapper/JourneyListJson.kt`, TrackJson
+  precedent; shared by both regions). Default stays protobuf — additive only.
+- Gated exactly like `/internal/passthrough`: `BFF_DEV_PASSTHROUGH=true`
+  (env or `bff.devPassthrough` in local.properties). Off by default; both
+  `/internal/*` lab routes 404 in production config. The stop-search endpoint
+  registers only when the VIC model loaded. The lab calls only BFF endpoints —
+  the NSW key never reaches the browser.
+
+Launch:
+
+```sh
+VIC_ROUTER_SNAPSHOT=/path/to/router-snapshot.bin \
+BFF_DEV_PASSTHROUGH=true \
+./gradlew :server:run -PrunPort=8080
+# open http://localhost:8080/internal/router-lab
+```
+
+(Build the snapshot first if needed:
+`./gradlew :server:routerBench -PgtfsDir=<dir with <n>/google_transit.zip>` —
+it writes `<gtfsDir>/router-snapshot.bin`.)
+
+Files: `routes/RouterLabRoutes.kt`, `mapper/JourneyListJson.kt`,
+`resources/router-lab/index.html`, `vic/VicTripService.searchStops`,
+`routes/RouterLabRoutesTest.kt` (9 tests: JSON switch both regions, protobuf
+default unchanged, search valid/injection/gated-off, lab gate on/off).
+
 ## Recommended next steps
 
 1. Dataset pipeline (KRAIL-GTFS repo): weekly download → build snapshot →

@@ -26,6 +26,29 @@ class VicTripService(
     fun knowsStop(id: String): Boolean = model.stopsForId(id).isNotEmpty()
 
     /**
+     * Case-insensitive substring search over stop names, for the Router Lab
+     * dev dashboard's autocomplete. Linear scan — dev tooling, ~25k names.
+     */
+    fun searchStops(query: String, limit: Int = 20): List<StopHit> {
+        val q = query.lowercase()
+        val hits = ArrayList<StopHit>(limit)
+        for (i in model.stopIds.indices) {
+            if (model.stopNames[i].lowercase().contains(q)) {
+                hits.add(
+                    StopHit(
+                        id = "VIC:${model.stopIds[i]}",
+                        name = model.stopNames[i],
+                        lat = model.stopLats[i],
+                        lon = model.stopLons[i],
+                    )
+                )
+                if (hits.size >= limit) break
+            }
+        }
+        return hits
+    }
+
+    /**
      * [date] is pre-parsed by the route (invalid calendar dates are a 400
      * there, never an exception here); [time] is validated HHmm. Both default
      * to "now" in Melbourne.
@@ -41,3 +64,5 @@ class VicTripService(
         return VicJourneyListMapper.toProto(model, journeys, queryDate, now)
     }
 }
+
+data class StopHit(val id: String, val name: String, val lat: Double, val lon: Double)

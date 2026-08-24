@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Router Lab</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #ffffff; --ink: #1a1d21; --muted: #6a7178;
+    --line: #d9dde2; --accent: #2451b3; --err-bg: #fbe9e9; --err-ink: #8a1f1f;
+    --chip-ink: #fff; --hover: #eef1f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --panel: #1d2026; --ink: #e6e8ea; --muted: #8d949c;
+      --line: #33383f; --accent: #7ba3f0; --err-bg: #3a2022; --err-ink: #f0a6a6;
+      --hover: #262a31;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid; grid-template-columns: 340px 1fr; height: 100vh;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  #controls {
+    padding: 18px; border-right: 1px solid var(--line); background: var(--panel);
+    overflow-y: auto;
+  }
+  #controls h1 { font-size: 17px; margin: 0 0 14px; }
+  #controls h1 span { color: var(--muted); font-weight: normal; font-size: 12px; }
+  .field { margin-bottom: 12px; position: relative; }
+  .field label { display: block; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
+  .field input, .field select {
+    width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg); color: var(--ink); font: inherit;
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #find {
+    width: 100%; padding: 9px; margin-top: 4px; border: 0; border-radius: 6px;
+    background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  #find:disabled { opacity: .5; cursor: default; }
+  #error {
+    display: none; margin-top: 12px; padding: 10px; border-radius: 6px;
+    background: var(--err-bg); color: var(--err-ink); word-break: break-word;
+  }
+  #error .code { font-weight: 700; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 14px; }
+
+  .ac-list {
+    position: absolute; z-index: 5; left: 0; right: 0; top: 100%;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    max-height: 260px; overflow-y: auto; box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  }
+  .ac-item { padding: 6px 9px; cursor: pointer; }
+  .ac-item:hover { background: var(--hover); }
+  .ac-item .id { color: var(--muted); font-size: 11px; }
+
+  #results { overflow-y: auto; padding: 18px 22px; }
+  .status-row { text-align: center; color: var(--muted); padding: 10px; font-size: 12px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    margin-bottom: 10px; overflow: hidden;
+  }
+  .card-head { display: flex; align-items: center; gap: 14px; padding: 10px 14px; cursor: pointer; }
+  .card-head:hover { background: var(--hover); }
+  .times { font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .chips { display: flex; gap: 5px; flex-wrap: wrap; margin-left: auto; }
+  .chip {
+    padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    color: var(--chip-ink); background: #666;
+  }
+  .m1 { background: #1f6bb5; } .m2 { background: #0f8b8b; } .m4 { background: #2f8f46; }
+  .m5 { background: #c26a1c; } .m7 { background: #7a4fb0; } .m9 { background: #0e7ea3; }
+  .m11 { background: #a3971f; } .mw { background: #7c828a; }
+
+  .legs { display: none; border-top: 1px solid var(--line); padding: 10px 14px; }
+  .card.open .legs { display: block; }
+  .leg { margin-bottom: 12px; }
+  .leg-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+  .leg-head .dt { color: var(--muted); font-size: 12px; }
+  .stops td { padding: 1px 12px 1px 0; font-size: 12.5px; vertical-align: top; }
+  .stops .sid { color: var(--muted); }
+  .walk { color: var(--muted); font-size: 13px; padding: 2px 0; }
+  .raw-toggle { font-size: 11px; color: var(--accent); cursor: pointer; user-select: none; }
+  pre.raw { font-size: 11px; overflow-x: auto; background: var(--bg); padding: 8px;
+    border-radius: 6px; display: none; }
+</style>
+</head>
+<body>
+<div id="controls">
+  <h1>Router Lab <span>journey planner debug</span></h1>
+  <div class="field">
+    <label for="region">Region</label>
+    <select id="region">
+      <option value="VIC">VIC — Melbourne (BFF RAPTOR)</option>
+      <option value="NSW">NSW — Sydney (upstream TfNSW)</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="origin">Origin</label>
+    <input id="origin" autocomplete="off" spellcheck="false" placeholder="search stop name…">
+    <div class="ac-list" id="origin-ac" hidden></div>
+  </div>
+  <div class="field">
+    <label for="destination">Destination</label>
+    <input id="destination" autocomplete="off" spellcheck="false" placeholder="search stop name…">
+    <div class="ac-list" id="destination-ac" hidden></div>
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label for="date">Date</label>
+      <input id="date" type="date">
+    </div>
+    <div class="field">
+      <label for="time">Time</label>
+      <input id="time" type="time">
+    </div>
+  </div>
+  <button id="find">Find timetable</button>
+  <div id="error"></div>
+  <div class="hint">
+    VIC: pick from autocomplete (ids like <span class="mono">VIC:vic:rail:FSS</span>).<br>
+    NSW: enter raw stop ids (e.g. <span class="mono">200060</span>).<br>
+    Scroll down for later journeys, up for earlier.
+  </div>
+</div>
+
+<div id="results">
+  <div class="status-row" id="top-status"></div>
+  <div id="list"></div>
+  <div class="status-row" id="bottom-status">Pick stops and hit Find timetable.</div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const TZ = { VIC: "Australia/Melbourne", NSW: "Australia/Sydney" };
+const MODE = { 1:["Train","m1"], 2:["Metro","m2"], 4:["Tram/LR","m4"], 5:["Bus","m5"],
+               7:["Coach","m7"], 9:["Ferry","m9"], 11:["School","m11"] };
+
+const state = {
+  journeys: new Map(),      // key -> journey json
+  pendingLater: false, pendingEarlier: false,
+  emptyLater: 0, emptyEarlier: 0,   // consecutive fetches adding nothing
+  earliestQuery: null,      // Date of the earliest window queried
+  region: "VIC",
+};
+
+function nowDefaults() {
+  const d = new Date();
+  $("date").value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  $("time").value = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+nowDefaults();
+
+// ---- helpers ---------------------------------------------------------------
+
+// ISO instant -> {date:"YYYYMMDD", time:"HHmm"} in the region's timezone.
+function localParts(iso, tz) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(new Date(iso));
+  const p = {}; parts.forEach(x => p[x.type] = x.value);
+  const hour = p.hour === "24" ? "00" : p.hour; // some engines emit 24:00
+  return { date: `${p.year}${p.month}${p.day}`, time: `${hour}${p.minute}` };
+}
+
+function journeyKey(j) {
+  const t = (j.legs || []).map(l => l.transport_leg).find(Boolean);
+  return (t && t.trip_id ? t.trip_id : "?") + "@" + j.origin_utc_date_time;
+}
+function depMs(j) { return Date.parse(j.origin_utc_date_time) || 0; }
+
+function planUrl(origin, destination, date, time) {
+  const base = state.region === "VIC" ? "/api/v1/vic/trip/plan-proto" : "/api/v1/trip/plan-proto";
+  return `${base}?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&date=${date}&time=${time}`;
+}
+
+function showError(status, body) {
+  const el = $("error");
+  let code = "http_" + status, message = body || "";
+  try {
+    const e = JSON.parse(body).error;
+    if (e) { code = e.code || code; message = e.message || ""; }
+  } catch (_) { /* show raw */ }
+  el.innerHTML = `<span class="code"></span> <span class="msg"></span>`;
+  el.querySelector(".code").textContent = `${status} ${code}`;
+  el.querySelector(".msg").textContent = message;
+  el.style.display = "block";
+}
+function clearError() { $("error").style.display = "none"; }
+
+async function fetchJourneys(date, time) {
+  const origin = $("origin").value.trim();
+  const destination = $("destination").value.trim();
+  const res = await fetch(planUrl(origin, destination, date, time),
+    { headers: { "Accept": "application/json" } });
+  const text = await res.text();
+  if (!res.ok) { showError(res.status, text); return null; }
+  clearError();
+  const parsed = JSON.parse(text);
+  return parsed.journeys || [];
+}
+
+// Merge fetched journeys into state; returns number of new ones.
+function merge(journeys) {
+  let added = 0;
+  for (const j of journeys) {
+    if (!j.origin_utc_date_time) continue;
+    const k = journeyKey(j);
+    if (!state.journeys.has(k)) { state.journeys.set(k, j); added++; }
+  }
+  return added;
+}
+
+// ---- rendering -------------------------------------------------------------
+
+function chip(type) {
+  const [label, cls] = MODE[type] || [`type ${type}`, "mw"];
+  return `<span class="chip ${cls}">${label}</span>`;
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+}
+
+function renderLeg(leg) {
+  if (leg.walking_leg) {
+    return `<div class="leg"><div class="walk">🚶 Walk ${esc(leg.walking_leg.duration)}</div></div>`;
+  }
+  const t = leg.transport_leg;
+  if (!t) return "";
+  const line = t.transport_mode_line || {};
+  const stops = (t.stops || []).map(s =>
+    `<tr><td class="mono">${esc(s.time)}</td><td>${esc(s.name)}</td>` +
+    `<td class="sid mono">${esc(s.stop_id || "")}</td></tr>`).join("");
+  return `<div class="leg">
+    <div class="leg-head">${chip(line.transport_mode_type)}
+      <strong>${esc(line.line_name || "")}</strong>
+      <span class="dt">${esc(t.display_text || "")} · ${esc(t.total_duration)} · trip <span class="mono">${esc(t.trip_id || "?")}</span></span>
+    </div>
+    <table class="stops">${stops}</table>
+  </div>`;
+}
+
+function renderCard(j, key) {
+  const transitCount = (j.legs || []).filter(l => l.transport_leg).length;
+  const transfers = Math.max(0, transitCount - 1);
+  const chips = (j.transport_mode_lines || []).map(l => chip(l.transport_mode_type)).join("");
+  const walk = j.total_walk_time ? ` · walk ${esc(j.total_walk_time)}` : "";
+  const el = document.createElement("div");
+  el.className = "card"; el.dataset.key = key;
+  el.innerHTML = `
+    <div class="card-head">
+      <span class="times mono">${esc(j.origin_time)} → ${esc(j.destination_time)}</span>
+      <span class="meta">${esc(j.travel_time)} · ${transfers} transfer${transfers === 1 ? "" : "s"}${walk}</span>
+      <span class="chips">${chips}</span>
+    </div>
+    <div class="legs">${(j.legs || []).map(renderLeg).join("")}
+      <div class="raw-toggle">show raw json</div><pre class="raw mono"></pre>
+    </div>`;
+  el.querySelector(".card-head").addEventListener("click", () => el.classList.toggle("open"));
+  const rawT = el.querySelector(".raw-toggle"), raw = el.querySelector("pre.raw");
+  rawT.addEventListener("click", () => {
+    raw.style.display = raw.style.display === "block" ? "none" : "block";
+    raw.textContent = JSON.stringify(j, null, 2);
+    rawT.textContent = raw.style.display === "block" ? "hide raw json" : "show raw json";
+  });
+  return el;
+}
+
+function renderList({ anchor } = {}) {
+  const container = $("results");
+  const prevHeight = container.scrollHeight, prevTop = container.scrollTop;
+  const open = new Set([...document.querySelectorAll(".card.open")].map(e => e.dataset.key));
+  const list = $("list");
+  list.textContent = "";
+  const sorted = [...state.journeys.entries()].sort((a, b) => depMs(a[1]) - depMs(b[1]));
+  for (const [key, j] of sorted) {
+    const card = renderCard(j, key);
+    if (open.has(key)) card.classList.add("open");
+    list.appendChild(card);
+  }
+  if (anchor === "top") {
+    container.scrollTop = prevTop + (container.scrollHeight - prevHeight);
+  }
+  $("bottom-status").textContent = state.journeys.size
+    ? "Scroll for later journeys…" : "No journeys found for that query.";
+}
+
+// ---- search + paging -------------------------------------------------------
+
+async function search() {
+  const origin = $("origin").value.trim(), destination = $("destination").value.trim();
+  if (!origin || !destination) { showError(400, '{"error":{"code":"missing_input","message":"origin and destination required"}}'); return; }
+  state.journeys.clear(); state.emptyLater = 0; state.emptyEarlier = 0;
+  state.region = $("region").value;
+  $("find").disabled = true;
+  $("bottom-status").textContent = "Loading…";
+  try {
+    const date = $("date").value.replaceAll("-", "");
+    const time = $("time").value.replace(":", "");
+    state.earliestQuery = new Date(`${$("date").value}T${$("time").value}:00`);
+    const journeys = await fetchJourneys(date, time);
+    if (journeys) { merge(journeys); renderList(); $("results").scrollTop = 0; }
+    else { $("bottom-status").textContent = "Request failed — see error panel."; }
+  } finally { $("find").disabled = false; }
+}
+
+async function loadLater() {
+  if (state.pendingLater || state.emptyLater >= 3 || !state.journeys.size) return;
+  state.pendingLater = true;
+  $("bottom-status").textContent = "Loading later journeys…";
+  try {
+    const sorted = [...state.journeys.values()].sort((a, b) => depMs(a) - depMs(b));
+    const last = sorted[sorted.length - 1];
+    const next = new Date(depMs(last) + 60_000); // last departure + 1 min
+    const p = localParts(next.toISOString(), TZ[state.region]);
+    const journeys = await fetchJourneys(p.date, p.time);
+    if (journeys) {
+      const added = merge(journeys);
+      state.emptyLater = added === 0 ? state.emptyLater + 1 : 0;
+      if (added > 0) renderList();
+      if (state.emptyLater >= 3) $("bottom-status").textContent = "No more later journeys.";
+    } else { $("bottom-status").textContent = "Request failed — see error panel."; }
+  } finally { state.pendingLater = false; }
+}
+
+async function loadEarlier() {
+  if (state.pendingEarlier || state.emptyEarlier >= 3 || !state.journeys.size) return;
+  state.pendingEarlier = true;
+  $("top-status").textContent = "Loading earlier journeys…";
+  try {
+    state.earliestQuery = new Date(state.earliestQuery.getTime() - 30 * 60_000); // shift 30 min back
+    const p = localParts(state.earliestQuery.toISOString(), TZ[state.region]);
+    const journeys = await fetchJourneys(p.date, p.time);
+    if (journeys) {
+      const added = merge(journeys);
+      state.emptyEarlier = added === 0 ? state.emptyEarlier + 1 : 0;
+      if (added > 0) renderList({ anchor: "top" });
+      $("top-status").textContent = state.emptyEarlier >= 3 ? "No earlier journeys." : "";
+    } else { $("top-status").textContent = ""; }
+  } finally { state.pendingEarlier = false; }
+}
+
+$("results").addEventListener("scroll", () => {
+  const c = $("results");
+  if (!state.journeys.size) return;
+  if (c.scrollTop + c.clientHeight > c.scrollHeight - 120) loadLater();
+  if (c.scrollTop < 60) loadEarlier();
+});
+
+$("find").addEventListener("click", search);
+
+// ---- VIC stop autocomplete -------------------------------------------------
+
+function wireAutocomplete(inputId) {
+  const input = $(inputId), listEl = $(inputId + "-ac");
+  let timer = null;
+  input.addEventListener("input", () => {
+    if ($("region").value !== "VIC") { listEl.hidden = true; return; }
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 2 || q.startsWith("VIC:")) { listEl.hidden = true; return; }
+    timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/internal/vic/stops/search?q=${encodeURIComponent(q)}`);
+        if (!res.ok) { listEl.hidden = true; return; }
+        const hits = await res.json();
+        listEl.textContent = "";
+        for (const h of hits) {
+          const item = document.createElement("div");
+          item.className = "ac-item";
+          item.innerHTML = `${esc(h.name)}<br><span class="id mono">${esc(h.id)}</span>`;
+          item.addEventListener("mousedown", () => { input.value = h.id; listEl.hidden = true; });
+          listEl.appendChild(item);
+        }
+        listEl.hidden = hits.length === 0;
+      } catch (_) { listEl.hidden = true; }
+    }, 200);
+  });
+  input.addEventListener("blur", () => setTimeout(() => { listEl.hidden = true; }, 150));
+}
+wireAutocomplete("origin");
+wireAutocomplete("destination");
+
+$("region").addEventListener("change", () => {
+  const vic = $("region").value === "VIC";
+  $("origin").placeholder = vic ? "search stop name…" : "NSW stop id, e.g. 200060";
+  $("destination").placeholder = vic ? "search stop name…" : "NSW stop id, e.g. 10101100";
+});
+</script>
+</body>
+</html>

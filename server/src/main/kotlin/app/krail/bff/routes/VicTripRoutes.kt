@@ -7,6 +7,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.util.AttributeKey
 import java.nio.file.Path
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -56,8 +57,14 @@ fun Application.configureVicTripRoutes() {
         log.error("vic router snapshot load failed; vic trip routes disabled", e)
         return
     }
+    // Later-registered dev routes (Router Lab stop search) find the loaded
+    // service here; absent key = VIC routing not configured.
+    attributes.put(VicTripServiceKey, service)
     vicTripRoutes(service)
 }
+
+/** Set only when the VIC router model loaded at startup. */
+val VicTripServiceKey = AttributeKey<VicTripService>("VicTripService")
 
 internal fun Application.vicTripRoutes(service: VicTripService) {
     routing {
@@ -108,10 +115,8 @@ internal fun Application.vicTripRoutes(service: VicTripService) {
             }
 
             val journeyList = service.planProto(originId, destinationId, date, time)
-            call.respondBytes(
-                bytes = journeyList.encode(),
-                contentType = ContentType.Application.ProtoBuf,
-            )
+            // Accept: application/json → JSON mirror (Router Lab); default protobuf.
+            call.respondJourneyList(journeyList)
         }
     }
 }

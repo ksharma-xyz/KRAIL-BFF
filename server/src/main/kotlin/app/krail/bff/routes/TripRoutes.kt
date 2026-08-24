@@ -1,7 +1,9 @@
 package app.krail.bff.routes
 
 import app.krail.bff.client.nsw.NswClient
+import app.krail.bff.mapper.JourneyListJson
 import app.krail.bff.model.TripRequestError
+import app.krail.bff.proto.JourneyList
 import app.krail.bff.model.parseTripRequest
 import app.krail.bff.model.validate
 import io.ktor.http.ContentType
@@ -144,6 +146,10 @@ private suspend fun ApplicationCall.handleTripJsonRequest(nswClient: NswClient) 
 /**
  * Handle trip request and return Protocol Buffers response.
  * Shared logic for protobuf endpoints (/v1/tp/trip and /api/v1/trip/plan-proto).
+ *
+ * Response encoding follows the Accept header, same as TrackRoutes:
+ * application/json → JSON mirror of the JourneyList proto (Router Lab dev
+ * dashboard), anything else → protobuf as before.
  */
 suspend fun ApplicationCall.handleTripProtoRequest(nswClient: NswClient) {
     val tripRequest = parseTripRequest()
@@ -161,8 +167,20 @@ suspend fun ApplicationCall.handleTripProtoRequest(nswClient: NswClient) {
         time = tripRequest.time,
         excludedModes = tripRequest.excludedModes,
     )
-    respondBytes(
-        bytes = journeyList.encode(),
-        contentType = io.ktor.http.ContentType.Application.ProtoBuf,
-    )
+    respondJourneyList(journeyList)
+}
+
+/** Accept: application/json → JSON mirror; default → protobuf (unchanged). */
+internal suspend fun ApplicationCall.respondJourneyList(journeyList: JourneyList) {
+    if (request.headers["Accept"]?.contains("application/json") == true) {
+        respondText(
+            text = JourneyListJson.render(journeyList).toString(),
+            contentType = ContentType.Application.Json,
+        )
+    } else {
+        respondBytes(
+            bytes = journeyList.encode(),
+            contentType = ContentType.Application.ProtoBuf,
+        )
+    }
 }
