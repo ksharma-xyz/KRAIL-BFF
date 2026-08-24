@@ -72,6 +72,8 @@ tasks.named<JavaExec>("run") {
             // local dev; manifest URL is the production path.
             "track.datasetDir" to "TRACK_DATASET_DIR",
             "track.manifestUrl" to "TRACK_DATASET_MANIFEST_URL",
+            // VIC router snapshot (feature-gates /api/v1/vic/trip routes)
+            "vic.routerSnapshot" to "VIC_ROUTER_SNAPSHOT",
         )
         propToEnv.forEach { (prop, envName) ->
             localProperties.getProperty(prop)?.takeIf { it.isNotBlank() }?.let { value ->
