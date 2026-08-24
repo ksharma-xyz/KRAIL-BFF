@@ -101,6 +101,35 @@ tasks.register<JavaExec>("buildStopsDataset") {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
 }
 
+// Build + benchmark the VIC journey-planning model from local GTFS zips.
+// Manual tooling like buildStopsDataset — not part of the serving path.
+// Args (Gradle properties): -PgtfsDir=<dir with <folder>/google_transit.zip>
+// [-PsnapshotOut=path] [-Pfolders=2,3,4,11] [-PbenchDate=2026-08-25]
+tasks.register<JavaExec>("routerBench") {
+    group = "data"
+    description = "Build + benchmark the VIC journey-planning model from local GTFS zips"
+    mainClass.set("app.krail.bff.tools.RouterBenchKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    maxHeapSize = "3g"
+    val gtfsDir = project.findProperty("gtfsDir")?.toString()
+    if (gtfsDir != null) {
+        args = listOf(
+            gtfsDir,
+            project.findProperty("snapshotOut")?.toString() ?: "",
+            project.findProperty("folders")?.toString() ?: "",
+            project.findProperty("benchDate")?.toString() ?: "",
+        )
+    }
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
+}
+
+// The VIC router integration tests build the full model in-process when
+// VIC_GTFS_DIR is set (they skip cleanly when it isn't); the default 512m
+// test-worker heap can't hold the ~10M-row build.
+tasks.named<Test>("test") {
+    maxHeapSize = "3g"
+}
+
 // Separate configuration so Gradle resolves the proto JAR independently from
 // the main compile classpath. Must be populated BEFORE wire {} reads it.
 val krailProto: Configuration by configurations.creating { isTransitive = false }
