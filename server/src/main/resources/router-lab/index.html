@@ -327,7 +327,7 @@ async function search() {
     const time = $("time").value.replace(":", "");
     state.earliestAnchor = { date, time };
     const journeys = await fetchJourneys(date, time);
-    if (journeys) { merge(journeys); renderList(); $("results").scrollTop = 0; }
+    if (journeys) { merge(journeys); renderList(); $("results").scrollTop = 0; fillViewport(); }
     else { $("bottom-status").textContent = "Request failed — see error panel."; }
   } catch (e) {
     showError(0, `{"error":{"code":"network_error","message":"${String(e).replaceAll('"', "'")}"}}`);
@@ -356,6 +356,15 @@ async function loadLater() {
     $("bottom-status").textContent = "Request failed — see error panel.";
     showError(0, `{"error":{"code":"network_error","message":"${String(e).replaceAll('"', "'")}"}}`);
   } finally { state.pendingLater = false; }
+  fillViewport();
+}
+
+// Scroll events never fire while the list is shorter than the pane, so keep
+// fetching later journeys until it overflows (bounded by the emptyLater cap).
+function fillViewport() {
+  const c = $("results");
+  if (state.journeys.size && state.emptyLater < 3 && !state.pendingLater &&
+      c.scrollHeight <= c.clientHeight + 40) loadLater();
 }
 
 async function loadEarlier() {
@@ -385,6 +394,15 @@ $("results").addEventListener("scroll", () => {
   if (!state.journeys.size) return;
   if (c.scrollTop + c.clientHeight > c.scrollHeight - 120) loadLater();
   if (c.scrollTop < 60) loadEarlier();
+});
+
+// Wheel fallback: at the very top a wheel-up produces no scroll event, and a
+// non-overflowing list produces none in either direction.
+$("results").addEventListener("wheel", (e) => {
+  const c = $("results");
+  if (!state.journeys.size) return;
+  if (e.deltaY < 0 && c.scrollTop === 0) loadEarlier();
+  else if (e.deltaY > 0 && c.scrollTop + c.clientHeight >= c.scrollHeight - 4) loadLater();
 });
 
 $("find").addEventListener("click", search);
