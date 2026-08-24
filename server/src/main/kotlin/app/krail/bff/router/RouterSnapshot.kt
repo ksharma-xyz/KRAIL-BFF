@@ -53,6 +53,8 @@ object RouterSnapshot {
             out.writeInts(model.patternStops)
             out.writeInts(model.patternTripsOffset)
             out.writeInts(model.patternTimesBase)
+            out.writeInt(model.patternFifo.size)
+            for (b in model.patternFifo) out.writeBoolean(b)
 
             out.writeStrings(model.tripIds)
             out.writeInts(model.tripServices)
@@ -82,6 +84,9 @@ object RouterSnapshot {
     }
 
     fun read(path: Path): RouterModel {
+        // Upper bound on any declared array length: a truncated/corrupt file
+        // must fail with an exception, not a multi-GB allocation.
+        val sizeLimit = Files.size(path).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
         DataInputStream(BufferedInputStream(Files.newInputStream(path), BUFFER_SIZE)).use { input ->
             val magic = input.readInt()
             require(magic == MAGIC) { "not a router snapshot: bad magic" }
@@ -94,57 +99,59 @@ object RouterSnapshot {
                 builtAtEpochSec = input.readLong(),
             )
 
-            val stopIds = input.readStrings()
-            val stopNames = input.readStrings()
-            val stopLats = input.readDoubles()
-            val stopLons = input.readDoubles()
+            val stopIds = input.readStrings(sizeLimit)
+            val stopNames = input.readStrings(sizeLimit)
+            val stopLats = input.readDoubles(sizeLimit)
+            val stopLons = input.readDoubles(sizeLimit)
 
-            val routeIds = input.readStrings()
-            val routeShortNames = input.readStrings()
-            val routeLongNames = input.readStrings()
-            val routeTypes = input.readInts()
+            val routeIds = input.readStrings(sizeLimit)
+            val routeShortNames = input.readStrings(sizeLimit)
+            val routeLongNames = input.readStrings(sizeLimit)
+            val routeTypes = input.readInts(sizeLimit)
 
-            val serviceCount = input.readInt()
+            val serviceCount = input.readSize(sizeLimit)
             val services = Array(serviceCount) {
                 ServiceCalendar(
                     weekdayMask = input.readInt(),
                     startDate = input.readInt(),
                     endDate = input.readInt(),
-                    addedDates = input.readInts(),
-                    removedDates = input.readInts(),
+                    addedDates = input.readInts(sizeLimit),
+                    removedDates = input.readInts(sizeLimit),
                 )
             }
 
-            val patternRoute = input.readInts()
-            val patternStopsOffset = input.readInts()
-            val patternStops = input.readInts()
-            val patternTripsOffset = input.readInts()
-            val patternTimesBase = input.readInts()
+            val patternRoute = input.readInts(sizeLimit)
+            val patternStopsOffset = input.readInts(sizeLimit)
+            val patternStops = input.readInts(sizeLimit)
+            val patternTripsOffset = input.readInts(sizeLimit)
+            val patternTimesBase = input.readInts(sizeLimit)
+            val fifoCount = input.readSize(sizeLimit)
+            val patternFifo = BooleanArray(fifoCount) { input.readBoolean() }
 
-            val tripIds = input.readStrings()
-            val tripServices = input.readInts()
-            val headsignCount = input.readInt()
+            val tripIds = input.readStrings(sizeLimit)
+            val tripServices = input.readInts(sizeLimit)
+            val headsignCount = input.readSize(sizeLimit)
             val tripHeadsigns = arrayOfNulls<String>(headsignCount)
             for (i in 0 until headsignCount) {
                 if (input.readBoolean()) tripHeadsigns[i] = input.readUTF()
             }
 
-            val arrivals = input.readInts()
-            val departures = input.readInts()
+            val arrivals = input.readInts(sizeLimit)
+            val departures = input.readInts(sizeLimit)
 
-            val stopAdjOffset = input.readInts()
-            val adjPattern = input.readInts()
-            val adjPosition = input.readInts()
+            val stopAdjOffset = input.readInts(sizeLimit)
+            val adjPattern = input.readInts(sizeLimit)
+            val adjPosition = input.readInts(sizeLimit)
 
-            val transferOffset = input.readInts()
-            val transferTarget = input.readInts()
-            val transferSeconds = input.readInts()
+            val transferOffset = input.readInts(sizeLimit)
+            val transferTarget = input.readInts(sizeLimit)
+            val transferSeconds = input.readInts(sizeLimit)
 
-            val lookupSize = input.readInt()
+            val lookupSize = input.readSize(sizeLimit)
             val stopIdLookup = HashMap<String, IntArray>(lookupSize * 2)
             repeat(lookupSize) {
                 val id = input.readUTF()
-                stopIdLookup[id] = input.readInts()
+                stopIdLookup[id] = input.readInts(sizeLimit)
             }
 
             return RouterModel(
@@ -163,6 +170,7 @@ object RouterSnapshot {
                 patternStops = patternStops,
                 patternTripsOffset = patternTripsOffset,
                 patternTimesBase = patternTimesBase,
+                patternFifo = patternFifo,
                 tripIds = tripIds,
                 tripServices = tripServices,
                 tripHeadsigns = tripHeadsigns,
@@ -194,28 +202,28 @@ object RouterSnapshot {
         for (v in a) writeUTF(v)
     }
 
-    private fun DataInputStream.readInts(): IntArray {
-        val n = readSize()
+    private fun DataInputStream.readInts(limit: Int): IntArray {
+        val n = readSize(limit)
         val a = IntArray(n)
         for (i in 0 until n) a[i] = readInt()
         return a
     }
 
-    private fun DataInputStream.readDoubles(): DoubleArray {
-        val n = readSize()
+    private fun DataInputStream.readDoubles(limit: Int): DoubleArray {
+        val n = readSize(limit)
         val a = DoubleArray(n)
         for (i in 0 until n) a[i] = readDouble()
         return a
     }
 
-    private fun DataInputStream.readStrings(): Array<String> {
-        val n = readSize()
+    private fun DataInputStream.readStrings(limit: Int): Array<String> {
+        val n = readSize(limit)
         return Array(n) { readUTF() }
     }
 
-    private fun DataInputStream.readSize(): Int {
+    private fun DataInputStream.readSize(limit: Int): Int {
         val n = readInt()
-        if (n < 0) throw EOFException("corrupt snapshot: negative array length")
+        if (n < 0 || n > limit) throw EOFException("corrupt snapshot: implausible array length $n")
         return n
     }
 }

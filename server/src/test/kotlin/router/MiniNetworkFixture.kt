@@ -17,6 +17,12 @@ package app.krail.bff.router
  * after-midnight, WK; RH(3) A-B, XMAS.
  *
  * transfers.txt: explicit D->D2 at 30s (must win over the generated footpath).
+ *
+ * RO(3) P-Q-R, ALL, is a deliberate overtaking pattern: trips sorted by
+ * first-stop departure have inverted departures at Q (10:00 then 08:00), so
+ * the pattern must be flagged non-FIFO and searched linearly — a binary
+ * search would miss the 10:00 trip entirely for thresholds between the two.
+ * P/Q/R sit ~22km from the rest of the network (no accidental footpaths).
  */
 object MiniNetworkFixture {
 
@@ -51,6 +57,9 @@ object MiniNetworkFixture {
         D2,Stop D2,-37.8009,145.30,0,STN
         E,Stop E,-37.90,145.20,0,
         F,Stop F,-37.90,145.30,0,
+        P,Stop P,-37.60,145.00,0,
+        Q,Stop Q,-37.60,145.10,0,
+        R,Stop R,-37.60,145.20,0,
         X_NODE,Generic node,-37.80,145.00,3,
     """.trimIndent()
 
@@ -64,6 +73,7 @@ object MiniNetworkFixture {
         RW,rw,Walk Feeder,3
         RN,rn,Night Owl,3
         RH,rh,Holiday Special,3
+        RO,ro,Overtaker,3
     """.trimIndent().replace("\n", "\r\n") // exercise CRLF handling
 
     private val TRIPS = """
@@ -78,6 +88,8 @@ object MiniNetworkFixture {
         RW,WK,rw-1,
         RN,WK,rn-1,
         RH,XMAS,rh-1,
+        RO,ALL,ro-1,
+        RO,ALL,ro-2,
     """.trimIndent()
 
     private val STOP_TIMES = """
@@ -106,6 +118,12 @@ object MiniNetworkFixture {
         rn-1,24:50:00,24:50:00,B,2
         rh-1,10:00:00,10:00:00,A,1
         rh-1,10:20:00,10:20:00,B,2
+        ro-1,07:50:00,07:50:00,P,1
+        ro-1,10:00:00,10:00:00,Q,2
+        ro-1,10:30:00,10:30:00,R,3
+        ro-2,07:55:00,07:55:00,P,1
+        ro-2,08:00:00,08:00:00,Q,2
+        ro-2,08:30:00,08:30:00,R,3
     """.trimIndent()
 
     private val CALENDAR = """

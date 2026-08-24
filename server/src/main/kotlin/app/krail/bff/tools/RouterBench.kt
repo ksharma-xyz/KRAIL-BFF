@@ -60,7 +60,8 @@ fun main(args: Array<String>) {
 private fun printStats(model: RouterModel, buildMs: Long) {
     println(
         "model build: ${buildMs}ms — stops=${model.stopCount} routes=${model.routeIds.size} " +
-            "patterns=${model.patternCount} trips=${model.tripCount} stopTimes=${model.arrivals.size} " +
+            "patterns=${model.patternCount} (nonFifoPositions=${model.patternFifo.count { !it }}/${model.patternFifo.size}) " +
+            "trips=${model.tripCount} stopTimes=${model.arrivals.size} " +
             "transfers=${model.transferTarget.size} services=${model.services.size}"
     )
 }
@@ -117,6 +118,10 @@ private fun runQueries(model: RouterModel, date: LocalDate) {
             reachable++
             latenciesUs.add(us)
         }
+    }
+    if (latenciesUs.isEmpty()) {
+        println("random pairs: none reachable in $attempts attempts — check folder set")
+        return
     }
     latenciesUs.sort()
     fun pct(p: Double): Long = latenciesUs[((latenciesUs.size - 1) * p).toInt()]

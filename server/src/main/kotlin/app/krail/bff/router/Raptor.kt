@@ -198,9 +198,10 @@ class RaptorRouter(private val model: RouterModel) {
                         INF
                     }
                     if (tau <= curDepAbs) {
+                        val fifo = m.patternFifo[stopsOff + pos]
                         var bestDep = curDepAbs
                         for (day in 0 until 3) {
-                            val t = earliestTrip(base, nStops, tripsStart, tripsEnd, pos, tau - DAY_OFFSETS[day], dayServices[day])
+                            val t = earliestTrip(base, nStops, tripsStart, tripsEnd, pos, tau - DAY_OFFSETS[day], dayServices[day], fifo)
                             if (t >= 0) {
                                 val dep = m.departures[base + (t - tripsStart) * nStops + pos] + DAY_OFFSETS[day]
                                 if (dep < bestDep) {
@@ -220,7 +221,9 @@ class RaptorRouter(private val model: RouterModel) {
         /**
          * Earliest trip in the pattern departing [pos] at/after [threshold]
          * whose service is active. Trips are sorted by first-stop departure;
-         * the backward guard tolerates mild overtaking at later positions.
+         * binary search is exact only when the builder verified FIFO order at
+         * every position ([fifo]) — overtaking patterns get a full linear
+         * scan so no catchable trip is missed.
          */
         fun earliestTrip(
             base: Int,
@@ -230,7 +233,20 @@ class RaptorRouter(private val model: RouterModel) {
             pos: Int,
             threshold: Int,
             active: BitSet,
+            fifo: Boolean,
         ): Int {
+            if (!fifo) {
+                var bestTrip = -1
+                var bestDep = Int.MAX_VALUE
+                for (j in tripsStart until tripsEnd) {
+                    val d = m.departures[base + (j - tripsStart) * nStops + pos]
+                    if (d in threshold until bestDep && active.get(m.tripServices[j])) {
+                        bestDep = d
+                        bestTrip = j
+                    }
+                }
+                return bestTrip
+            }
             var lo = tripsStart
             var hi = tripsEnd
             while (lo < hi) {

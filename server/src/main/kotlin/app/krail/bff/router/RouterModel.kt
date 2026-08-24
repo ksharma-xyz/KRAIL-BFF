@@ -33,6 +33,14 @@ class RouterModel(
     val patternStops: IntArray,
     val patternTripsOffset: IntArray, // size P+1, indexes trip-level arrays
     val patternTimesBase: IntArray, // size P, base offset into arrivals/departures
+    /**
+     * Parallel to [patternStops]: true when departures at that stop position
+     * are non-decreasing across the pattern's (first-stop-sorted) trips —
+     * binary search for a boarding is then exact. Positions with overtaking
+     * fall back to a linear scan in the router (27% of VIC patterns have at
+     * least one inverted position, so this must be per-position for speed).
+     */
+    val patternFifo: BooleanArray, // size = patternStops.size
     // Trips (global order: grouped by pattern, sorted by first-stop departure)
     val tripIds: Array<String>,
     val tripServices: IntArray,

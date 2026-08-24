@@ -7,7 +7,6 @@ import app.krail.bff.router.RouterModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /**
  * Plans VIC journeys against an in-memory [RouterModel] and shapes them into
@@ -27,17 +26,18 @@ class VicTripService(
     fun knowsStop(id: String): Boolean = model.stopsForId(id).isNotEmpty()
 
     /**
-     * [date] is YYYYMMDD, [time] is HHmm (already validated by the route);
-     * both default to "now" in Melbourne.
+     * [date] is pre-parsed by the route (invalid calendar dates are a 400
+     * there, never an exception here); [time] is validated HHmm. Both default
+     * to "now" in Melbourne.
      */
-    fun planProto(originId: String, destinationId: String, date: String?, time: String?): JourneyList {
+    fun planProto(originId: String, destinationId: String, date: LocalDate?, time: String?): JourneyList {
         val now = clock()
         val nowMelbourne = now.atZone(melbourne)
-        val queryDate = date?.let { LocalDate.parse(it, DateTimeFormatter.BASIC_ISO_DATE) }
-            ?: nowMelbourne.toLocalDate()
+        val queryDate = date ?: nowMelbourne.toLocalDate()
         val depSec = time?.let { it.take(2).toInt() * 3600 + it.drop(2).toInt() * 60 }
             ?: nowMelbourne.toLocalTime().toSecondOfDay()
         val journeys = router.plan(originId, destinationId, queryDate, depSec)
+            .sortedBy { it.arrSec } // fastest arrival first — card order for the client
         return VicJourneyListMapper.toProto(model, journeys, queryDate, now)
     }
 }

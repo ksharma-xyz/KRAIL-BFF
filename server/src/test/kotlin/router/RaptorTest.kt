@@ -135,6 +135,28 @@ class RaptorTest {
     }
 
     @Test
+    fun `overtaking pattern is flagged non-fifo and searched exactly`() {
+        // Trips sorted by first-stop departure have inverted departures at Q
+        // (10:00 then 08:00): a binary search for a threshold between them
+        // would miss the 10:00 trip entirely. The builder must flag the
+        // inverted positions (Q and R) and the router must scan linearly there.
+        assertEquals(2, model.patternFifo.count { !it })
+        val journeys = router.plan("Q", "R", monday, sec(9, 0))
+        assertEquals(1, journeys.size)
+        val j = journeys.single()
+        assertEquals("ro-1", transitLegs(j).single().tripId)
+        assertEquals(sec(10, 0), transitLegs(j).single().boardDepSec)
+        assertEquals(sec(10, 30), j.arrSec)
+    }
+
+    @Test
+    fun `overtaking pattern still boards the optimal earlier trip`() {
+        val journeys = router.plan("Q", "R", monday, sec(7, 58))
+        assertEquals("ro-2", transitLegs(journeys.first()).single().tripId)
+        assertEquals(sec(8, 30), journeys.first().arrSec)
+    }
+
+    @Test
     fun `unknown stop ids return empty`() {
         assertTrue(router.plan("NOPE", "D", monday, sec(8, 0)).isEmpty())
         assertTrue(router.plan("A", "NOPE", monday, sec(8, 0)).isEmpty())

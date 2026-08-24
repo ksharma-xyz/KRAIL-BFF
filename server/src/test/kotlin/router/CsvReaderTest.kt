@@ -65,6 +65,27 @@ class CsvReaderTest {
     }
 
     @Test
+    fun `ragged row does not expose stale fields`() {
+        CsvReader("a,b,c\nonly\n".byteInputStream()).use { csv ->
+            assertTrue(csv.readRow()) // header
+            assertTrue(csv.readRow()) // ragged row: 1 field vs 3 in header
+            assertEquals(1, csv.fieldCount)
+            assertEquals("", csv.string(2))
+            assertTrue(csv.isBlank(2))
+            assertFalse(csv.fieldEquals(2, "c"))
+        }
+    }
+
+    @Test
+    fun `implausibly large numbers fall back to defaults`() {
+        CsvReader("999999999999999,9999999:00:00\n".byteInputStream()).use { csv ->
+            assertTrue(csv.readRow())
+            assertEquals(-7, csv.int(0, -7))
+            assertEquals(-1, csv.timeSeconds(1))
+        }
+    }
+
+    @Test
     fun `int and fieldEquals accessors`() {
         CsvReader("42,,x,trip-1\n".byteInputStream()).use { csv ->
             assertTrue(csv.readRow())

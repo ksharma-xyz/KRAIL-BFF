@@ -8,6 +8,8 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.nio.file.Path
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 // Compile-once validation patterns (allowlist, length-bounded). VIC public
 // stop ids look like "VIC:19943" or "VIC:vic:rail:FSS".
@@ -71,13 +73,23 @@ internal fun Application.vicTripRoutes(service: VicTripService) {
                     status = HttpStatusCode.BadRequest,
                 )
             }
-            val date = call.request.queryParameters["date"]
-            if (date != null && !date.matches(VIC_DATE_REGEX)) {
-                return@get call.respondText(
-                    text = INVALID_DATE_BODY,
-                    contentType = ContentType.Application.Json,
-                    status = HttpStatusCode.BadRequest,
-                )
+            // Parse, not just pattern-match: 20260230 passes \d{8} but is not
+            // a calendar date and must be a 400, never an exception downstream.
+            val dateParam = call.request.queryParameters["date"]
+            var date: LocalDate? = null
+            if (dateParam != null) {
+                date = if (dateParam.matches(VIC_DATE_REGEX)) {
+                    runCatching { LocalDate.parse(dateParam, DateTimeFormatter.BASIC_ISO_DATE) }.getOrNull()
+                } else {
+                    null
+                }
+                if (date == null) {
+                    return@get call.respondText(
+                        text = INVALID_DATE_BODY,
+                        contentType = ContentType.Application.Json,
+                        status = HttpStatusCode.BadRequest,
+                    )
+                }
             }
             val time = call.request.queryParameters["time"]
             if (time != null && !time.matches(VIC_TIME_REGEX)) {

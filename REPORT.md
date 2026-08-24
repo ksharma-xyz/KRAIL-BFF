@@ -36,6 +36,10 @@ a feature-gated proto endpoint.
 - **Three service days per query**: RAPTOR scans D-1/D/D+1 so >24:00:00
   stop_times work on both sides of midnight (verified by test: a 24:30 trip is
   caught at 00:30 next day).
+- **Per-position FIFO flags**: the builder verifies departure order across
+  trips at every pattern position; binary search is used only where provably
+  exact, inverted positions (23% in real VIC data) get a linear scan — no
+  catchable trip is ever missed.
 - **Explicit time inputs**: `plan(from, to, date, secondsSinceMidnight)` — the
   router core never reads a clock (repo invariant); `VicTripService` takes the
   usual injected `clock` for defaults only.
@@ -59,16 +63,26 @@ Metro scope (folders 2+3+4+11): 24,894 stops, 799 routes, 3,502 patterns,
 
 | Metric | Target | Actual |
 |---|---|---|
-| Model build (parse + build, 4 feeds) | — | **3.2s** |
-| Snapshot write | — | 334ms (87MB) |
-| Snapshot load | — | **149ms** (~21× faster than parse) |
-| Heap after load (post-GC) | < 400MB | **118MB** |
-| Query p50 (200 random reachable pairs) | — | **6.3ms** |
-| Query p95 | < 100ms | **9.3ms** |
-| Query p99 / max | — | 9.9ms / 10.3ms |
+| Model build (parse + build, 4 feeds) | — | **3.3s** |
+| Snapshot write | — | ~300ms (87MB) |
+| Snapshot load | — | **~150ms** (~22× faster than parse) |
+| Heap after load (post-GC) | < 400MB | **120MB** |
+| Query p50 (200 random reachable pairs) | — | **16.0ms** |
+| Query p95 | < 100ms | **22.7ms** |
+| Query p99 / max | — | 25.5ms / 27.2ms |
+
+Latency history worth knowing: the first cut ran p95 9.3ms but used a binary
+search that provably misses catchable trips on overtaking patterns (found in
+adversarial review). Real VIC data has inversions at 29,703 of 129,966
+pattern-positions (23% — interleaved weekday/weekend trips within one
+pattern), so correctness required a per-position FIFO flag with a linear-scan
+fallback; that is the 9.3 → 22.7ms p95 difference and it is the honest number.
+Projecting per-service-day timetables at query time would win most of it back
+if ever needed — 22.7ms is still 4× inside the target.
 
 With V/Line (folders 2+3+4+11+1): 24,988 stops, 262,119 trips, 9,580,826 stop
-times; heap 123MB; p95 9.6ms — the core absorbed the regional feed unchanged.
+times; heap ~123MB; p50 18.5ms, p95 24.5ms — the core absorbed the regional
+feed unchanged.
 
 Canonical journeys (all sane vs real timetables):
 
@@ -86,20 +100,39 @@ nature (JVM may hold uncollected garbage; RSS will be higher than heap).
 
 `./gradlew :server:test` — all green, including all pre-existing tests.
 
-- **Unit (always run)**: CSV reader (BOM/quotes/CRLF/embedded newlines/times),
-  ServiceCalendar (mask, range, added/removed dates), snapshot round-trip +
-  corrupt-file rejection, 14 RAPTOR tests on a synthetic network built through
-  the real parser (Pareto direct-vs-transfer, same-stop tight connection,
-  earliest-boarding, footpath leg with explicit transfer precedence, station →
-  platform resolution, blank-time interpolation, after-midnight catch,
-  Saturday-only service, calendar_dates removal/addition, no-journey,
-  unknown-stop), 6 endpoint tests (proto shape, walk legs, VIC: prefixes,
-  clock-injected defaults, validation 400s, unknown 404).
+- **Unit (always run)**: CSV reader ×10 (BOM/quotes/CRLF/embedded newlines/
+  times/ragged rows/overflow), ServiceCalendar ×6 (mask, range, added/removed
+  dates), snapshot round-trip + corrupt-file rejection, 16 RAPTOR tests on a
+  synthetic network built through the real parser (Pareto direct-vs-transfer,
+  same-stop tight connection, earliest-boarding, footpath leg with explicit
+  transfer precedence, station → platform resolution, blank-time
+  interpolation, after-midnight catch, Saturday-only service, calendar_dates
+  removal/addition, no-journey, unknown-stop, and two overtaking/non-FIFO
+  regression tests), 6 endpoint tests (proto shape + arrival-first ordering,
+  walk legs, VIC: prefixes, clock-injected defaults, validation 400s incl.
+  impossible calendar dates, unknown 404 via the app's standard envelope).
 - **Integration (gated on `VIC_GTFS_DIR`, skip cleanly otherwise)**: real-data
   golden tests — FSS→MCE, City Loop FGS→PAR, tram route 96 pair (pattern
   discovered at runtime), suburban bus →FSS cross-mode with a bus + rail/tram
   leg. Assertions are structural (exists, sane duration/legs), never exact
   times — the dataset shifts weekly. All 4 pass against the real dataset.
+
+## Adversarial review
+
+An independent reviewer pass over the full diff found no blockers and two
+majors, both fixed the same night: (1) a `\d{8}` date like `20260230` reached
+`LocalDate.parse` and became a 500 — now parsed at the route and rejected 400;
+(2) the earliest-trip binary search could miss catchable trips on overtaking
+patterns — now per-position FIFO flags + linear fallback, with regression
+tests (the real dataset triggers this on 23% of positions, so this was a live
+correctness bug, not a theoretical one). Also applied from the review: CSV
+ragged-row/overflow guards, snapshot length bounds vs file size (corrupt file
+can no longer drive an OOM at startup), ambiguous-stop-id build warning,
+arrival-first journey ordering in the proto, 404s delegated to the app-wide
+ErrorEnvelope handler (verified live — StatusPages replaces custom 404
+bodies), and a bench divide-by-zero guard. Deferred with rationale:
+pickup/drop_off types, walk-label cosmetic edge, per-query State pooling (all
+listed below or in next steps).
 
 ## Known gaps
 
@@ -111,9 +144,16 @@ nature (JVM may hold uncollected garbage; RSS will be higher than heap).
 - **Same-stop transfers are 0s**: boarding another route at the same stop has
   no minimum interchange (footpaths between stops carry a 60s buffer). Real
   connections may be missed on late-running services once GTFS-RT lands.
-- **Trip overtaking**: within a pattern, trips are sorted by first-stop
-  departure; earliest-trip binary search has a backward guard for mild
-  inversions but pathological overtaking could board a slightly later trip.
+- **pickup_type/drop_off_type not read**: RAPTOR will board at drop-off-only
+  calls and alight at pickup-only calls. Barely present in metro folders but
+  must be fixed before folder 5 (Regional Coach) ships.
+- **frequencies.txt not parsed**: irrelevant for VIC (none anywhere), but a
+  frequency-based feed elsewhere would plan only the template trips — add
+  before calling the core fully city-agnostic.
+- **Walk-label overwrite edge**: if a walk improves a stop that was itself the
+  ride-source of an earlier walk in the same round, reconstruction can emit
+  two consecutive walk legs whose durations don't sum exactly to the recorded
+  arrival (arrival stays a valid upper bound; provably terminates). Cosmetic.
 - **Type-4 in-seat continuations ignored**: City Loop through-running trips are
   treated as separate boardings (counts one extra "transfer" at the shared
   stop); journeys remain valid.
@@ -139,7 +179,10 @@ nature (JVM may hold uncollected garbage; RSS will be higher than heap).
    stops dataset via the existing manifest pattern).
 4. Fix DST anchoring; add board-slack config; consider arrive-by (reverse
    RAPTOR) and range queries (rRAPTOR) when product needs them.
-5. Add folders 1/5/6 golden tests + V/Line-aware display naming.
+5. Parse pickup_type/drop_off_type and gate boarding/alighting (required
+   before folder 5 Regional Coach); pool per-query RAPTOR state and/or project
+   per-service-day timetables if p95 ever matters at scale.
+6. Add folders 1/5/6 golden tests + V/Line-aware display naming.
 
 ## Files added
 

@@ -38,12 +38,13 @@ class VicTripRoutesTest {
         assertEquals(HttpStatusCode.OK, response.status)
         val list = JourneyList.ADAPTER.decode(response.readRawBytes())
         assertEquals(2, list.journeys.size)
-        val direct = list.journeys[0]
-        assertEquals("8:40am", direct.destination_time)
-        assertEquals("in 30 mins", direct.time_text)
-        val withTransfer = list.journeys[1]
+        // Fastest arrival first: express + connector (8:30), then direct (8:40).
+        val withTransfer = list.journeys[0]
         assertEquals("8:30am", withTransfer.destination_time)
         assertEquals(2, withTransfer.legs.size)
+        val direct = list.journeys[1]
+        assertEquals("8:40am", direct.destination_time)
+        assertEquals("in 30 mins", direct.time_text)
     }
 
     @Test
@@ -91,6 +92,11 @@ class VicTripRoutesTest {
         val badDate = client.get("/api/v1/vic/trip/plan-proto?origin=A&destination=D&date=2026-03-02")
         assertEquals(HttpStatusCode.BadRequest, badDate.status)
         assertContains(badDate.bodyAsText(), "invalid_date")
+
+        // Matches \d{8} but is not a calendar date — must be 400, not a 500.
+        val impossibleDate = client.get("/api/v1/vic/trip/plan-proto?origin=A&destination=D&date=20260230")
+        assertEquals(HttpStatusCode.BadRequest, impossibleDate.status)
+        assertContains(impossibleDate.bodyAsText(), "invalid_date")
 
         val badTime = client.get("/api/v1/vic/trip/plan-proto?origin=A&destination=D&time=2560")
         assertEquals(HttpStatusCode.BadRequest, badTime.status)

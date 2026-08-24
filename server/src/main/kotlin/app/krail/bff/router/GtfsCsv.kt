@@ -94,12 +94,15 @@ class CsvReader(input: InputStream) : AutoCloseable {
     fun headerMap(): Map<String, Int> =
         (0 until fieldCount).associateBy({ string(it).trim() }, { it })
 
-    fun string(i: Int): String = String(buf, starts[i], ends[i] - starts[i])
+    /** Empty string for an out-of-range index (ragged rows must not read stale offsets). */
+    fun string(i: Int): String =
+        if (i < 0 || i >= fieldCount) "" else String(buf, starts[i], ends[i] - starts[i])
 
     fun isBlank(i: Int): Boolean = i < 0 || i >= fieldCount || ends[i] == starts[i]
 
     /** Allocation-free equality check against [s] (stop_times trip-id hot path). */
     fun fieldEquals(i: Int, s: String): Boolean {
+        if (i < 0 || i >= fieldCount) return false
         val len = ends[i] - starts[i]
         if (len != s.length) return false
         val off = starts[i]
@@ -107,7 +110,7 @@ class CsvReader(input: InputStream) : AutoCloseable {
         return true
     }
 
-    /** Parses a non-negative integer field; [default] on blank or malformed. */
+    /** Parses a non-negative integer field; [default] on blank, malformed, or implausibly large. */
     fun int(i: Int, default: Int): Int {
         if (isBlank(i)) return default
         var v = 0
@@ -115,6 +118,7 @@ class CsvReader(input: InputStream) : AutoCloseable {
             val c = buf[p]
             if (c < '0' || c > '9') return default
             v = v * 10 + (c - '0')
+            if (v > 100_000_000) return default // dates are the largest legit values
         }
         return v
     }
@@ -139,6 +143,7 @@ class CsvReader(input: InputStream) : AutoCloseable {
             val c = buf[p]
             if (c < '0' || c > '9') return -1
             h = h * 10 + (c - '0')
+            if (h > 168) return -1 // a week of hours: anything beyond is garbage
             p++
         }
         if (p + 5 > e || buf[p] != ':' || buf[p + 3] != ':') return -1

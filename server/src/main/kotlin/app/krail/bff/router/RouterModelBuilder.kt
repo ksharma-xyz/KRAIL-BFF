@@ -23,6 +23,8 @@ class TransferConfig(
  */
 object RouterModelBuilder {
 
+    private val logger = org.slf4j.LoggerFactory.getLogger(RouterModelBuilder::class.java)
+
     fun build(
         feeds: List<GtfsFeed>,
         sourceLabel: String,
@@ -62,6 +64,14 @@ object RouterModelBuilder {
             }
         }
         val stopCount = stopIds.size
+        // Same raw id resolving to multiple distinct stops makes public-id
+        // queries ambiguous (all matches become sources). Benign in today's
+        // data (the 42 tram/bus shared ids all merge); surface it if a weekly
+        // drop changes that.
+        val ambiguousIds = indexByRawId.values.count { it.size > 1 }
+        if (ambiguousIds > 0) {
+            logger.warn("router build: {} raw stop ids map to multiple stops >{}m apart", ambiguousIds, config.mergeDistanceMeters)
+        }
 
         // -- Routes / services: plain concatenation --------------------------
         val routeIds = ArrayList<String>()
@@ -112,6 +122,7 @@ object RouterModelBuilder {
         require(totalTimes <= Int.MAX_VALUE) { "stop time table too large: $totalTimes" }
 
         val patternStops = IntArray(totalPatternStops)
+        val patternFifo = BooleanArray(totalPatternStops)
         val tripIds = arrayOfNulls<String>(totalTrips)
         val tripServices = IntArray(totalTrips)
         val tripHeadsigns = arrayOfNulls<String>(totalTrips)
@@ -131,6 +142,22 @@ object RouterModelBuilder {
                 tripHeadsigns[g] = trip.headsign
                 trip.arr.copyInto(arrivals, timesBase + tLocal * nStops)
                 trip.dep.copyInto(departures, timesBase + tLocal * nStops)
+            }
+            // Per-position FIFO check: departures non-decreasing across trips.
+            // Overtaking would make the router's binary search miss catchable
+            // trips, so inverted positions get a linear scan instead.
+            for (pos in 0 until nStops) {
+                var fifo = true
+                var prev = Int.MIN_VALUE
+                for (tLocal in trips.indices) {
+                    val d = departures[timesBase + tLocal * nStops + pos]
+                    if (d < prev) {
+                        fifo = false
+                        break
+                    }
+                    prev = d
+                }
+                patternFifo[patternStopsOffset[p] + pos] = fifo
             }
             timesBase += nStops * trips.size
         }
@@ -233,6 +260,7 @@ object RouterModelBuilder {
             patternStops = patternStops,
             patternTripsOffset = patternTripsOffset,
             patternTimesBase = patternTimesBase,
+            patternFifo = patternFifo,
             tripIds = tripIds as Array<String>,
             tripServices = tripServices,
             tripHeadsigns = tripHeadsigns,
