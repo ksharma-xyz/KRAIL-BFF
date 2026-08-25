@@ -120,3 +120,38 @@ From the 2026-07 review ([docs/archive/CODE_REVIEW_2026-07.md](docs/archive/CODE
 - Cost cap ~A$15/mo total; provider-enforced caps only.
 - Deploy shape locked: Cloudflare → DO App Platform Basic, `instance_count: 1`.
   All rate-limit/budget state is in-memory — see SECURITY.md before scaling out.
+
+## VIC router — ops playbook (researched 2026-08-25, all-free stack; implement at P1/beta)
+
+Data freshness (weekly, KRAIL-GTFS repo — public, so Actions minutes are free/unmetered):
+- [ ] Weekly workflow, off-peak cron (e.g. `17 3 * * 1`): download VIC gtfs.zip
+      (~255MB; runner has 14GB) → routerBench-style build → publish ~90MB
+      snapshot as Release asset (limit 2GiB/file, fine) + manifest JSON w/ sha256
+- [ ] **Gotcha: public-repo scheduled workflows auto-disable after 60 days
+      without commits to default branch** — releases don't reset the timer.
+      Make the job COMMIT the manifest (not just attach to release)
+- [ ] BFF: TrackDatasetStore-style loader for router snapshot (manifest
+      recheck 6h, sha256, hot-swap); then set VIC_ROUTER_SNAPSHOT in deploy config
+
+Logs (App Platform has NO built-in retention; console shows live tail only):
+- [ ] Forward runtime logs → Better Stack Logs free tier (3GB/mo, 3-day
+      retention) — the only free destination DO still supports natively
+      (Papertrail dropped). Config via app spec `log_destinations`
+- [ ] Pre-crash forensics: `doctl apps logs <app> --type=run_restarted`
+      (doctl only, not console) — the OOM-kill signal DO doesn't surface
+- [ ] Router observability before beta: ingest drop-counters, query-latency
+      metric, model counts on /internal/metrics (today: 4 log statements total)
+
+Alerts (3 types, all free):
+- [ ] Server down → UptimeRobot free (50 monitors, 5-min) or Better Stack
+      Uptime free (10 monitors, 3-min) on `/health`
+- [ ] Pipeline failed → GitHub default failure email (+ optional
+      `if: failure()` Slack webhook step)
+- [ ] Data stale (dead-man) → healthchecks.io free: weekly workflow pings URL
+      only AFTER successful publish; period 7d, grace 2d → catches a silently
+      stopped cron that failure emails can't. Optional 2nd check pinged by BFF
+      after each successful hot-swap
+- [ ] DO built-in (free, email/Slack): DEPLOYMENT_FAILED (on by default) +
+      RESTART_COUNT alert (the practical OOM signal) + MEM_UTILIZATION ~85%
+- [ ] Pin JVM `-Xmx` to ~70-75% of container RAM explicitly (basic-xxs =
+      512MB; router model is ~120MB heap — verify headroom before enabling VIC in prod)

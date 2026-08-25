@@ -1,5 +1,9 @@
 # VIC Journey-Planning Core — Overnight Prototype Report
 
+> **Archived point-in-time build report (2026-08-25).** The living reference
+> is [`docs/reference/VIC_ROUTER_DESIGN.md`](../reference/VIC_ROUTER_DESIGN.md);
+> the Router Lab how-to is [`docs/reference/ROUTER_LAB.md`](../reference/ROUTER_LAB.md).
+
 Branch: `feat/vic-router-prototype`. Victoria publishes no journey-planner API,
 so the BFF computes routes itself from GTFS static data. This delivers a
 city-agnostic RAPTOR core, VIC ingest, snapshot format, benchmarks, tests, and

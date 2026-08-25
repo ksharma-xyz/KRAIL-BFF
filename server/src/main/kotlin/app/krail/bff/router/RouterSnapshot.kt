@@ -11,7 +11,8 @@ import java.nio.file.Path
 /**
  * Binary snapshot of a [RouterModel]: flat arrays with a magic + format
  * version header. Built offline; production loads this at startup instead of
- * re-parsing GTFS (order-of-magnitude faster, see REPORT.md benchmarks).
+ * re-parsing GTFS (order-of-magnitude faster — benchmarks in
+ * docs/reference/VIC_ROUTER_DESIGN.md §10).
  */
 object RouterSnapshot {
 

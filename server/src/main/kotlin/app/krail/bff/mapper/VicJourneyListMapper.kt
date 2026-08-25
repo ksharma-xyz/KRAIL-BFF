@@ -23,8 +23,8 @@ import java.time.format.DateTimeFormatter
  *
  * Times: the router works in seconds since midnight of the query date
  * (Melbourne). Instants are derived via elapsed seconds from local midnight,
- * which drifts one hour across a DST changeover mid-journey — acceptable for
- * the prototype, noted in REPORT.md.
+ * which drifts one hour across a DST changeover mid-journey — known gap,
+ * see docs/reference/VIC_ROUTER_DESIGN.md §11.
  *
  * `now` is a parameter (for the "in X mins" card text) — callers inject the
  * clock, this mapper never reads one.
