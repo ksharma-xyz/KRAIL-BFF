@@ -52,6 +52,8 @@ curl "http://localhost:8080/api/v1/trip/plan?origin=10101100&destination=1010112
 | [API Schema Design](reference/API_SCHEMA_DESIGN.md) | Proposed BFF proto contracts, shared types, KMP sharing strategy |
 | [BFF Adoption Guide](reference/BFF_ADOPTION_GUIDE.md) | Operational playbook for migrating KRAIL features onto the BFF |
 | [Configuration](reference/CONFIGURATION.md) | Environment variables and setup |
+| [VIC Router Design](reference/VIC_ROUTER_DESIGN.md) | Server-side RAPTOR journey planning for Melbourne (city-agnostic core) |
+| [Router Lab](reference/ROUTER_LAB.md) | Dev-gated journey-planner debug dashboard |
 
 ---
 

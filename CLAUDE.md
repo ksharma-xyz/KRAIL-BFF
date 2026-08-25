@@ -90,6 +90,9 @@ server/
     mapper/           # TripResponse → proto message builders
     track/            # GTFS-Realtime tracking (TrackService, FeedCache, etc.)
     trackdata/        # Dataset stores (shapes, stop directory)
+    router/           # City-agnostic RAPTOR journey planning (GTFS parse →
+                      #   compact model → query → snapshot). VIC_ROUTER_DESIGN.md
+    vic/              # VIC (Melbourne) ingest + trip service on top of router/
     route/            # Ktor routing
 ```
 
@@ -104,6 +107,11 @@ Packages) — there is no in-repo proto directory.
 - Tracking never re-plans. All tracking state derives from GTFS-RT feeds keyed
   by the locked `realtime_trip_id`. See `TRACKING_DESIGN.md`.
 - Each leg resolves independently — one upstream failure never fails the whole request.
+- The **router core never reads a clock** — `RaptorRouter.plan()` takes an explicit
+  date + seconds-since-midnight; `VicTripService` uses its injected `clock` only
+  for request defaults. Same failure mode as TrackService if violated.
+- `RouterSnapshot.FORMAT_VERSION` **must bump on any array-layout change**. The
+  reader rejects other versions; snapshots are rebuilt weekly, never migrated.
 
 ## Security invariants (full rules: SECURITY.md — read it before touching routes/plugins/NswClient)
 
@@ -115,6 +123,8 @@ Packages) — there is no in-repo proto directory.
   nothing exempt may call NSW or do heavy work uncached.
 - All NSW calls go through `NswClient` (daily budget, breaker, metrics). The NSW
   key never reaches a browser except the dev-only, env-gated `/internal/passthrough`.
+- Router Lab (`/internal/router-lab`) and the plan-proto JSON output are dev-gated
+  behind the same `BFF_DEV_PASSTHROUGH` flag — off in every production config.
 - Client IP via `call.clientIp()` only; secret comparisons via `MessageDigest.isEqual`.
 - INFO logs: one line, IDs only. URLs/headers/bodies → DEBUG behind `isDebugEnabled`;
   `Authorization` always redacted.

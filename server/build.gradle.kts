@@ -72,6 +72,8 @@ tasks.named<JavaExec>("run") {
             // local dev; manifest URL is the production path.
             "track.datasetDir" to "TRACK_DATASET_DIR",
             "track.manifestUrl" to "TRACK_DATASET_MANIFEST_URL",
+            // VIC router snapshot (feature-gates /api/v1/vic/trip routes)
+            "vic.routerSnapshot" to "VIC_ROUTER_SNAPSHOT",
         )
         propToEnv.forEach { (prop, envName) ->
             localProperties.getProperty(prop)?.takeIf { it.isNotBlank() }?.let { value ->
@@ -99,6 +101,38 @@ tasks.register<JavaExec>("buildStopsDataset") {
         project.findProperty("releaseUrl")?.toString() ?: "https://example.invalid/stops.pb",
     )
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
+}
+
+// Build + benchmark the VIC journey-planning model from local GTFS zips.
+// Manual tooling like buildStopsDataset — not part of the serving path.
+// Args (Gradle properties): -PgtfsDir=<dir with <folder>/google_transit.zip>
+// [-PsnapshotOut=path] [-Pfolders=2,3,4,11] [-PbenchDate=2026-08-25]
+tasks.register<JavaExec>("routerBench") {
+    group = "data"
+    description = "Build + benchmark the VIC journey-planning model from local GTFS zips"
+    mainClass.set("app.krail.bff.tools.RouterBenchKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    maxHeapSize = "3g"
+    val gtfsDir = project.findProperty("gtfsDir")?.toString()
+    if (gtfsDir != null) {
+        args = listOf(
+            gtfsDir,
+            project.findProperty("snapshotOut")?.toString() ?: "",
+            project.findProperty("folders")?.toString() ?: "",
+            project.findProperty("benchDate")?.toString() ?: "",
+        )
+    }
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
+}
+
+// The VIC router integration tests build the full model in-process when
+// VIC_GTFS_DIR is set (they skip cleanly when it isn't); the default 512m
+// test-worker heap can't hold the ~10M-row build.
+tasks.named<Test>("test") {
+    maxHeapSize = "3g"
+    // Gate tests assert both states of the Router Lab dev flag; a developer
+    // shell exporting it would invert them. Blank = unset (see AppConfig).
+    environment("BFF_DEV_PASSTHROUGH", "")
 }
 
 // Separate configuration so Gradle resolves the proto JAR independently from
