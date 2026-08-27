@@ -102,6 +102,7 @@
     <label for="region">Region</label>
     <select id="region">
       <option value="VIC">VIC — Melbourne (BFF RAPTOR)</option>
+      <option value="QLD">QLD — Brisbane/SEQ (BFF RAPTOR)</option>
       <option value="NSW">NSW — Sydney (upstream TfNSW)</option>
     </select>
   </div>
@@ -129,6 +130,7 @@
   <div id="error"></div>
   <div class="hint">
     VIC: pick from autocomplete (ids like <span class="mono">VIC:vic:rail:FSS</span>).<br>
+    QLD: pick from autocomplete (ids like <span class="mono">QLD:place_censta</span>).<br>
     NSW: enter raw stop ids (e.g. <span class="mono">200060</span>).<br>
     Scroll down for later journeys, up for earlier.
   </div>
@@ -143,7 +145,11 @@
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
-const TZ = { VIC: "Australia/Melbourne", NSW: "Australia/Sydney" };
+const TZ = { VIC: "Australia/Melbourne", QLD: "Australia/Brisbane", NSW: "Australia/Sydney" };
+// Regions the BFF plans itself get a plan endpoint + a stop-name search.
+const PLAN = { VIC: "/api/v1/vic/trip/plan-proto", QLD: "/api/v1/qld/trip/plan-proto",
+               NSW: "/api/v1/trip/plan-proto" };
+const SEARCH = { VIC: "/internal/vic/stops/search", QLD: "/internal/qld/stops/search" };
 const MODE = { 1:["Train","m1"], 2:["Metro","m2"], 4:["Tram/LR","m4"], 5:["Bus","m5"],
                7:["Coach","m7"], 9:["Ferry","m9"], 11:["School","m11"] };
 
@@ -198,7 +204,7 @@ function journeyKey(j) {
 function depMs(j) { return Date.parse(j.origin_utc_date_time) || 0; }
 
 function planUrl(date, time) {
-  const base = state.region === "VIC" ? "/api/v1/vic/trip/plan-proto" : "/api/v1/trip/plan-proto";
+  const base = PLAN[state.region] || PLAN.NSW;
   return `${base}?origin=${encodeURIComponent(state.origin)}&destination=${encodeURIComponent(state.destination)}&date=${date}&time=${time}`;
 }
 
@@ -407,19 +413,20 @@ $("results").addEventListener("wheel", (e) => {
 
 $("find").addEventListener("click", search);
 
-// ---- VIC stop autocomplete -------------------------------------------------
+// ---- Stop autocomplete (regions the BFF plans itself) ----------------------
 
 function wireAutocomplete(inputId) {
   const input = $(inputId), listEl = $(inputId + "-ac");
   let timer = null;
   input.addEventListener("input", () => {
-    if ($("region").value !== "VIC") { listEl.hidden = true; return; }
+    const searchBase = SEARCH[$("region").value];
+    if (!searchBase) { listEl.hidden = true; return; }
     clearTimeout(timer);
     const q = input.value.trim();
-    if (q.length < 2 || q.startsWith("VIC:")) { listEl.hidden = true; return; }
+    if (q.length < 2 || q.startsWith($("region").value + ":")) { listEl.hidden = true; return; }
     timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/internal/vic/stops/search?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`${searchBase}?q=${encodeURIComponent(q)}`);
         if (!res.ok) { listEl.hidden = true; return; }
         const hits = await res.json();
         listEl.textContent = "";
@@ -440,9 +447,9 @@ wireAutocomplete("origin");
 wireAutocomplete("destination");
 
 $("region").addEventListener("change", () => {
-  const vic = $("region").value === "VIC";
-  $("origin").placeholder = vic ? "search stop name…" : "NSW stop id, e.g. 200060";
-  $("destination").placeholder = vic ? "search stop name…" : "NSW stop id, e.g. 10101100";
+  const hasSearch = !!SEARCH[$("region").value];
+  $("origin").placeholder = hasSearch ? "search stop name…" : "NSW stop id, e.g. 200060";
+  $("destination").placeholder = hasSearch ? "search stop name…" : "NSW stop id, e.g. 10101100";
 });
 </script>
 </body>

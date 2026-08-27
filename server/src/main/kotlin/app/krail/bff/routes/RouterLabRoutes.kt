@@ -1,11 +1,13 @@
 package app.krail.bff.routes
 
+import app.krail.bff.qld.QldTripService
 import app.krail.bff.util.boolean
 import app.krail.bff.vic.VicTripService
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import kotlinx.serialization.json.add
@@ -17,8 +19,8 @@ import org.slf4j.LoggerFactory
 private val logger = LoggerFactory.getLogger("app.krail.bff.routes.RouterLabRoutes")
 
 // Allowlist for stop-name search text: letters, digits, spaces and the
-// punctuation VIC stop names actually use (. , ' & / # ( ) _ : -). Reject,
-// don't sanitize.
+// punctuation VIC/QLD stop names actually use (. , ' & / # ( ) _ : -).
+// Reject, don't sanitize.
 private val SEARCH_QUERY_REGEX = Regex("^[A-Za-z0-9 .,'&/#()_:-]{1,64}$")
 
 private const val INVALID_QUERY_BODY =
@@ -34,6 +36,7 @@ private const val INVALID_QUERY_BODY =
  * - GET /internal/router-lab              the dashboard (self-contained HTML)
  * - GET /internal/vic/stops/search?q=     stop-name autocomplete over the
  *   loaded VIC RouterModel; registers only when the VIC model loaded.
+ * - GET /internal/qld/stops/search?q=     same for the QLD (SEQ) model.
  *
  * The lab calls only BFF endpoints — the NSW key never reaches the browser.
  */
@@ -44,10 +47,16 @@ fun Application.configureRouterLabRoutes() {
         return
     }
     logger.warn("⚠ /internal/router-lab ENABLED — DEV ONLY. Never enable on a public deploy.")
-    routerLabRoutes(attributes.getOrNull(VicTripServiceKey))
+    routerLabRoutes(
+        attributes.getOrNull(VicTripServiceKey),
+        attributes.getOrNull(QldTripServiceKey),
+    )
 }
 
-internal fun Application.routerLabRoutes(vicService: VicTripService?) {
+internal fun Application.routerLabRoutes(
+    vicService: VicTripService?,
+    qldService: QldTripService? = null,
+) {
     val html = checkNotNull(
         RouterLabPage::class.java.classLoader.getResourceAsStream("router-lab/index.html")
     ) { "router-lab/index.html missing from resources" }.readBytes().decodeToString()
@@ -58,29 +67,43 @@ internal fun Application.routerLabRoutes(vicService: VicTripService?) {
         }
 
         if (vicService != null) {
-            get("/internal/vic/stops/search") {
-                val q = call.request.queryParameters["q"]
-                if (q.isNullOrBlank() || !q.matches(SEARCH_QUERY_REGEX)) {
-                    return@get call.respondText(
-                        text = INVALID_QUERY_BODY,
-                        contentType = ContentType.Application.Json,
-                        status = HttpStatusCode.BadRequest,
-                    )
-                }
-                val body = buildJsonArray {
-                    vicService.searchStops(q).forEach { hit ->
-                        add(buildJsonObject {
-                            put("id", hit.id)
-                            put("name", hit.name)
-                            put("lat", hit.lat)
-                            put("lon", hit.lon)
-                        })
-                    }
-                }
-                call.respondText(body.toString(), ContentType.Application.Json)
+            stopSearchRoute("/internal/vic/stops/search") { q ->
+                vicService.searchStops(q).map { SearchHit(it.id, it.name, it.lat, it.lon) }
+            }
+        }
+        if (qldService != null) {
+            stopSearchRoute("/internal/qld/stops/search") { q ->
+                qldService.searchStops(q).map { SearchHit(it.id, it.name, it.lat, it.lon) }
             }
         }
     }
 }
+
+/** One allowlist-validated stop-name search endpoint over a loaded model. */
+private fun Route.stopSearchRoute(path: String, search: (String) -> List<SearchHit>) {
+    get(path) {
+        val q = call.request.queryParameters["q"]
+        if (q.isNullOrBlank() || !q.matches(SEARCH_QUERY_REGEX)) {
+            return@get call.respondText(
+                text = INVALID_QUERY_BODY,
+                contentType = ContentType.Application.Json,
+                status = HttpStatusCode.BadRequest,
+            )
+        }
+        val body = buildJsonArray {
+            search(q).forEach { hit ->
+                add(buildJsonObject {
+                    put("id", hit.id)
+                    put("name", hit.name)
+                    put("lat", hit.lat)
+                    put("lon", hit.lon)
+                })
+            }
+        }
+        call.respondText(body.toString(), ContentType.Application.Json)
+    }
+}
+
+private class SearchHit(val id: String, val name: String, val lat: Double, val lon: Double)
 
 private object RouterLabPage
