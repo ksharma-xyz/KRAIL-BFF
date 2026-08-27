@@ -19,20 +19,27 @@ import java.time.format.DateTimeFormatter
 
 /**
  * Maps router [Journey]s to the JourneyList proto the KMP client consumes,
- * mirroring [JourneyListMapper]'s conventions for the NSW path.
+ * mirroring [JourneyListMapper]'s conventions for the NSW path. One instance
+ * per BFF-routed region — the region contributes only its timezone and its
+ * public stop-id prefix (e.g. Melbourne + "VIC", Brisbane + "QLD"); everything
+ * else is region-agnostic like the router core.
  *
- * Times: the router works in seconds since midnight of the query date
- * (Melbourne). Instants are derived via elapsed seconds from local midnight,
- * which drifts one hour across a DST changeover mid-journey — known gap,
- * see docs/reference/VIC_ROUTER_DESIGN.md §11.
+ * Times: the router works in seconds since midnight of the query date in
+ * [zone]. Instants are derived via elapsed seconds from local midnight, which
+ * drifts one hour across a DST changeover mid-journey — known gap for
+ * DST-observing regions, see docs/reference/VIC_ROUTER_DESIGN.md §11
+ * (Queensland has no DST, so the QLD instance is unaffected).
  *
  * `now` is a parameter (for the "in X mins" card text) — callers inject the
  * clock, this mapper never reads one.
  */
-object VicJourneyListMapper {
+class RegionJourneyListMapper(
+    private val zone: ZoneId,
+    /** Public stop-id namespace, without the colon (e.g. "VIC", "QLD"). */
+    private val stopIdPrefix: String,
+) {
 
-    private val melbourne = ZoneId.of("Australia/Melbourne")
-    private val timeFormatter = DateTimeFormatter.ofPattern("h:mma").withZone(melbourne)
+    private val timeFormatter = DateTimeFormatter.ofPattern("h:mma").withZone(zone)
 
     fun toProto(model: RouterModel, journeys: List<Journey>, date: LocalDate, now: Instant): JourneyList =
         JourneyList(journeys = journeys.mapNotNull { mapJourney(model, it, date, now) })
@@ -42,7 +49,7 @@ object VicJourneyListMapper {
         // Walk-only journeys have no boarding to hang a card on; skip them.
         if (transitLegs.isEmpty()) return null
 
-        val base = date.atStartOfDay(melbourne)
+        val base = date.atStartOfDay(zone)
         fun instantOf(sec: Int): Instant = base.plusSeconds(sec.toLong()).toInstant()
 
         val originInstant = instantOf(transitLegs.first().boardDepSec)
@@ -93,7 +100,7 @@ object VicJourneyListMapper {
                             name = model.stopNames[call.stop],
                             time = formatTime(instant),
                             coord = Coord(lat = model.stopLats[call.stop], lon = model.stopLons[call.stop]),
-                            stop_id = "VIC:${model.stopIds[call.stop]}",
+                            stop_id = "$stopIdPrefix:${model.stopIds[call.stop]}",
                             utc_time = instant.toString(),
                         )
                     },
@@ -107,21 +114,6 @@ object VicJourneyListMapper {
 
     private fun lineName(model: RouterModel, route: Int): String =
         model.routeShortNames[route].ifBlank { model.routeLongNames[route] }
-
-    /**
-     * GTFS route_type (basic + extended) → KRAIL product class as used by the
-     * KMP client (1 train, 2 metro, 4 light rail, 5 bus, 7 coach, 9 ferry).
-     * VIC uses 400 metro rail, 0 tram, 3+701 bus, 102/106 V/Line rail.
-     */
-    private fun productClass(routeType: Int): Int = when (routeType) {
-        0, in 900..999 -> 4
-        1 -> 2
-        2, in 100..199, in 400..499 -> 1
-        3, in 700..799, 800 -> 5
-        4, in 1000..1099, 1200 -> 9
-        in 200..299 -> 7
-        else -> 5
-    }
 
     private fun timeUntilText(now: Instant, originTime: Instant): String {
         val minutesUntil = Duration.between(now, originTime).toMinutes()
@@ -150,6 +142,25 @@ object VicJourneyListMapper {
                 val mins = minutes % 60
                 if (mins == 0L) "$hours hr" else "$hours hr $mins min"
             }
+        }
+    }
+
+    companion object {
+        /**
+         * GTFS route_type (basic + extended) → KRAIL product class as used by
+         * the KMP client (1 train, 2 metro, 4 light rail, 5 bus, 7 coach,
+         * 9 ferry). Covers VIC's extended types (400 metro rail, 701 bus,
+         * 102/106 V/Line rail) and SEQ's basic ones (0 G:link tram, 2 rail,
+         * 3 bus, 4 ferry).
+         */
+        fun productClass(routeType: Int): Int = when (routeType) {
+            0, in 900..999 -> 4
+            1 -> 2
+            2, in 100..199, in 400..499 -> 1
+            3, in 700..799, 800 -> 5
+            4, in 1000..1099, 1200 -> 9
+            in 200..299 -> 7
+            else -> 5
         }
     }
 }

@@ -1,6 +1,6 @@
 package app.krail.bff.vic
 
-import app.krail.bff.mapper.VicJourneyListMapper
+import app.krail.bff.mapper.RegionJourneyListMapper
 import app.krail.bff.proto.JourneyList
 import app.krail.bff.router.RaptorRouter
 import app.krail.bff.router.RouterModel
@@ -22,6 +22,7 @@ class VicTripService(
 ) {
     private val router = RaptorRouter(model)
     private val melbourne = ZoneId.of("Australia/Melbourne")
+    private val mapper = RegionJourneyListMapper(melbourne, "VIC")
 
     fun knowsStop(id: String): Boolean = model.stopsForId(id).isNotEmpty()
 
@@ -61,7 +62,7 @@ class VicTripService(
             ?: nowMelbourne.toLocalTime().toSecondOfDay()
         val journeys = router.plan(originId, destinationId, queryDate, depSec)
             .sortedBy { it.arrSec } // fastest arrival first — card order for the client
-        return VicJourneyListMapper.toProto(model, journeys, queryDate, now)
+        return mapper.toProto(model, journeys, queryDate, now)
     }
 }
 
