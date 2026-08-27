@@ -18,6 +18,7 @@ import app.krail.bff.routes.configureGtfsRoutes
 import app.krail.bff.routes.configureInternalRoutes
 import app.krail.bff.routes.configureMetricsRoutes
 import app.krail.bff.routes.configureParkingRoutes
+import app.krail.bff.routes.configureQldTripRoutes
 import app.krail.bff.routes.configureRouterLabRoutes
 import app.krail.bff.routes.configureRouting
 import app.krail.bff.routes.configureTrackRoutes
@@ -46,13 +47,15 @@ fun Application.module() {
     configureRouting()
     configureTripRoutes()
     configureVicTripRoutes()
+    configureQldTripRoutes()
     configureDepartureRoutes()
     configureParkingRoutes()
     configureGtfsRoutes()
     configureTrackRoutes()
     configureDataRoutes()
     configureInternalRoutes()
-    // After configureVicTripRoutes: reads the VIC service attribute it sets.
+    // After configureVicTripRoutes/configureQldTripRoutes: reads the region
+    // service attributes they set.
     configureRouterLabRoutes()
     configureMetricsRoutes()
 }

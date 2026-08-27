@@ -4,6 +4,7 @@ import app.krail.bff.client.nsw.NswClient
 import app.krail.bff.model.TripResponse
 import app.krail.bff.proto.JourneyCardInfo
 import app.krail.bff.proto.JourneyList
+import app.krail.bff.qld.QldTripService
 import app.krail.bff.router.MiniNetworkFixture
 import app.krail.bff.vic.VicTripService
 import io.ktor.client.request.get
@@ -41,6 +42,8 @@ class RouterLabRoutesTest {
         .toInstant()
 
     private fun vicService() = VicTripService(MiniNetworkFixture.buildModel(), clock = { fixedNow })
+
+    private fun qldService() = QldTripService(MiniNetworkFixture.buildModel(), clock = { fixedNow })
 
     @AfterTest
     fun tearDown() {
@@ -94,6 +97,40 @@ class RouterLabRoutesTest {
 
         val response = client.get(
             "/api/v1/vic/trip/plan-proto?origin=VIC:A&destination=VIC:D&date=20260302&time=0755"
+        ) { header("Accept", "application/json") }
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.contentType()?.match(ContentType.Application.ProtoBuf) == true)
+        assertEquals(2, JourneyList.ADAPTER.decode(response.readRawBytes()).journeys.size)
+    }
+
+    @Test
+    fun `qld plan-proto returns json mirror when accept is json and gate on`() = testApplication {
+        environment { config = MapApplicationConfig("bff.devPassthrough" to "true") }
+        val svc = qldService()
+        application { qldTripRoutes(svc) }
+
+        val response = client.get(
+            "/api/v1/qld/trip/plan-proto?origin=QLD:A&destination=QLD:D&date=20260302&time=0755"
+        ) { header("Accept", "application/json") }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.contentType()?.match(ContentType.Application.Json) == true)
+        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
+        val journeys = body["journeys"]!!.jsonArray
+        assertEquals(2, journeys.size)
+        val leg = journeys[0].jsonObject["legs"]!!.jsonArray[0].jsonObject["transport_leg"]!!.jsonObject
+        assertEquals("QLD:A", leg["stops"]!!.jsonArray[0].jsonObject["stop_id"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `qld accept json without dev gate still returns protobuf`() = testApplication {
+        // Same production safety as VIC: the encoding must not change when the
+        // dev gate is off (all production configs), whatever Accept says.
+        val svc = qldService()
+        application { qldTripRoutes(svc) }
+
+        val response = client.get(
+            "/api/v1/qld/trip/plan-proto?origin=QLD:A&destination=QLD:D&date=20260302&time=0755"
         ) { header("Accept", "application/json") }
         assertEquals(HttpStatusCode.OK, response.status)
         assertTrue(response.contentType()?.match(ContentType.Application.ProtoBuf) == true)
@@ -172,6 +209,36 @@ class RouterLabRoutesTest {
         assertEquals(HttpStatusCode.NotFound, client.get("/internal/vic/stops/search?q=stop").status)
         // The lab page itself still serves (NSW-only debugging).
         assertEquals(HttpStatusCode.OK, client.get("/internal/router-lab").status)
+    }
+
+    @Test
+    fun `vic and qld stop search serve side by side with both models loaded`() = testApplication {
+        application { routerLabRoutes(vicService(), qldService()) }
+
+        val vic = client.get("/internal/vic/stops/search?q=stop d")
+        assertEquals(HttpStatusCode.OK, vic.status)
+        val vicIds = json.parseToJsonElement(vic.bodyAsText()).jsonArray
+            .map { it.jsonObject["id"]!!.jsonPrimitive.content }
+        assertContains(vicIds, "VIC:D")
+
+        val qld = client.get("/internal/qld/stops/search?q=stop d")
+        assertEquals(HttpStatusCode.OK, qld.status)
+        val qldIds = json.parseToJsonElement(qld.bodyAsText()).jsonArray
+            .map { it.jsonObject["id"]!!.jsonPrimitive.content }
+        assertContains(qldIds, "QLD:D")
+
+        // QLD search is allowlist-validated like VIC's.
+        val injection = client.get("/internal/qld/stops/search?q=%3Cscript%3E")
+        assertEquals(HttpStatusCode.BadRequest, injection.status)
+        assertContains(injection.bodyAsText(), "invalid_query")
+    }
+
+    @Test
+    fun `qld stop search absent when qld model not loaded`() = testApplication {
+        application { routerLabRoutes(vicService(), null) }
+
+        assertEquals(HttpStatusCode.OK, client.get("/internal/vic/stops/search?q=stop").status)
+        assertEquals(HttpStatusCode.NotFound, client.get("/internal/qld/stops/search?q=stop").status)
     }
 
     // ---- Gating ------------------------------------------------------------

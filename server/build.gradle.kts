@@ -74,6 +74,8 @@ tasks.named<JavaExec>("run") {
             "track.manifestUrl" to "TRACK_DATASET_MANIFEST_URL",
             // VIC router snapshot (feature-gates /api/v1/vic/trip routes)
             "vic.routerSnapshot" to "VIC_ROUTER_SNAPSHOT",
+            // QLD router snapshot (feature-gates /api/v1/qld/trip routes)
+            "qld.routerSnapshot" to "QLD_ROUTER_SNAPSHOT",
         )
         propToEnv.forEach { (prop, envName) ->
             localProperties.getProperty(prop)?.takeIf { it.isNotBlank() }?.let { value ->
@@ -103,13 +105,16 @@ tasks.register<JavaExec>("buildStopsDataset") {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
 }
 
-// Build + benchmark the VIC journey-planning model from local GTFS zips.
+// Build + benchmark a journey-planning model from local GTFS data.
 // Manual tooling like buildStopsDataset — not part of the serving path.
-// Args (Gradle properties): -PgtfsDir=<dir with <folder>/google_transit.zip>
-// [-PsnapshotOut=path] [-Pfolders=2,3,4,11] [-PbenchDate=2026-08-25]
+// Args (Gradle properties):
+//   -PgtfsDir=<path>       vic: dir with <folder>/google_transit.zip
+//                          qld: SEQ_GTFS.zip or the dir containing it
+//   [-Pregion=vic|qld] [-PsnapshotOut=path] [-Pfolders=2,3,4,11 (vic only)]
+//   [-PbenchDate=2026-08-25]
 tasks.register<JavaExec>("routerBench") {
     group = "data"
-    description = "Build + benchmark the VIC journey-planning model from local GTFS zips"
+    description = "Build + benchmark a journey-planning model (VIC or QLD) from local GTFS data"
     mainClass.set("app.krail.bff.tools.RouterBenchKt")
     classpath = sourceSets["main"].runtimeClasspath
     maxHeapSize = "3g"
@@ -120,6 +125,7 @@ tasks.register<JavaExec>("routerBench") {
             project.findProperty("snapshotOut")?.toString() ?: "",
             project.findProperty("folders")?.toString() ?: "",
             project.findProperty("benchDate")?.toString() ?: "",
+            project.findProperty("region")?.toString() ?: "",
         )
     }
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })

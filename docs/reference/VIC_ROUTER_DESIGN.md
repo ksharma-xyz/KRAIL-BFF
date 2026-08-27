@@ -21,18 +21,24 @@ KMP client's contract is already "BFF returns a `JourneyList` proto".
 Consequence for the code layout: the router core (`router/`) is
 **city-agnostic** — it consumes parsed GTFS feeds and knows nothing about
 Victoria. Everything VIC-specific (folder layout, namespaces, endpoint,
-timezone) lives in `vic/`, `mapper/VicJourneyListMapper.kt` and
-`routes/VicTripRoutes.kt`. Adding a city = new ingest + mapper, same core.
+timezone) lives in `vic/`, the region-parameterized
+`mapper/RegionJourneyListMapper.kt` (Melbourne tz + `VIC:` prefix as
+constructor args) and `routes/VicTripRoutes.kt`. Adding a city = new
+ingest + a mapper instance, same core — proven by Brisbane/SEQ, which
+reused the core with zero modifications
+([`QLD_ROUTER_NOTES.md`](QLD_ROUTER_NOTES.md): single-feed ingest, the
+measured SEQ quirks, and benchmarks at one-third of VIC's scale).
 
 ```
 server/src/main/kotlin/app/krail/bff/
   router/    # city-agnostic: GTFS parse → compact model → RAPTOR → snapshot
   vic/       # VIC ingest (folder map), VicTripService (plan + map, injected clock)
-  mapper/    # VicJourneyListMapper (Journey → JourneyList proto, Melbourne tz)
+  qld/       # QLD ingest (single feed) + QldTripService — see QLD_ROUTER_NOTES.md
+  mapper/    # RegionJourneyListMapper (Journey → JourneyList proto, tz + prefix params)
              # JourneyListJson (JSON mirror for the Router Lab, dev-gated)
-  routes/    # VicTripRoutes (/api/v1/vic/trip/plan-proto, feature-gated)
+  routes/    # VicTripRoutes / QldTripRoutes (plan-proto endpoints, feature-gated)
              # RouterLabRoutes (dev dashboard, see ROUTER_LAB.md)
-  tools/     # RouterBench (offline build + benchmark, writes the snapshot)
+  tools/     # RouterBench (offline build + benchmark, writes the snapshots)
 ```
 
 ## 2. Algorithm: RAPTOR
