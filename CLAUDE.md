@@ -93,6 +93,7 @@ server/
     router/           # City-agnostic RAPTOR journey planning (GTFS parse →
                       #   compact model → query → snapshot). VIC_ROUTER_DESIGN.md
     vic/              # VIC (Melbourne) ingest + trip service on top of router/
+    qld/              # QLD (Brisbane/SEQ) ingest + trip service. QLD_ROUTER_NOTES.md
     route/            # Ktor routing
 ```
 
@@ -108,8 +109,9 @@ Packages) — there is no in-repo proto directory.
   by the locked `realtime_trip_id`. See `TRACKING_DESIGN.md`.
 - Each leg resolves independently — one upstream failure never fails the whole request.
 - The **router core never reads a clock** — `RaptorRouter.plan()` takes an explicit
-  date + seconds-since-midnight; `VicTripService` uses its injected `clock` only
-  for request defaults. Same failure mode as TrackService if violated.
+  date + seconds-since-midnight; `VicTripService`/`QldTripService` use their
+  injected `clock` only for request defaults. Same failure mode as TrackService
+  if violated.
 - `RouterSnapshot.FORMAT_VERSION` **must bump on any array-layout change**. The
   reader rejects other versions; snapshots are rebuilt weekly, never migrated.
 
