@@ -104,6 +104,40 @@ class RouterLabRoutesTest {
     }
 
     @Test
+    fun `qld plan-proto returns json mirror when accept is json and gate on`() = testApplication {
+        environment { config = MapApplicationConfig("bff.devPassthrough" to "true") }
+        val svc = qldService()
+        application { qldTripRoutes(svc) }
+
+        val response = client.get(
+            "/api/v1/qld/trip/plan-proto?origin=QLD:A&destination=QLD:D&date=20260302&time=0755"
+        ) { header("Accept", "application/json") }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.contentType()?.match(ContentType.Application.Json) == true)
+        val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
+        val journeys = body["journeys"]!!.jsonArray
+        assertEquals(2, journeys.size)
+        val leg = journeys[0].jsonObject["legs"]!!.jsonArray[0].jsonObject["transport_leg"]!!.jsonObject
+        assertEquals("QLD:A", leg["stops"]!!.jsonArray[0].jsonObject["stop_id"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `qld accept json without dev gate still returns protobuf`() = testApplication {
+        // Same production safety as VIC: the encoding must not change when the
+        // dev gate is off (all production configs), whatever Accept says.
+        val svc = qldService()
+        application { qldTripRoutes(svc) }
+
+        val response = client.get(
+            "/api/v1/qld/trip/plan-proto?origin=QLD:A&destination=QLD:D&date=20260302&time=0755"
+        ) { header("Accept", "application/json") }
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.contentType()?.match(ContentType.Application.ProtoBuf) == true)
+        assertEquals(2, JourneyList.ADAPTER.decode(response.readRawBytes()).journeys.size)
+    }
+
+    @Test
     fun `nsw plan-proto returns json mirror when accept is json and gate on`() = testApplication {
         environment { config = MapApplicationConfig("bff.devPassthrough" to "true") }
         application {

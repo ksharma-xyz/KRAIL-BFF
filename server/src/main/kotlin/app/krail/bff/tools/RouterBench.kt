@@ -30,7 +30,8 @@ fun main(args: Array<String>) {
     fun arg(i: Int): String? = args.getOrNull(i)?.takeIf { it.isNotBlank() }
     val gtfsPath = Path.of(args[0])
     val region = arg(4)?.lowercase() ?: "vic"
-    val snapshotDir = if (Files.isDirectory(gtfsPath)) gtfsPath else gtfsPath.parent
+    // A bare relative zip argument has a null parent — snapshot lands in cwd.
+    val snapshotDir = if (Files.isDirectory(gtfsPath)) gtfsPath else (gtfsPath.parent ?: Path.of("."))
     val snapshotPath = arg(1)?.let { Path.of(it) } ?: when (region) {
         "qld" -> snapshotDir.resolve("router-snapshot-qld.bin")
         else -> snapshotDir.resolve("router-snapshot.bin")

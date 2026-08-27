@@ -20,11 +20,11 @@ BFF_DEV_PASSTHROUGH=true \
 ```
 
 Each `*_ROUTER_SNAPSHOT` var enables that region's planner independently;
-with neither set the lab still serves for NSW-only debugging (autocomplete
-+ BFF planning absent), and both loaded together serve side by side. All
-three vars also work from `local.properties` (`vic.routerSnapshot`,
-`qld.routerSnapshot`, `bff.devPassthrough`) via the `:server:run`
-forwarding.
+with neither set the lab still serves for NSW-only debugging (no
+autocomplete or BFF planning), and both loaded together serve side by
+side. All three vars also work from `local.properties`
+(`vic.routerSnapshot`, `qld.routerSnapshot`, `bff.devPassthrough`) via
+the `:server:run` forwarding.
 
 ## UI
 
@@ -33,8 +33,10 @@ Single self-contained HTML page (classpath resource
 
 - **Region** VIC / QLD / NSW. BFF-routed regions (VIC, QLD) autocomplete
   origin/destination by stop name (`/internal/vic/stops/search`,
-  `/internal/qld/stops/search`; picks fill in ids like `VIC:vic:rail:FSS`,
-  `QLD:place_censta`); NSW takes raw stop ids free-text (e.g. `200060`).
+  `/internal/qld/stops/search`). Picks fill in routable stop ids (the
+  search scans the model's stops, not its stations); station ids like
+  `VIC:vic:rail:FSS` or `QLD:place_censta` also plan fine when typed
+  directly. NSW takes raw stop ids free-text (e.g. `200060`).
 - **Date/time** default to now; **Find timetable** queries the region's
   plan-proto endpoint with `Accept: application/json`.
 - **Journey cards**, sorted by departure: dep→arr, duration, transfers,

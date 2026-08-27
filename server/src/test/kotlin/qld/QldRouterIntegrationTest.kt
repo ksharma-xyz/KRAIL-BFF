@@ -114,14 +114,42 @@ class QldRouterIntegrationTest {
     }
 
     @Test
-    fun `after-midnight nightlink trips are boardable next calendar day`() = ifData {
-        // SEQ times run to 30:00+ — a 00:30 query must still see yesterday's
-        // service day (invariant I3). Structural: some journey exists from
-        // Central at 00:30 on the day after a Friday night (Sat 00:30).
+    fun `after-midnight trips are boardable on the next calendar day`() = ifData {
+        // SEQ times run to 30:00+ — a query shortly after midnight must still
+        // see yesterday's service day (invariant I3). Pin it with the data:
+        // find a Friday-active trip departing some stop at >= 24:10, then plan
+        // that hop on Saturday five minutes before its wall-clock departure and
+        // require an arrival no later than that trip's own — merely finding
+        // some 05:00 Saturday service must not pass this test.
         var friday = queryDate
         while (friday.dayOfWeek != DayOfWeek.FRIDAY) friday = friday.plusDays(1)
-        val saturdayNight = friday.plusDays(1)
-        val journeys = router.plan("place_censta", "place_romsta", saturdayNight, sec(0, 30))
-        assertTrue(journeys.isNotEmpty(), "no journey at 00:30 Sat — after-midnight scan broken?")
+        val saturday = friday.plusDays(1)
+        val active = model.activeServices(friday)
+        var checked = false
+        outer@ for (p in 0 until model.patternCount) {
+            val nStops = model.patternStopCount(p)
+            if (nStops < 2) continue
+            for (t in model.patternTripsOffset[p] until model.patternTripsOffset[p + 1]) {
+                if (!active.get(model.tripServices[t])) continue
+                val base = model.patternTimesBase[p] + (t - model.patternTripsOffset[p]) * nStops
+                for (pos in 0 until nStops - 1) {
+                    val dep = model.departures[base + pos]
+                    if (dep < sec(24, 10) || dep >= sec(27, 0)) continue
+                    val from = intArrayOf(model.patternStopAt(p, pos))
+                    val to = intArrayOf(model.patternStopAt(p, pos + 1))
+                    val tripArr = model.arrivals[base + pos + 1] - 86_400 // Saturday frame
+                    val journeys = router.planStops(from, to, saturday, dep - 86_400 - sec(0, 5))
+                    assertTrue(journeys.isNotEmpty(), "after-midnight hop unreachable — D-1 scan broken?")
+                    val bestArr = journeys.minOf { it.arrSec }
+                    assertTrue(
+                        bestArr <= tripArr,
+                        "yesterday's after-midnight trip not boardable: best arr ${bestArr}s > trip arr ${tripArr}s",
+                    )
+                    checked = true
+                    break@outer
+                }
+            }
+        }
+        assertTrue(checked, "no Friday-active departures in 24:10..27:00 found in dataset")
     }
 }
