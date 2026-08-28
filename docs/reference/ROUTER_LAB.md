@@ -8,34 +8,39 @@ the mappers — it is not a product surface.
 ## Launch
 
 ```sh
-# One-time: build the snapshots (see VIC_ROUTER_DESIGN.md §12, QLD_ROUTER_NOTES.md §4)
+# One-time: build the snapshots (see VIC_ROUTER_DESIGN.md §12,
+# QLD_ROUTER_NOTES.md §4, WORLD_REGIONS_NOTES.md §6)
 ./gradlew :server:routerBench -PgtfsDir=<vic-gtfs-dir>
-./gradlew :server:routerBench -PgtfsDir=<seq-gtfs-dir-or-zip> -Pregion=qld
+./gradlew :server:routerBench -PgtfsDir=<feed.zip> -Pregion=<code>   # qld|akl|wlg|bos|ber|prg
 
 VIC_ROUTER_SNAPSHOT=<vic-gtfs-dir>/router-snapshot.bin \
-QLD_ROUTER_SNAPSHOT=<seq-gtfs-dir>/router-snapshot-qld.bin \
+AKL_ROUTER_SNAPSHOT=<akl-dir>/router-snapshot-akl.bin \
+BER_ROUTER_SNAPSHOT=<ber-dir>/router-snapshot-ber.bin \
 BFF_DEV_PASSTHROUGH=true \
 ./gradlew :server:run -PrunPort=8080
 # open http://localhost:8080/internal/router-lab
 ```
 
-Each `*_ROUTER_SNAPSHOT` var enables that region's planner independently;
-with neither set the lab still serves for NSW-only debugging (no
-autocomplete or BFF planning), and both loaded together serve side by
-side. All three vars also work from `local.properties`
-(`vic.routerSnapshot`, `qld.routerSnapshot`, `bff.devPassthrough`) via
-the `:server:run` forwarding.
+Each region's `{CODE}_ROUTER_SNAPSHOT` var enables its planner
+independently (any subset, all seven together); with none set the lab
+still serves for NSW-only debugging (no autocomplete or BFF planning).
+All the vars also work from `local.properties` (`{code}.routerSnapshot`,
+`bff.devPassthrough`) via the `:server:run` forwarding.
 
 ## UI
 
 Single self-contained HTML page (classpath resource
 `router-lab/index.html`) — no CDNs, no framework, dark-scheme aware.
 
-- **Region** VIC / QLD / NSW. BFF-routed regions (VIC, QLD) autocomplete
-  origin/destination by stop name (`/internal/vic/stops/search`,
-  `/internal/qld/stops/search`). Picks fill in routable stop ids (the
-  search scans the model's stops, not its stations); station ids like
-  `VIC:vic:rail:FSS` or `QLD:place_censta` also plan fine when typed
+- **Region** dropdown built from `GET /internal/router-lab/regions`
+  (every `RegionRegistry` entry with a loaded flag; unloaded regions are
+  greyed out, NSW is the static upstream entry). BFF-routed regions
+  autocomplete origin/destination by stop name
+  (`/internal/{code}/stops/search`), **diacritic-insensitively** —
+  `otahuhu` finds Ōtāhuhu, `andel` finds Anděl. Picks fill in routable
+  stop ids (the search scans the model's stops, not its stations);
+  station ids like `VIC:vic:rail:FSS`, `QLD:place_censta`,
+  `BOS:place-pktrm` or `BER:de:11000:900003201` also plan fine when typed
   directly. NSW takes raw stop ids free-text (e.g. `200060`).
 - **Date/time** default to now; **Find timetable** queries the region's
   plan-proto endpoint with `Accept: application/json`.
@@ -54,11 +59,10 @@ Single self-contained HTML page (classpath resource
 
 ## The Accept-JSON switch
 
-All plan-proto endpoints (`/api/v1/trip/plan-proto` NSW,
-`/api/v1/vic/trip/plan-proto` VIC,
-`/api/v1/qld/trip/plan-proto` QLD) return a JSON mirror of the JourneyList
-proto when the request sends `Accept: application/json` **and the dev gate
-is on**. Field names match the proto exactly (`mapper/JourneyListJson.kt`,
+All plan-proto endpoints (`/api/v1/trip/plan-proto` NSW, and
+`/api/v1/{code}/trip/plan-proto` for every BFF-routed region) return a JSON
+mirror of the JourneyList proto when the request sends
+`Accept: application/json` **and the dev gate is on**. Field names match the proto exactly (`mapper/JourneyListJson.kt`,
 same precedent as `TrackJson`) — the lab debugs the real code path, not a
 parallel one.
 
@@ -72,13 +76,16 @@ Accept — regression-tested in `RouterLabRoutesTest`.
 
 - Gated identically to `/internal/passthrough`
   (`BFF_DEV_PASSTHROUGH=true`, default off, WARN log when enabled).
-  Everything under `/internal/router-lab` and the per-region
-  `/internal/{vic,qld}/stops/search` endpoints is a 404 in production
-  config. Not in `EXEMPT_PATHS` — normal gates and rate limits apply.
+  Everything under `/internal/router-lab` (the regions listing included)
+  and the per-region `/internal/{code}/stops/search` endpoints is a 404 in
+  production config. Not in `EXEMPT_PATHS` — normal gates and rate limits
+  apply.
 - The lab calls only BFF endpoints; **the NSW key never reaches the
   browser** (unlike the passthrough, the lab has no upstream proxy at all).
-- `q` on the stop search is allowlist-validated (`[A-Za-z0-9 .,'&/#()_:-]`,
-  1–64 chars), reject-don't-sanitize; responses carry only model stop data
+- `q` on the stop search is allowlist-validated
+  (`[\p{L}\p{M}0-9 .,'&/#()_:-]`, 1–64 chars — Unicode letters admitted for
+  accented stop names, still no markup or control characters),
+  reject-don't-sanitize; responses carry only model stop data
   (id/name/lat/lon, top 20).
 - Every server-derived string reaching the DOM is escaped; errors and raw
   JSON render via `textContent`.

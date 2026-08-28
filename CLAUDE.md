@@ -92,8 +92,10 @@ server/
     trackdata/        # Dataset stores (shapes, stop directory)
     router/           # City-agnostic RAPTOR journey planning (GTFS parse →
                       #   compact model → query → snapshot). VIC_ROUTER_DESIGN.md
-    vic/              # VIC (Melbourne) ingest + trip service on top of router/
-    qld/              # QLD (Brisbane/SEQ) ingest + trip service. QLD_ROUTER_NOTES.md
+    region/           # RegionRegistry: all BFF-routed planner regions (vic, qld,
+                      #   akl, wlg, bos, ber, prg) + single-feed ingest + trip
+                      #   service. WORLD_REGIONS_NOTES.md
+    vic/              # VIC (Melbourne) folder-bundle ingest — the one multi-feed region
     route/            # Ktor routing
 ```
 

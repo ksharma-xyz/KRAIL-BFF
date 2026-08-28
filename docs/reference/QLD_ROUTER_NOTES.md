@@ -25,15 +25,22 @@ differences make QLD the *simpler* region:
 - **No daylight saving.** Australia/Brisbane is a fixed +10:00 year-round,
   so the VIC DST-drift gap (VIC doc §11) does not apply to QLD.
 
-Code layout mirrors VIC one-to-one:
+QLD was the second region and originally mirrored VIC's file layout
+one-to-one; that copy-paste became the template for the region registry,
+and QLD now lives there as a single `RegionSpec` — there is no `qld/`
+package any more:
 
 ```
 server/src/main/kotlin/app/krail/bff/
-  qld/       # QldGtfsIngest (single feed), QldTripService (Brisbane tz)
-  mapper/    # RegionJourneyListMapper (shared with VIC; tz + prefix params)
-  routes/    # QldTripRoutes (/api/v1/qld/trip/plan-proto, feature-gated
+  region/    # RegionRegistry entry "qld" (Brisbane tz, QLD: prefix,
+             #   SEQ_GTFS.zip) + shared RegionGtfsIngest/RegionTripService
+  mapper/    # RegionJourneyListMapper (shared; tz + prefix params)
+  routes/    # RegionTripRoutes (/api/v1/qld/trip/plan-proto, feature-gated
              #   on QLD_ROUTER_SNAPSHOT, same fail-open boot as VIC)
 ```
+
+See [`WORLD_REGIONS_NOTES.md`](WORLD_REGIONS_NOTES.md) §1 for the registry
+design.
 
 Public stop ids are `QLD:`-prefixed: `QLD:600019` (a platform),
 `QLD:place_censta` (a station, resolved to its child platforms at query
@@ -60,7 +67,7 @@ no auth, CC-BY 4.0, refreshed frequently — treat like the VIC weekly drop).
 | **Zero blank stop times** | VIC's interpolation path goes unused | — |
 | After-midnight times to 30:59 | 38,838 rows ≥ 24:00:00 | Three-service-day scan (VIC doc §5) |
 | **Trip overtaking here too** | 13,647 of 68,620 pattern-positions (20%) non-FIFO (VIC: 23%) | Per-position FIFO flags — nothing to do |
-| pickup/drop_off restrictions **are used** | pickup_type=1 on 130,649 rows (122,625 at trip-final stops — harmless; **8,024 mid-trip**); drop_off_type=1 on 7,164 (7,107 mid-trip) | **Not absorbed — known gap §5** |
+| pickup/drop_off restrictions **are used** | pickup_type=1 on 130,649 rows (122,625 at trip-final stops; **8,024 mid-trip**); drop_off_type=1 on 7,164 (7,107 mid-trip) | **Enforced since snapshot v2** (VIC doc §3) — no boarding/alighting at restricted calls |
 | Calendar span ~2 months | 171 services, 20260827–20261026; 377 date exceptions; no exception-only services; referential integrity clean | Weekly rebuilds |
 
 ## 3. Measured performance
@@ -109,17 +116,15 @@ touches the NSW or VIC serving paths. The debug playbook in the VIC doc
 
 ## 5. QLD-specific known gaps
 
-- **Mid-trip pickup/drop-off restrictions ignored.** The router does not
-  read `pickup_type`/`drop_off_type` (VIC doc §11 — already earmarked
-  before VIC's regional-coach folder). SEQ actually uses them mid-trip:
-  8,024 set-down-only and 7,107 pick-up-only calls (~0.25% of rows), so
-  the model will board/alight at a few calls a rider can't. Fix belongs in
-  the core (parse both columns, honour them in boarding/alighting; snapshot
-  FORMAT_VERSION bump) and then benefits VIC too.
+- ~~Mid-trip pickup/drop-off restrictions ignored~~ **Closed** with
+  snapshot FORMAT_VERSION 2: the core parses both columns and the router
+  honours them (including the exact fallback when the earliest catchable
+  trip is set-down-restricted) — see VIC doc §3. The counts above are what
+  the enforcement now protects.
 - **Rail cards show service codes.** `line_name` uses `route_short_name`
   (VIC convention), which for Citytrain is a code like `BDBR`; the human
   name lives in `route_long_name`. Revisit the mapper's line-name choice
   before QLD ships to the client.
 - Everything else in the VIC gap list (same-stop 0 s transfers, no
-  shapes/polylines, frequencies.txt unparsed, snapshot distribution ops)
-  applies as-is — minus DST, which Queensland does not observe.
+  shapes/polylines, snapshot distribution ops) applies as-is — minus DST,
+  which Queensland does not observe.
