@@ -341,10 +341,11 @@ object GtfsParser {
     /**
      * Expands frequency-based trips into concrete trips: for each frequencies
      * row, one clone of the template trip per headway step in
-     * [start_time, end_time), times shifted so the first stop's arrival lands
-     * on the step. Template trips keep their trips.txt entry but lose their
-     * stop_times rows (per spec their absolute times are only travel-time
-     * offsets, not a schedulable trip); the builder drops row-less trips.
+     * [start_time, end_time), times shifted so the first stop's departure
+     * lands on the step. Template trips keep their trips.txt entry but lose
+     * their stop_times rows (per spec their absolute times are only
+     * travel-time offsets, not a schedulable trip); the builder drops
+     * row-less trips.
      */
     private fun expandFrequencies(
         trips: List<GtfsTrip>,
@@ -394,17 +395,26 @@ object GtfsParser {
             flags.add(stopTimes.flags[r])
         }
 
+        // Overlapping/duplicate rows for one template must not clone the same
+        // departure twice (spec forbids overlap; feeds ship slop anyway).
+        val seenStarts = HashMap<Int, HashSet<Int>>()
         for (f in frequencies) {
             val rows = rowsByTrip[f.tripIdx] ?: continue
             if (rows.size < 2) continue
-            // Anchor: the template's first-stop arrival (blank endpoints make
-            // the template unusable — the builder would drop such trips anyway).
-            val anchor = stopTimes.arr[rows[0]]
+            // Anchor: the template's first-stop departure — GTFS start_time is
+            // when the vehicle departs the first stop. (Blank endpoints make
+            // the template unusable — the builder would drop such trips anyway.)
+            val anchor = stopTimes.dep[rows[0]]
             if (anchor < 0) continue
             val template = trips[f.tripIdx]
+            val starts = seenStarts.getOrPut(f.tripIdx) { HashSet() }
             var start = f.startSec
             var generated = 0
             while (start < f.endSec && generated < MAX_TRIPS_PER_FREQUENCY_ROW) {
+                if (!starts.add(start)) {
+                    start += f.headwaySec
+                    continue
+                }
                 val newTripIdx = outTrips.size
                 outTrips.add(
                     GtfsTrip(

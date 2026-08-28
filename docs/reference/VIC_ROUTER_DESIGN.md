@@ -266,6 +266,13 @@ makes GC visible.
   unblocked on this axis, though still unscoped.
 - **Same-stop transfers are 0 s** (generated stop-to-stop edges carry the
   60 s buffer; same-platform reboard has none). Revisit with GTFS-RT.
+- **Arrival-overtaking within a pattern**: the scan rides the earliest-
+  *departing* catchable trip; at a non-FIFO position a later-departing trip
+  of the same pattern that *arrives* earlier is never adopted, so its better
+  arrival can be missed when the boarding stop is only reachable upstream.
+  Inherent to single-current-trip RAPTOR; drop-off-restricted positions are
+  ironically exact (the fallback scans every trip). Rare in practice —
+  first-stop-sorted trips overtake on departures far more than on arrivals.
 - **No shapes/geometry**: legs carry stop coordinates, no polylines
   (shapes.txt skipped for memory).
 - ~~frequencies.txt unparsed~~ **Closed**: expanded at parse time (§3);

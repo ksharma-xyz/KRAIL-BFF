@@ -181,9 +181,10 @@ class RaptorRouter(private val model: RouterModel) {
                             // may alight. The earliest-departing trip no
                             // longer dominates at this position — a later
                             // trip of the same pattern may allow the
-                            // drop-off — so run an exact per-trip scan here
-                            // (rare: only when actually riding past a
-                            // restricted call with an improvement in reach).
+                            // drop-off — so run an exact per-trip scan here.
+                            // Runs whenever a ridden trip passes a restricted
+                            // call (rare); its inner loop prunes on best[]
+                            // and targetBound.
                             alightRestrictedFallback(
                                 p, base, nStops, tripsStart, tripsEnd, stopsOff, startPos, pos, s, prev, cur
                             )
