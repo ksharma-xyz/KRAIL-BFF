@@ -40,6 +40,8 @@ class GtfsTransfer(val fromStop: Int, val toStop: Int, val seconds: Int)
 /**
  * Flat stop_times columns; one entry per row. Times are seconds since the
  * service-day midnight (may exceed 24h), -1 when the feed left them blank.
+ * [flags] carries the boarding/alighting restrictions for the row
+ * ([STOP_TIME_NO_PICKUP] / [STOP_TIME_NO_DROP_OFF] bits).
  */
 class StopTimesTable(
     val trip: IntArray,
@@ -47,9 +49,15 @@ class StopTimesTable(
     val arr: IntArray,
     val dep: IntArray,
     val seq: IntArray,
+    val flags: ByteArray,
 ) {
     val size: Int get() = trip.size
 }
+
+/** stop_times pickup_type=1: passengers cannot board at this call. */
+const val STOP_TIME_NO_PICKUP = 1
+/** stop_times drop_off_type=1: passengers cannot alight at this call. */
+const val STOP_TIME_NO_DROP_OFF = 2
 
 /**
  * Resolved service calendar: calendar.txt row merged with its

@@ -12,12 +12,24 @@ object GtfsParser {
 
     private const val DEFAULT_TRANSFER_SECONDS = 120
 
+    /**
+     * Hard cap per frequencies.txt row: a 10s headway across a 14h span is
+     * ~5000 trips; anything beyond that is a corrupt row, not a timetable.
+     */
+    private const val MAX_TRIPS_PER_FREQUENCY_ROW = 5040
+
     fun parseFeed(source: GtfsSource): GtfsFeed {
         val (stops, stations, stopIndexById) = parseStops(source)
         val (routes, routeIndexById) = parseRoutes(source)
         val (serviceIds, services, serviceIndexById) = parseCalendars(source)
-        val (trips, tripIndexById) = parseTrips(source, routeIndexById, serviceIndexById)
-        val stopTimes = parseStopTimes(source, tripIndexById, stopIndexById)
+        var (trips, tripIndexById) = parseTrips(source, routeIndexById, serviceIndexById)
+        var stopTimes = parseStopTimes(source, tripIndexById, stopIndexById)
+        val frequencies = parseFrequencies(source, tripIndexById)
+        if (frequencies.isNotEmpty()) {
+            val expanded = expandFrequencies(trips, stopTimes, frequencies)
+            trips = expanded.first
+            stopTimes = expanded.second
+        }
         val stationChildren = HashMap<String, MutableList<Int>>()
         stops.forEachIndexed { idx, s ->
             s.parentStation?.let { stationChildren.getOrPut(it) { ArrayList() }.add(idx) }
@@ -245,9 +257,10 @@ object GtfsParser {
         val arr = IntVec(1 shl 16)
         val dep = IntVec(1 shl 16)
         val seq = IntVec(1 shl 16)
+        val flags = ByteVec(1 shl 16)
         require(source, "stop_times.txt").use { csv ->
             if (!csv.readRow()) {
-                return StopTimesTable(IntArray(0), IntArray(0), IntArray(0), IntArray(0), IntArray(0))
+                return StopTimesTable(IntArray(0), IntArray(0), IntArray(0), IntArray(0), IntArray(0), ByteArray(0))
             }
             val h = csv.headerMap()
             val cTrip = col(h, "trip_id", "stop_times.txt", source.namespace)
@@ -255,6 +268,11 @@ object GtfsParser {
             val cDep = col(h, "departure_time", "stop_times.txt", source.namespace)
             val cStop = col(h, "stop_id", "stop_times.txt", source.namespace)
             val cSeq = col(h, "stop_sequence", "stop_times.txt", source.namespace)
+            // pickup_type / drop_off_type: 1 = not available. Types 2/3
+            // (phone agency / coordinate with driver) stay boardable — the
+            // rider can, with arrangement; the router should not hide them.
+            val cPickup = h["pickup_type"] ?: -1
+            val cDropOff = h["drop_off_type"] ?: -1
             // Rows for one trip are contiguous in practice; cache the last
             // trip-id lookup to avoid a String + hash per row at 7.5M rows.
             var lastTripId: String? = null
@@ -274,15 +292,150 @@ object GtfsParser {
                 var d = csv.timeSeconds(cDep)
                 if (a < 0) a = d
                 if (d < 0) d = a
+                var f = 0
+                if (cPickup >= 0 && csv.int(cPickup, 0) == 1) f = f or STOP_TIME_NO_PICKUP
+                if (cDropOff >= 0 && csv.int(cDropOff, 0) == 1) f = f or STOP_TIME_NO_DROP_OFF
                 trip.add(tripIdx)
                 stop.add(stopIdx)
                 arr.add(a)
                 dep.add(d)
                 seq.add(csv.int(cSeq, 0))
+                flags.add(f.toByte())
             }
         }
-        return StopTimesTable(trip.toArray(), stop.toArray(), arr.toArray(), dep.toArray(), seq.toArray())
+        return StopTimesTable(
+            trip.toArray(), stop.toArray(), arr.toArray(), dep.toArray(), seq.toArray(), flags.toArray()
+        )
     }
+
+    private class FrequencyRow(val tripIdx: Int, val startSec: Int, val endSec: Int, val headwaySec: Int)
+
+    /**
+     * frequencies.txt: trips repeated on a headway. Rows referencing unknown
+     * trips, with malformed times, or with implausible headways (< 10s) are
+     * dropped. `exact_times` changes only the semantics (1 = exact schedule
+     * replication, 0 = headway-based service); both expand to concrete trips
+     * departing every headway in [start_time, end_time).
+     */
+    private fun parseFrequencies(source: GtfsSource, tripIndexById: Map<String, Int>): List<FrequencyRow> {
+        val rows = ArrayList<FrequencyRow>()
+        open(source, "frequencies.txt")?.use { csv ->
+            if (!csv.readRow()) return rows
+            val h = csv.headerMap()
+            val cTrip = h["trip_id"] ?: return rows
+            val cStart = h["start_time"] ?: return rows
+            val cEnd = h["end_time"] ?: return rows
+            val cHeadway = h["headway_secs"] ?: return rows
+            while (csv.readRow()) {
+                val tripIdx = tripIndexById[csv.string(cTrip)] ?: continue
+                val start = csv.timeSeconds(cStart)
+                val end = csv.timeSeconds(cEnd)
+                val headway = csv.int(cHeadway, 0)
+                if (start < 0 || end <= start || headway < 10) continue
+                rows.add(FrequencyRow(tripIdx, start, end, headway))
+            }
+        }
+        return rows
+    }
+
+    /**
+     * Expands frequency-based trips into concrete trips: for each frequencies
+     * row, one clone of the template trip per headway step in
+     * [start_time, end_time), times shifted so the first stop's arrival lands
+     * on the step. Template trips keep their trips.txt entry but lose their
+     * stop_times rows (per spec their absolute times are only travel-time
+     * offsets, not a schedulable trip); the builder drops row-less trips.
+     */
+    private fun expandFrequencies(
+        trips: List<GtfsTrip>,
+        stopTimes: StopTimesTable,
+        frequencies: List<FrequencyRow>,
+    ): Pair<List<GtfsTrip>, StopTimesTable> {
+        val frequencyTrips = HashSet<Int>(frequencies.size * 2)
+        for (f in frequencies) frequencyTrips.add(f.tripIdx)
+
+        // Rows per template trip, in stop_sequence order.
+        val rowsByTrip = HashMap<Int, IntVec>()
+        for (r in 0 until stopTimes.size) {
+            val t = stopTimes.trip[r]
+            if (t in frequencyTrips) rowsByTrip.getOrPut(t) { IntVec(8) }.add(r)
+        }
+        for (rows in rowsByTrip.values) {
+            // Nearly always pre-sorted; insertion sort on stop_sequence.
+            for (i in 1 until rows.size) {
+                val row = rows[i]
+                val key = stopTimes.seq[row]
+                var j = i - 1
+                while (j >= 0 && stopTimes.seq[rows[j]] > key) {
+                    rows.data[j + 1] = rows.data[j]
+                    j--
+                }
+                rows.data[j + 1] = row
+            }
+        }
+
+        val outTrips = ArrayList<GtfsTrip>(trips.size)
+        val trip = IntVec(stopTimes.size)
+        val stop = IntVec(stopTimes.size)
+        val arr = IntVec(stopTimes.size)
+        val dep = IntVec(stopTimes.size)
+        val seq = IntVec(stopTimes.size)
+        val flags = ByteVec(stopTimes.size)
+
+        // Scheduled (non-frequency) trips keep their rows and indices as-is.
+        outTrips.addAll(trips)
+        for (r in 0 until stopTimes.size) {
+            if (stopTimes.trip[r] in frequencyTrips) continue
+            trip.add(stopTimes.trip[r])
+            stop.add(stopTimes.stop[r])
+            arr.add(stopTimes.arr[r])
+            dep.add(stopTimes.dep[r])
+            seq.add(stopTimes.seq[r])
+            flags.add(stopTimes.flags[r])
+        }
+
+        for (f in frequencies) {
+            val rows = rowsByTrip[f.tripIdx] ?: continue
+            if (rows.size < 2) continue
+            // Anchor: the template's first-stop arrival (blank endpoints make
+            // the template unusable — the builder would drop such trips anyway).
+            val anchor = stopTimes.arr[rows[0]]
+            if (anchor < 0) continue
+            val template = trips[f.tripIdx]
+            var start = f.startSec
+            var generated = 0
+            while (start < f.endSec && generated < MAX_TRIPS_PER_FREQUENCY_ROW) {
+                val newTripIdx = outTrips.size
+                outTrips.add(
+                    GtfsTrip(
+                        id = "${template.id}#${gtfsTime(start)}",
+                        routeIdx = template.routeIdx,
+                        serviceIdx = template.serviceIdx,
+                        headsign = template.headsign,
+                    )
+                )
+                val shift = start - anchor
+                for (i in 0 until rows.size) {
+                    val r = rows[i]
+                    trip.add(newTripIdx)
+                    stop.add(stopTimes.stop[r])
+                    arr.add(if (stopTimes.arr[r] < 0) -1 else stopTimes.arr[r] + shift)
+                    dep.add(if (stopTimes.dep[r] < 0) -1 else stopTimes.dep[r] + shift)
+                    seq.add(stopTimes.seq[r])
+                    flags.add(stopTimes.flags[r])
+                }
+                start += f.headwaySec
+                generated++
+            }
+        }
+
+        return outTrips to StopTimesTable(
+            trip.toArray(), stop.toArray(), arr.toArray(), dep.toArray(), seq.toArray(), flags.toArray()
+        )
+    }
+
+    private fun gtfsTime(sec: Int): String =
+        "%02d:%02d:%02d".format(sec / 3600, sec % 3600 / 60, sec % 60)
 
     private fun parseTransfers(
         source: GtfsSource,

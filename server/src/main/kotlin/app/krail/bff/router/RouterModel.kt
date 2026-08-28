@@ -48,6 +48,13 @@ class RouterModel(
     // Stop times
     val arrivals: IntArray,
     val departures: IntArray,
+    /**
+     * Parallel to [arrivals]/[departures]: [STOP_TIME_NO_PICKUP] /
+     * [STOP_TIME_NO_DROP_OFF] bits per call. The router must not board at
+     * no-pickup calls nor alight at no-drop-off calls (SEQ sets these on
+     * ~0.25% of rows mid-trip; MBTA/VBB/PID use them too).
+     */
+    val stopTimeFlags: ByteArray,
     // Stop → (pattern, position) adjacency
     val stopAdjOffset: IntArray, // size S+1
     val adjPattern: IntArray,

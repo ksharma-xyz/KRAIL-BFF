@@ -23,6 +23,7 @@ class RouterSnapshotTest {
             assertContentEquals(model.tripIds, loaded.tripIds)
             assertContentEquals(model.arrivals, loaded.arrivals)
             assertContentEquals(model.departures, loaded.departures)
+            assertContentEquals(model.stopTimeFlags.toTypedArray(), loaded.stopTimeFlags.toTypedArray())
             assertContentEquals(model.patternStops, loaded.patternStops)
             assertContentEquals(model.patternFifo.toTypedArray(), loaded.patternFifo.toTypedArray())
             assertContentEquals(model.transferTarget, loaded.transferTarget)

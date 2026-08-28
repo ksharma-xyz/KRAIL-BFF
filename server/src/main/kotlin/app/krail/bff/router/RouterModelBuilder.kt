@@ -128,6 +128,7 @@ object RouterModelBuilder {
         val tripHeadsigns = arrayOfNulls<String>(totalTrips)
         val arrivals = IntArray(totalTimes.toInt())
         val departures = IntArray(totalTimes.toInt())
+        val stopTimeFlags = ByteArray(totalTimes.toInt())
         var timesBase = 0
         patternKeys.forEachIndexed { p, key ->
             key.stops.copyInto(patternStops, patternStopsOffset[p])
@@ -142,6 +143,7 @@ object RouterModelBuilder {
                 tripHeadsigns[g] = trip.headsign
                 trip.arr.copyInto(arrivals, timesBase + tLocal * nStops)
                 trip.dep.copyInto(departures, timesBase + tLocal * nStops)
+                trip.flags.copyInto(stopTimeFlags, timesBase + tLocal * nStops)
             }
             // Per-position FIFO check: departures non-decreasing across trips.
             // Overtaking would make the router's binary search miss catchable
@@ -266,6 +268,7 @@ object RouterModelBuilder {
             tripHeadsigns = tripHeadsigns,
             arrivals = arrivals,
             departures = departures,
+            stopTimeFlags = stopTimeFlags,
             stopAdjOffset = stopAdjOffset,
             adjPattern = adjPattern,
             adjPosition = adjPosition,
@@ -317,17 +320,19 @@ object RouterModelBuilder {
             val stops = IntArray(n)
             val arr = IntArray(n)
             val dep = IntArray(n)
+            val flags = ByteArray(n)
             for (i in 0 until n) {
                 val row = rowOf[from + i]
                 stops[i] = stopGlobal[st.stop[row]]
                 arr[i] = st.arr[row]
                 dep[i] = st.dep[row]
+                flags[i] = st.flags[row]
             }
             if (!repairTimes(arr, dep)) continue
             val trip = feed.trips[t]
             val key = PatternKey(routeOffset + trip.routeIdx, stops)
             patterns.getOrPut(key) { ArrayList() }.add(
-                TripAgg(trip.id, serviceOffset + trip.serviceIdx, trip.headsign, arr, dep)
+                TripAgg(trip.id, serviceOffset + trip.serviceIdx, trip.headsign, arr, dep, flags)
             )
         }
     }
@@ -421,6 +426,7 @@ object RouterModelBuilder {
         val headsign: String?,
         val arr: IntArray,
         val dep: IntArray,
+        val flags: ByteArray,
     )
 
     private class DoubleVec {

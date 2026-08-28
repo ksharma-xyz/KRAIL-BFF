@@ -17,7 +17,8 @@ import java.nio.file.Path
 object RouterSnapshot {
 
     private const val MAGIC = 0x4B_52_56_52 // "KRVR"
-    const val FORMAT_VERSION = 1
+    // v2: adds stopTimeFlags (pickup/drop-off restrictions per stop time).
+    const val FORMAT_VERSION = 2
     private const val BUFFER_SIZE = 1 shl 20
 
     fun write(model: RouterModel, path: Path) {
@@ -67,6 +68,8 @@ object RouterSnapshot {
 
             out.writeInts(model.arrivals)
             out.writeInts(model.departures)
+            out.writeInt(model.stopTimeFlags.size)
+            out.write(model.stopTimeFlags)
 
             out.writeInts(model.stopAdjOffset)
             out.writeInts(model.adjPattern)
@@ -139,6 +142,9 @@ object RouterSnapshot {
 
             val arrivals = input.readInts(sizeLimit)
             val departures = input.readInts(sizeLimit)
+            val flagCount = input.readSize(sizeLimit)
+            val stopTimeFlags = ByteArray(flagCount)
+            input.readFully(stopTimeFlags)
 
             val stopAdjOffset = input.readInts(sizeLimit)
             val adjPattern = input.readInts(sizeLimit)
@@ -177,6 +183,7 @@ object RouterSnapshot {
                 tripHeadsigns = tripHeadsigns,
                 arrivals = arrivals,
                 departures = departures,
+                stopTimeFlags = stopTimeFlags,
                 stopAdjOffset = stopAdjOffset,
                 adjPattern = adjPattern,
                 adjPosition = adjPosition,

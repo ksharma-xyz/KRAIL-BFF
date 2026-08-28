@@ -70,11 +70,19 @@ fun main(args: Array<String>) {
 }
 
 private fun printStats(model: RouterModel, buildMs: Long) {
+    var noPickup = 0
+    var noDropOff = 0
+    for (f in model.stopTimeFlags) {
+        val v = f.toInt()
+        if (v and app.krail.bff.router.STOP_TIME_NO_PICKUP != 0) noPickup++
+        if (v and app.krail.bff.router.STOP_TIME_NO_DROP_OFF != 0) noDropOff++
+    }
     println(
         "model build: ${buildMs}ms — stops=${model.stopCount} routes=${model.routeIds.size} " +
             "patterns=${model.patternCount} (nonFifoPositions=${model.patternFifo.count { !it }}/${model.patternFifo.size}) " +
             "trips=${model.tripCount} stopTimes=${model.arrivals.size} " +
-            "transfers=${model.transferTarget.size} services=${model.services.size}"
+            "transfers=${model.transferTarget.size} services=${model.services.size} " +
+            "restricted(noPickup=$noPickup noDropOff=$noDropOff)"
     )
 }
 

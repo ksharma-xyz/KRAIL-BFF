@@ -175,19 +175,32 @@ class RaptorRouter(private val model: RouterModel) {
                 for (pos in startPos until nStops) {
                     val s = m.patternStops[stopsOff + pos]
                     if (curTrip >= 0) {
-                        val a = m.arrivals[base + (curTrip - tripsStart) * nStops + pos] +
-                            DAY_OFFSETS[curDayFlag]
-                        if (a < best[s] && a < targetBound) {
-                            cur.arr[s] = a
-                            best[s] = a
-                            cur.type[s] = TYPE_RIDE
-                            cur.pattern[s] = p
-                            cur.trip[s] = curTrip
-                            cur.boardPos[s] = curBoardPos
-                            cur.alightPos[s] = pos
-                            cur.dayFlag[s] = curDayFlag.toByte()
-                            if (isTarget[s]) targetBound = a
-                            mark(s)
+                        val slot = base + (curTrip - tripsStart) * nStops + pos
+                        if (m.stopTimeFlags[slot].toInt() and STOP_TIME_NO_DROP_OFF != 0) {
+                            // drop_off_type=1: the vehicle passes but nobody
+                            // may alight. The earliest-departing trip no
+                            // longer dominates at this position — a later
+                            // trip of the same pattern may allow the
+                            // drop-off — so run an exact per-trip scan here
+                            // (rare: only when actually riding past a
+                            // restricted call with an improvement in reach).
+                            alightRestrictedFallback(
+                                p, base, nStops, tripsStart, tripsEnd, stopsOff, startPos, pos, s, prev, cur
+                            )
+                        } else {
+                            val a = m.arrivals[slot] + DAY_OFFSETS[curDayFlag]
+                            if (a < best[s] && a < targetBound) {
+                                cur.arr[s] = a
+                                best[s] = a
+                                cur.type[s] = TYPE_RIDE
+                                cur.pattern[s] = p
+                                cur.trip[s] = curTrip
+                                cur.boardPos[s] = curBoardPos
+                                cur.alightPos[s] = pos
+                                cur.dayFlag[s] = curDayFlag.toByte()
+                                if (isTarget[s]) targetBound = a
+                                mark(s)
+                            }
                         }
                     }
                     val tau = prev.arr[s]
@@ -219,11 +232,70 @@ class RaptorRouter(private val model: RouterModel) {
         }
 
         /**
+         * Exact arrival improvement at a drop-off-restricted position: the
+         * minimum arrival at [pos] over every trip of the pattern that allows
+         * alighting there, is service-active in one of the three day windows,
+         * and is boardable at some earlier position (previous-round arrival
+         * before its departure, pickup allowed). Restores the journeys the
+         * single-current-trip scan loses when the earliest catchable trip
+         * forbids the drop-off but a later trip of the same pattern permits
+         * it. O(trips × positions) worst case, but runs only at restricted
+         * calls actually ridden past (~0.25% of SEQ rows, fewer elsewhere).
+         */
+        fun alightRestrictedFallback(
+            p: Int,
+            base: Int,
+            nStops: Int,
+            tripsStart: Int,
+            tripsEnd: Int,
+            stopsOff: Int,
+            startPos: Int,
+            pos: Int,
+            s: Int,
+            prev: Round,
+            cur: Round,
+        ) {
+            for (day in 0 until 3) {
+                val off = DAY_OFFSETS[day]
+                val active = dayServices[day]
+                for (j in tripsStart until tripsEnd) {
+                    val tBase = base + (j - tripsStart) * nStops
+                    if (m.stopTimeFlags[tBase + pos].toInt() and STOP_TIME_NO_DROP_OFF != 0) continue
+                    val a = m.arrivals[tBase + pos] + off
+                    if (a >= best[s] || a >= targetBound) continue
+                    if (!active.get(m.tripServices[j])) continue
+                    var boardPos = -1
+                    for (q in startPos until pos) {
+                        val tau = prev.arr[m.patternStops[stopsOff + q]]
+                        if (tau >= INF) continue
+                        if (m.stopTimeFlags[tBase + q].toInt() and STOP_TIME_NO_PICKUP != 0) continue
+                        if (m.departures[tBase + q] + off >= tau) {
+                            boardPos = q
+                            break
+                        }
+                    }
+                    if (boardPos < 0) continue
+                    cur.arr[s] = a
+                    best[s] = a
+                    cur.type[s] = TYPE_RIDE
+                    cur.pattern[s] = p
+                    cur.trip[s] = j
+                    cur.boardPos[s] = boardPos
+                    cur.alightPos[s] = pos
+                    cur.dayFlag[s] = day.toByte()
+                    if (isTarget[s]) targetBound = a
+                    mark(s)
+                }
+            }
+        }
+
+        /**
          * Earliest trip in the pattern departing [pos] at/after [threshold]
-         * whose service is active. Trips are sorted by first-stop departure;
-         * binary search is exact only when the builder verified FIFO order at
-         * every position ([fifo]) — overtaking patterns get a full linear
-         * scan so no catchable trip is missed.
+         * whose service is active and whose call at [pos] allows boarding
+         * (pickup_type=1 calls are skipped). Trips are sorted by first-stop
+         * departure; binary search is exact only when the builder verified
+         * FIFO order at every position ([fifo]) — overtaking patterns get a
+         * full linear scan so no catchable trip is missed.
          */
         fun earliestTrip(
             base: Int,
@@ -239,8 +311,12 @@ class RaptorRouter(private val model: RouterModel) {
                 var bestTrip = -1
                 var bestDep = Int.MAX_VALUE
                 for (j in tripsStart until tripsEnd) {
-                    val d = m.departures[base + (j - tripsStart) * nStops + pos]
-                    if (d in threshold until bestDep && active.get(m.tripServices[j])) {
+                    val slot = base + (j - tripsStart) * nStops + pos
+                    val d = m.departures[slot]
+                    if (d in threshold until bestDep &&
+                        m.stopTimeFlags[slot].toInt() and STOP_TIME_NO_PICKUP == 0 &&
+                        active.get(m.tripServices[j])
+                    ) {
                         bestDep = d
                         bestTrip = j
                     }
@@ -256,7 +332,9 @@ class RaptorRouter(private val model: RouterModel) {
             var j = lo
             while (j > tripsStart && m.departures[base + (j - 1 - tripsStart) * nStops + pos] >= threshold) j--
             while (j < tripsEnd) {
-                if (m.departures[base + (j - tripsStart) * nStops + pos] >= threshold &&
+                val slot = base + (j - tripsStart) * nStops + pos
+                if (m.departures[slot] >= threshold &&
+                    m.stopTimeFlags[slot].toInt() and STOP_TIME_NO_PICKUP == 0 &&
                     active.get(m.tripServices[j])
                 ) {
                     return j
