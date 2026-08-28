@@ -139,11 +139,12 @@ tasks.register<JavaExec>("routerBench") {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
 }
 
-// The VIC router integration tests build the full model in-process when
-// VIC_GTFS_DIR is set (they skip cleanly when it isn't); the default 512m
-// test-worker heap can't hold the ~10M-row build.
+// The region golden tests build full models in-process when their
+// {CODE}_GTFS_DIR vars are set (they skip cleanly when unset); the default
+// 512m test-worker heap can't hold the ~10M-row VIC build, and running all
+// seven regions' golden tests in one JVM holds several models at once.
 tasks.named<Test>("test") {
-    maxHeapSize = "3g"
+    maxHeapSize = "6g"
     // Gate tests assert both states of the Router Lab dev flag; a developer
     // shell exporting it would invert them. Blank = unset (see AppConfig).
     environment("BFF_DEV_PASSTHROUGH", "")

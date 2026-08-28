@@ -46,6 +46,10 @@ object RegionRegistry {
         ),
     )
 
+    // NOTE (akl): AT stop/station ids carry a per-drop hash suffix
+    // (115-96c3c7be); these pairs are from the 2026-08-28 drop and RouterBench
+    // skips them cleanly if a later drop rotates the suffixes. Golden tests
+    // resolve stations by name instead.
     val akl = RegionSpec(
         code = "akl",
         displayName = "Auckland (AT)",
@@ -53,6 +57,10 @@ object RegionRegistry {
         idPrefix = "AKL",
         sourceLabel = "akl-gtfs:at",
         feedZipName = "gtfs.zip",
+        canonicalPairs = listOf(
+            CanonicalPair("Waitemata (Britomart) -> Newmarket (rail)", "133-08da14b5", "115-96c3c7be"),
+            CanonicalPair("Waitemata (Britomart) -> Otahuhu (rail)", "133-08da14b5", "101-9ef61446"),
+        ),
     )
 
     val wlg = RegionSpec(
@@ -62,6 +70,10 @@ object RegionRegistry {
         idPrefix = "WLG",
         sourceLabel = "wlg-gtfs:metlink",
         feedZipName = "full.zip",
+        canonicalPairs = listOf(
+            CanonicalPair("Wellington -> Porirua (rail)", "WELL", "PORI"),
+            CanonicalPair("Wellington -> Taita (rail)", "WELL", "TAIT"),
+        ),
     )
 
     val bos = RegionSpec(
@@ -71,6 +83,10 @@ object RegionRegistry {
         idPrefix = "BOS",
         sourceLabel = "bos-gtfs:mbta",
         feedZipName = "MBTA_GTFS.zip",
+        canonicalPairs = listOf(
+            CanonicalPair("Park Street -> Harvard (Red Line)", "place-pktrm", "place-harsq"),
+            CanonicalPair("Park Street -> Government Center (Green Line)", "place-pktrm", "place-gover"),
+        ),
     )
 
     val ber = RegionSpec(
@@ -80,6 +96,10 @@ object RegionRegistry {
         idPrefix = "BER",
         sourceLabel = "ber-gtfs:vbb",
         feedZipName = "GTFS.zip",
+        canonicalPairs = listOf(
+            CanonicalPair("Hauptbahnhof -> Alexanderplatz", "de:11000:900003201", "de:11000:900100003"),
+            CanonicalPair("Alexanderplatz -> Potsdam Hbf", "de:11000:900100003", "de:12054:900230999"),
+        ),
     )
 
     val prg = RegionSpec(
@@ -89,6 +109,10 @@ object RegionRegistry {
         idPrefix = "PRG",
         sourceLabel = "prg-gtfs:pid",
         feedZipName = "PID_GTFS.zip",
+        canonicalPairs = listOf(
+            CanonicalPair("Muzeum -> Andel (metro)", "U400S1", "U1040S1"),
+            CanonicalPair("Muzeum -> Hlavni nadrazi", "U400S1", "U142S1"),
+        ),
     )
 
     val all: List<RegionSpec> = listOf(vic, qld, akl, wlg, bos, ber, prg)
