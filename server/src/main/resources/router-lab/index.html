@@ -101,8 +101,6 @@
   <div class="field">
     <label for="region">Region</label>
     <select id="region">
-      <option value="VIC">VIC — Melbourne (BFF RAPTOR)</option>
-      <option value="QLD">QLD — Brisbane/SEQ (BFF RAPTOR)</option>
       <option value="NSW">NSW — Sydney (upstream TfNSW)</option>
     </select>
   </div>
@@ -129,8 +127,9 @@
   <button id="find">Find timetable</button>
   <div id="error"></div>
   <div class="hint">
-    VIC/QLD: pick a stop from autocomplete, or type a station id directly
-    (e.g. <span class="mono">VIC:vic:rail:FSS</span>, <span class="mono">QLD:place_censta</span>).<br>
+    BFF-routed regions: pick a stop from autocomplete, or type a station id
+    directly (e.g. <span class="mono">VIC:vic:rail:FSS</span>,
+    <span class="mono">QLD:place_censta</span>, <span class="mono">BOS:place-pktrm</span>).<br>
     NSW: enter raw stop ids (e.g. <span class="mono">200060</span>).<br>
     Scroll down for later journeys, up for earlier.
   </div>
@@ -145,11 +144,43 @@
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
-const TZ = { VIC: "Australia/Melbourne", QLD: "Australia/Brisbane", NSW: "Australia/Sydney" };
-// Regions the BFF plans itself get a plan endpoint + a stop-name search.
-const PLAN = { VIC: "/api/v1/vic/trip/plan-proto", QLD: "/api/v1/qld/trip/plan-proto",
-               NSW: "/api/v1/trip/plan-proto" };
-const SEARCH = { VIC: "/internal/vic/stops/search", QLD: "/internal/qld/stops/search" };
+// Regions the BFF plans itself come from /internal/router-lab/regions
+// (RegionRegistry); NSW (upstream TfNSW) is the static fallback. Keyed by
+// the uppercase prefix used in the dropdown; `search` is null when the
+// region's snapshot isn't loaded (autocomplete off, planning 404s).
+const REGIONS = {
+  NSW: { name: "NSW — Sydney (upstream TfNSW)", tz: "Australia/Sydney",
+         plan: "/api/v1/trip/plan-proto", search: null, loaded: true },
+};
+async function loadRegions() {
+  try {
+    const res = await fetch("/internal/router-lab/regions");
+    if (!res.ok) return;
+    for (const r of await res.json()) {
+      REGIONS[r.prefix] = {
+        name: `${r.prefix} — ${r.name} (BFF RAPTOR)${r.loaded ? "" : " — not loaded"}`,
+        tz: r.tz, plan: `/api/v1/${encodeURIComponent(r.code)}/trip/plan-proto`,
+        search: r.loaded ? `/internal/${encodeURIComponent(r.code)}/stops/search` : null,
+        loaded: !!r.loaded,
+      };
+    }
+  } catch (_) { /* NSW-only */ }
+  const sel = $("region");
+  sel.textContent = "";
+  const keys = Object.keys(REGIONS).sort((a, b) =>
+    (REGIONS[b].loaded - REGIONS[a].loaded) || a.localeCompare(b));
+  for (const k of keys) {
+    const opt = document.createElement("option");
+    opt.value = k;
+    opt.textContent = REGIONS[k].name;
+    if (!REGIONS[k].loaded) opt.disabled = true;
+    sel.appendChild(opt);
+  }
+  const firstBff = keys.find(k => k !== "NSW" && REGIONS[k].loaded);
+  sel.value = firstBff || "NSW";
+  sel.dispatchEvent(new Event("change"));
+}
+loadRegions();
 const MODE = { 1:["Train","m1"], 2:["Metro","m2"], 4:["Tram/LR","m4"], 5:["Bus","m5"],
                7:["Coach","m7"], 9:["Ferry","m9"], 11:["School","m11"] };
 
@@ -159,7 +190,7 @@ const state = {
   emptyLater: 0, emptyEarlier: 0,   // consecutive fetches adding nothing
   earliestAnchor: null,     // {date:"YYYYMMDD", time:"HHmm"} of the earliest window queried (region-local)
   origin: "", destination: "", // captured at search time so paging can't drift
-  region: "VIC",
+  region: "NSW",
 };
 
 function nowDefaults() {
@@ -204,7 +235,7 @@ function journeyKey(j) {
 function depMs(j) { return Date.parse(j.origin_utc_date_time) || 0; }
 
 function planUrl(date, time) {
-  const base = PLAN[state.region] || PLAN.NSW;
+  const base = (REGIONS[state.region] || REGIONS.NSW).plan;
   return `${base}?origin=${encodeURIComponent(state.origin)}&destination=${encodeURIComponent(state.destination)}&date=${date}&time=${time}`;
 }
 
@@ -349,7 +380,7 @@ async function loadLater() {
     const sorted = [...state.journeys.values()].sort((a, b) => depMs(a) - depMs(b));
     const last = sorted[sorted.length - 1];
     const next = new Date(depMs(last) + 60_000); // last departure + 1 min
-    const p = localParts(next.toISOString(), TZ[state.region]);
+    const p = localParts(next.toISOString(), (REGIONS[state.region] || REGIONS.NSW).tz);
     const journeys = await fetchJourneys(p.date, p.time);
     if (journeys) {
       const added = merge(journeys);
@@ -419,7 +450,7 @@ function wireAutocomplete(inputId) {
   const input = $(inputId), listEl = $(inputId + "-ac");
   let timer = null;
   input.addEventListener("input", () => {
-    const searchBase = SEARCH[$("region").value];
+    const searchBase = (REGIONS[$("region").value] || {}).search;
     if (!searchBase) { listEl.hidden = true; return; }
     clearTimeout(timer);
     const q = input.value.trim();
@@ -447,7 +478,7 @@ wireAutocomplete("origin");
 wireAutocomplete("destination");
 
 $("region").addEventListener("change", () => {
-  const hasSearch = !!SEARCH[$("region").value];
+  const hasSearch = !!(REGIONS[$("region").value] || {}).search;
   $("origin").placeholder = hasSearch ? "search stop name…" : "NSW stop id, e.g. 200060";
   $("destination").placeholder = hasSearch ? "search stop name…" : "NSW stop id, e.g. 10101100";
 });

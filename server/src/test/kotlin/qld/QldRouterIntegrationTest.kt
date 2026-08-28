@@ -1,5 +1,7 @@
 package app.krail.bff.qld
 
+import app.krail.bff.region.RegionGtfsIngest
+import app.krail.bff.region.RegionRegistry
 import app.krail.bff.router.Journey
 import app.krail.bff.router.JourneyLeg
 import app.krail.bff.router.RaptorRouter
@@ -28,7 +30,7 @@ class QldRouterIntegrationTest {
             ?.takeIf { Files.exists(it) }
 
         // Built once for the whole class; ~3.2M stop-time rows.
-        val model: RouterModel by lazy { QldGtfsIngest.buildModel(gtfsPath!!) }
+        val model: RouterModel by lazy { RegionGtfsIngest.buildModel(RegionRegistry.qld, gtfsPath!!) }
         val router: RaptorRouter by lazy { RaptorRouter(model) }
 
         val queryDate: LocalDate by lazy {

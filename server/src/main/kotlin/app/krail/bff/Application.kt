@@ -18,12 +18,11 @@ import app.krail.bff.routes.configureGtfsRoutes
 import app.krail.bff.routes.configureInternalRoutes
 import app.krail.bff.routes.configureMetricsRoutes
 import app.krail.bff.routes.configureParkingRoutes
-import app.krail.bff.routes.configureQldTripRoutes
+import app.krail.bff.routes.configureRegionTripRoutes
 import app.krail.bff.routes.configureRouterLabRoutes
 import app.krail.bff.routes.configureRouting
 import app.krail.bff.routes.configureTrackRoutes
 import app.krail.bff.routes.configureTripRoutes
-import app.krail.bff.routes.configureVicTripRoutes
 import io.ktor.server.application.*
 import io.ktor.server.netty.*
 
@@ -46,16 +45,15 @@ fun Application.module() {
     configureHTTP()
     configureRouting()
     configureTripRoutes()
-    configureVicTripRoutes()
-    configureQldTripRoutes()
+    configureRegionTripRoutes()
     configureDepartureRoutes()
     configureParkingRoutes()
     configureGtfsRoutes()
     configureTrackRoutes()
     configureDataRoutes()
     configureInternalRoutes()
-    // After configureVicTripRoutes/configureQldTripRoutes: reads the region
-    // service attributes they set.
+    // After configureRegionTripRoutes: reads the loaded-region services
+    // attribute it sets.
     configureRouterLabRoutes()
     configureMetricsRoutes()
 }

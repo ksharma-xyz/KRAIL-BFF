@@ -3,8 +3,9 @@ package app.krail.bff.routes
 import app.krail.bff.plugins.configureErrorHandling
 import app.krail.bff.plugins.configureSerialization
 import app.krail.bff.proto.JourneyList
+import app.krail.bff.region.RegionRegistry
+import app.krail.bff.region.RegionTripService
 import app.krail.bff.router.MiniNetworkFixture
-import app.krail.bff.vic.VicTripService
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.readRawBytes
@@ -17,7 +18,12 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class VicTripRoutesTest {
+/**
+ * Registry-driven plan-proto routes, exercised through the VIC and QLD specs
+ * over the synthetic MiniNetworkFixture (`/api/v1/{code}/trip/plan-proto` is
+ * one implementation for all seven regions).
+ */
+class RegionTripRoutesTest {
 
     // Clock pinned inside the fixture's calendar (repo invariant: injected
     // clock, never wall time) — Monday 2026-03-02 07:30 Melbourne.
@@ -26,12 +32,16 @@ class VicTripRoutesTest {
         .atZone(ZoneId.of("Australia/Melbourne"))
         .toInstant()
 
-    private fun service() = VicTripService(MiniNetworkFixture.buildModel(), clock = { fixedNow })
+    private fun vicService() =
+        RegionTripService(MiniNetworkFixture.buildModel(), RegionRegistry.vic, clock = { fixedNow })
+
+    private fun qldService() =
+        RegionTripService(MiniNetworkFixture.buildModel(), RegionRegistry.qld, clock = { fixedNow })
 
     @Test
     fun `plan-proto returns pareto journeys as protobuf`() = testApplication {
-        val svc = service()
-        application { vicTripRoutes(svc) }
+        val svc = vicService()
+        application { regionTripRoutes(RegionRegistry.vic, svc) }
 
         val response =
             client.get("/api/v1/vic/trip/plan-proto?origin=VIC:A&destination=VIC:D&date=20260302&time=0755")
@@ -48,24 +58,39 @@ class VicTripRoutesTest {
     }
 
     @Test
-    fun `walk transfer surfaces as walking leg with vic-prefixed stop ids`() = testApplication {
-        val svc = service()
-        application { vicTripRoutes(svc) }
+    fun `each region serves its own path with its own prefix and timezone`() = testApplication {
+        application {
+            regionTripRoutes(RegionRegistry.vic, vicService())
+            regionTripRoutes(RegionRegistry.qld, qldService())
+        }
 
-        val response =
+        val vic =
             client.get("/api/v1/vic/trip/plan-proto?origin=VIC:A&destination=VIC:F&date=20260302&time=0755")
-        assertEquals(HttpStatusCode.OK, response.status)
-        val journey = JourneyList.ADAPTER.decode(response.readRawBytes()).journeys.single()
-        assertEquals(3, journey.legs.size)
-        assertTrue(journey.legs[1].walking_leg != null)
-        val firstStop = journey.legs[0].transport_leg!!.stops.first()
-        assertEquals("VIC:A", firstStop.stop_id)
+        assertEquals(HttpStatusCode.OK, vic.status)
+        val vicJourney = JourneyList.ADAPTER.decode(vic.readRawBytes()).journeys.single()
+        assertEquals(3, vicJourney.legs.size)
+        assertTrue(vicJourney.legs[1].walking_leg != null)
+        assertEquals("VIC:A", vicJourney.legs[0].transport_leg!!.stops.first().stop_id)
+
+        val qld =
+            client.get("/api/v1/qld/trip/plan-proto?origin=QLD:A&destination=QLD:D&date=20260302&time=0755")
+        assertEquals(HttpStatusCode.OK, qld.status)
+        val qldList = JourneyList.ADAPTER.decode(qld.readRawBytes())
+        assertEquals("QLD:A", qldList.journeys[0].legs[0].transport_leg!!.stops.first().stop_id)
+        // Instants derive from Brisbane local midnight — fixed +10:00, no DST.
+        assertEquals("2026-03-01T22:00:00Z", qldList.journeys[1].origin_utc_date_time)
+
+        // A region's path only accepts its own registration.
+        assertEquals(
+            HttpStatusCode.NotFound,
+            client.get("/api/v1/akl/trip/plan-proto?origin=A&destination=D").status,
+        )
     }
 
     @Test
     fun `defaults date and time from the injected clock`() = testApplication {
-        val svc = service()
-        application { vicTripRoutes(svc) }
+        val svc = vicService()
+        application { regionTripRoutes(RegionRegistry.vic, svc) }
 
         // No date/time: clock says Monday 07:30, so the 08:00 direct runs.
         val response = client.get("/api/v1/vic/trip/plan-proto?origin=A&destination=D")
@@ -76,8 +101,8 @@ class VicTripRoutesTest {
 
     @Test
     fun `rejects malformed stop ids`() = testApplication {
-        val svc = service()
-        application { vicTripRoutes(svc) }
+        val svc = vicService()
+        application { regionTripRoutes(RegionRegistry.vic, svc) }
 
         val response = client.get("/api/v1/vic/trip/plan-proto?origin=A%20OR%201=1&destination=D")
         assertEquals(HttpStatusCode.BadRequest, response.status)
@@ -86,8 +111,8 @@ class VicTripRoutesTest {
 
     @Test
     fun `rejects malformed date and time`() = testApplication {
-        val svc = service()
-        application { vicTripRoutes(svc) }
+        val svc = vicService()
+        application { regionTripRoutes(RegionRegistry.vic, svc) }
 
         val badDate = client.get("/api/v1/vic/trip/plan-proto?origin=A&destination=D&date=2026-03-02")
         assertEquals(HttpStatusCode.BadRequest, badDate.status)
@@ -105,16 +130,35 @@ class VicTripRoutesTest {
 
     @Test
     fun `unknown stop id returns 404 with the standard envelope`() = testApplication {
-        val svc = service()
+        val svc = vicService()
         // Mirror production: StatusPages owns 404 bodies (ErrorEnvelope).
         application {
             configureSerialization()
             configureErrorHandling()
-            vicTripRoutes(svc)
+            regionTripRoutes(RegionRegistry.vic, svc)
         }
 
         val response = client.get("/api/v1/vic/trip/plan-proto?origin=VIC:ZZZZ&destination=VIC:D")
         assertEquals(HttpStatusCode.NotFound, response.status)
         assertContains(response.bodyAsText(), "not_found")
+    }
+
+    @Test
+    fun `registry is well-formed`() {
+        val codes = RegionRegistry.all.map { it.code }
+        assertEquals(codes.toSet().size, codes.size, "duplicate region codes")
+        val prefixes = RegionRegistry.all.map { it.idPrefix }
+        assertEquals(prefixes.toSet().size, prefixes.size, "duplicate id prefixes")
+        for (spec in RegionRegistry.all) {
+            assertTrue(spec.code.matches(Regex("^[a-z]{2,8}$")), "code '${spec.code}' must be lowercase (path segment)")
+            assertEquals(spec.code.uppercase(), spec.idPrefix, "prefix convention broken for ${spec.code}")
+            assertEquals("${spec.code.uppercase()}_ROUTER_SNAPSHOT", spec.snapshotEnvVar)
+            assertEquals("${spec.code}.routerSnapshot", spec.snapshotConfigKey)
+        }
+        // The five world regions + qld are single-feed; vic is not.
+        assertEquals(
+            listOf("qld", "akl", "wlg", "bos", "ber", "prg"),
+            RegionRegistry.singleFeed.map { it.code },
+        )
     }
 }
