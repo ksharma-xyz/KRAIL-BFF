@@ -150,8 +150,14 @@ class RegionJourneyListMapper(
          * GTFS route_type (basic + extended) → KRAIL product class as used by
          * the KMP client (1 train, 2 metro, 4 light rail, 5 bus, 7 coach,
          * 9 ferry). Covers VIC's extended types (400 metro rail, 701 bus,
-         * 102/106 V/Line rail) and SEQ's basic ones (0 G:link tram, 2 rail,
-         * 3 bus, 4 ferry).
+         * 102/106 V/Line rail), SEQ's basic ones (0 G:link tram, 2 rail,
+         * 3 bus, 4 ferry), MBTA's 1 subway, WLG's 5 cable car + 712 school
+         * bus, PID's 11 trolleybus (→ bus via else) and VBB's 100/109 rail,
+         * 400 U-Bahn, 700 bus, 900 tram, 1000 ferry.
+         *
+         * Known coarseness: extended 400 (urban railway) maps to train
+         * because Melbourne's metro network publishes 400 — Berlin's U-Bahn
+         * shares the code and therefore also cards as train, not metro.
          */
         fun productClass(routeType: Int): Int = when (routeType) {
             0, in 900..999 -> 4
@@ -159,6 +165,9 @@ class RegionJourneyListMapper(
             2, in 100..199, in 400..499 -> 1
             3, in 700..799, 800 -> 5
             4, in 1000..1099, 1200 -> 9
+            // Basic 5/6/7: cable tram, aerial lift, funicular (Wellington
+            // Cable Car is 5) — closest client class is light rail.
+            5, 6, 7 -> 4
             in 200..299 -> 7
             else -> 5
         }

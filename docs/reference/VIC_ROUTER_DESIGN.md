@@ -20,23 +20,26 @@ KMP client's contract is already "BFF returns a `JourneyList` proto".
 
 Consequence for the code layout: the router core (`router/`) is
 **city-agnostic** — it consumes parsed GTFS feeds and knows nothing about
-Victoria. Everything VIC-specific (folder layout, namespaces, endpoint,
-timezone) lives in `vic/`, the region-parameterized
-`mapper/RegionJourneyListMapper.kt` (Melbourne tz + `VIC:` prefix as
-constructor args) and `routes/VicTripRoutes.kt`. Adding a city = new
-ingest + a mapper instance, same core — proven by Brisbane/SEQ, which
-reused the core with zero modifications
-([`QLD_ROUTER_NOTES.md`](QLD_ROUTER_NOTES.md): single-feed ingest, the
-measured SEQ quirks, and benchmarks at one-third of VIC's scale).
+Victoria. Everything region-specific is one `RegionSpec` (code, display
+name, timezone, stop-id prefix, feed zip name, canonical pairs) in
+`region/RegionRegistry.kt`; the registry drives ingest, trip service,
+route registration (`/api/v1/{code}/trip/plan-proto`), Router Lab wiring
+and RouterBench. Adding a single-feed city = one registry entry + golden
+tests — proven by Brisbane/SEQ
+([`QLD_ROUTER_NOTES.md`](QLD_ROUTER_NOTES.md)) and then by five world
+regions at once ([`WORLD_REGIONS_NOTES.md`](WORLD_REGIONS_NOTES.md):
+Auckland, Wellington, Boston, Berlin/Brandenburg, Prague). VIC is the one
+multi-feed region and keeps its bespoke folder-map ingest in `vic/`.
 
 ```
 server/src/main/kotlin/app/krail/bff/
   router/    # city-agnostic: GTFS parse → compact model → RAPTOR → snapshot
-  vic/       # VIC ingest (folder map), VicTripService (plan + map, injected clock)
-  qld/       # QLD ingest (single feed) + QldTripService — see QLD_ROUTER_NOTES.md
+  region/    # RegionSpec + RegionRegistry, single-feed RegionGtfsIngest,
+             # RegionTripService (plan + diacritic-folded stop search)
+  vic/       # VIC ingest only (folder map — the one multi-feed region)
   mapper/    # RegionJourneyListMapper (Journey → JourneyList proto, tz + prefix params)
              # JourneyListJson (JSON mirror for the Router Lab, dev-gated)
-  routes/    # VicTripRoutes / QldTripRoutes (plan-proto endpoints, feature-gated)
+  routes/    # RegionTripRoutes (all plan-proto endpoints, feature-gated per region)
              # RouterLabRoutes (dev dashboard, see ROUTER_LAB.md)
   tools/     # RouterBench (offline build + benchmark, writes the snapshots)
 ```
@@ -72,6 +75,7 @@ exact stop sequence); within a pattern trips sort by first-stop departure.
 | Structure | Layout |
 |---|---|
 | Stop times | `arrivals`/`departures` IntArrays; slot = `patternTimesBase[p] + tripLocal * stopCount(p) + pos` |
+| Stop-time flags | `stopTimeFlags` ByteArray parallel to arrivals: bit0 = no-pickup (`pickup_type=1`), bit1 = no-drop-off (`drop_off_type=1`) |
 | Patterns | CSR: `patternStopsOffset`/`patternStops`, `patternTripsOffset`, `patternRoute` |
 | FIFO flags | `patternFifo` boolean per (pattern, position) — see invariant I2 |
 | Stop → patterns | CSR adjacency `stopAdjOffset`/`adjPattern`/`adjPosition` (all positions — loops appear twice) |
@@ -81,6 +85,25 @@ exact stop sequence); within a pattern trips sort by first-stop departure.
 
 Times are **seconds since the service-day midnight** and may exceed 24:00:00
 (after-midnight service). All cross-references are int indices.
+
+`frequencies.txt` is expanded at parse time: each row clones the template
+trip once per headway step in `[start_time, end_time)` (times shifted to the
+step; `exact_times=1` is exact schedule replication, absent/0 materialises
+headway-based service the same way), and the template trip itself is dropped
+— its stop_times are travel-time offsets, not a schedulable trip. Guards:
+headway < 10s, end ≤ start and unknown trips are skipped; ≤ 5040 trips per
+row. VIC/SEQ publish no frequencies; VBB and AT ship the file **empty** in
+current drops, so the path is exercised by synthetic tests until a live feed
+uses it.
+
+The router enforces the stop-time flags: no boarding at no-pickup calls
+(both the binary-search walk and the non-FIFO linear scan filter on the
+flag) and no alighting at no-drop-off calls. When the earliest catchable
+trip forbids a drop-off, an exact per-trip fallback scan recovers journeys
+on later trips of the same pattern — the classic "earliest trip dominates"
+argument breaks under alight restrictions (regression-tested in
+`PickupDropOffTest`). `pickup_type`/`drop_off_type` 2/3 (phone / arrange
+with driver) stay boardable.
 
 Stations resolve to platforms at query time: source/target sets feed a
 multi-source, multi-target RAPTOR run; best over the set wins.
@@ -236,16 +259,25 @@ makes GC visible.
 - **DST**: times are seconds-since-midnight; instants derive by elapsed
   seconds from local midnight, drifting 1 h across the October changeover
   for journeys spanning 2–3 am. Fix: GTFS "noon minus 12h" anchoring in the
-  mapper.
-- **pickup_type / drop_off_type unread**: the router will board at
-  drop-off-only calls. Barely present in metro folders; **must be fixed
-  before folder 5 (Regional Coach)**.
+  mapper. Applies equally to the DST-observing world regions (BOS/BER/PRG
+  around their own changeovers) — documented, not yet fixed.
+- ~~pickup_type / drop_off_type unread~~ **Closed**: parsed and enforced
+  since snapshot FORMAT_VERSION 2 (§3). Folder 5 (Regional Coach) is now
+  unblocked on this axis, though still unscoped.
 - **Same-stop transfers are 0 s** (generated stop-to-stop edges carry the
   60 s buffer; same-platform reboard has none). Revisit with GTFS-RT.
+- **Arrival-overtaking within a pattern**: the scan rides the earliest-
+  *departing* catchable trip; at a non-FIFO position a later-departing trip
+  of the same pattern that *arrives* earlier is never adopted, so its better
+  arrival can be missed when the boarding stop is only reachable upstream.
+  Inherent to single-current-trip RAPTOR; drop-off-restricted positions are
+  ironically exact (the fallback scans every trip). Rare in practice —
+  first-stop-sorted trips overtake on departures far more than on arrivals.
 - **No shapes/geometry**: legs carry stop coordinates, no polylines
   (shapes.txt skipped for memory).
-- **frequencies.txt unparsed**: irrelevant for VIC (none), required before
-  calling the core fully city-agnostic.
+- ~~frequencies.txt unparsed~~ **Closed**: expanded at parse time (§3);
+  synthetic coverage in `FrequenciesTest` (no ingested feed currently ships
+  non-empty frequencies).
 - **Walk-label overwrite edge**: two consecutive walk legs can render with
   durations that under-sum the recorded arrival (arrival stays a valid upper
   bound). Cosmetic.

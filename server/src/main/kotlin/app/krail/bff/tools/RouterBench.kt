@@ -1,6 +1,7 @@
 package app.krail.bff.tools
 
-import app.krail.bff.qld.QldGtfsIngest
+import app.krail.bff.region.RegionGtfsIngest
+import app.krail.bff.region.RegionRegistry
 import app.krail.bff.router.RaptorRouter
 import app.krail.bff.router.RouterModel
 import app.krail.bff.router.RouterSnapshot
@@ -18,31 +19,35 @@ import java.util.Random
  *
  * Usage: routerBench <gtfsPath> [snapshotPath] [foldersCsv] [dateIso] [region]
  *   gtfsPath     vic: directory containing <folder>/google_transit.zip
- *                qld: SEQ_GTFS.zip, or a directory containing it
- *   snapshotPath output snapshot file
- *                (default <gtfsPath>/router-snapshot.bin, qld: router-snapshot-qld.bin)
+ *                single-feed regions: the region's GTFS zip, or a directory
+ *                containing it under its published name
+ *   snapshotPath output snapshot file (default <gtfsPath>/router-snapshot.bin,
+ *                other regions: router-snapshot-<code>.bin)
  *   foldersCsv   vic only: folders to ingest (default 2,3,4,11)
  *   dateIso      query date (default: first Tuesday inside the dataset calendar)
- *   region       vic (default) or qld
+ *   region       vic (default) or any single-feed RegionRegistry code
+ *                (qld, akl, wlg, bos, ber, prg)
  */
 fun main(args: Array<String>) {
     require(args.isNotEmpty()) { "usage: routerBench <gtfsPath> [snapshotPath] [foldersCsv] [dateIso] [region]" }
     fun arg(i: Int): String? = args.getOrNull(i)?.takeIf { it.isNotBlank() }
     val gtfsPath = Path.of(args[0])
     val region = arg(4)?.lowercase() ?: "vic"
+    val spec = RegionRegistry.byCode(region)
+        ?: error("unknown region '$region' (${RegionRegistry.all.joinToString("|") { it.code }})")
     // A bare relative zip argument has a null parent — snapshot lands in cwd.
     val snapshotDir = if (Files.isDirectory(gtfsPath)) gtfsPath else (gtfsPath.parent ?: Path.of("."))
     val snapshotPath = arg(1)?.let { Path.of(it) } ?: when (region) {
-        "qld" -> snapshotDir.resolve("router-snapshot-qld.bin")
-        else -> snapshotDir.resolve("router-snapshot.bin")
+        "vic" -> snapshotDir.resolve("router-snapshot.bin") // historical name, pre-registry
+        else -> snapshotDir.resolve(spec.snapshotFileName)
     }
     val folders = arg(2)?.split(",") ?: VicGtfsIngest.METRO_FOLDERS
 
     val buildStart = System.nanoTime()
-    var model: RouterModel? = when (region) {
-        "qld" -> QldGtfsIngest.buildModel(gtfsPath, builtAtEpochSec = System.currentTimeMillis() / 1000)
-        "vic" -> VicGtfsIngest.buildModel(gtfsPath, folders, builtAtEpochSec = System.currentTimeMillis() / 1000)
-        else -> error("unknown region '$region' (vic|qld)")
+    var model: RouterModel? = if (region == "vic") {
+        VicGtfsIngest.buildModel(gtfsPath, folders, builtAtEpochSec = System.currentTimeMillis() / 1000)
+    } else {
+        RegionGtfsIngest.buildModel(spec, gtfsPath, builtAtEpochSec = System.currentTimeMillis() / 1000)
     }
     val buildMs = (System.nanoTime() - buildStart) / 1_000_000
     printStats(model!!, buildMs)
@@ -70,11 +75,19 @@ fun main(args: Array<String>) {
 }
 
 private fun printStats(model: RouterModel, buildMs: Long) {
+    var noPickup = 0
+    var noDropOff = 0
+    for (f in model.stopTimeFlags) {
+        val v = f.toInt()
+        if (v and app.krail.bff.router.STOP_TIME_NO_PICKUP != 0) noPickup++
+        if (v and app.krail.bff.router.STOP_TIME_NO_DROP_OFF != 0) noDropOff++
+    }
     println(
         "model build: ${buildMs}ms — stops=${model.stopCount} routes=${model.routeIds.size} " +
             "patterns=${model.patternCount} (nonFifoPositions=${model.patternFifo.count { !it }}/${model.patternFifo.size}) " +
             "trips=${model.tripCount} stopTimes=${model.arrivals.size} " +
-            "transfers=${model.transferTarget.size} services=${model.services.size}"
+            "transfers=${model.transferTarget.size} services=${model.services.size} " +
+            "restricted(noPickup=$noPickup noDropOff=$noDropOff)"
     )
 }
 
@@ -85,27 +98,13 @@ private fun defaultQueryDate(model: RouterModel): LocalDate {
     return date
 }
 
-// Region canonical pairs: real interchanges a human can sanity-check against
-// the published timetables. Skipped when the ids are absent from the dataset.
-private val VIC_CANONICAL = listOf(
-    Triple("Flinders St -> Melbourne Central", "vic:rail:FSS", "vic:rail:MCE"),
-    Triple("Flagstaff -> Parliament (City Loop)", "vic:rail:FGS", "vic:rail:PAR"),
-    Triple("Southern Cross -> Flinders St", "vic:rail:SSS", "vic:rail:FSS"),
-    // V/Line pair — only present when folder 1 is ingested.
-    Triple("Southern Cross -> Geelong (V/Line)", "vic:rail:SSS", "vic:rail:GEL"),
-)
-
-private val QLD_CANONICAL = listOf(
-    Triple("Central -> Roma Street (rail)", "place_censta", "place_romsta"),
-    Triple("West End -> New Farm Park (CityCat)", "place_westft", "place_newfft"),
-    Triple("Broadbeach South -> Cavill Ave (G:link)", "place_brsstn", "place_cavsta"),
-    Triple("UQ Chancellors Pl -> Eagle Junction (bus+rail)", "place_intuq", "place_egjsta"),
-)
-
 private fun runQueries(model: RouterModel, date: LocalDate, region: String) {
     val router = RaptorRouter(model)
 
-    val canonical = if (region == "qld") QLD_CANONICAL else VIC_CANONICAL
+    // Canonical pairs live in the region's spec: real interchanges a human can
+    // sanity-check against published timetables. Skipped when absent.
+    val canonical = RegionRegistry.byCode(region)?.canonicalPairs.orEmpty()
+        .map { Triple(it.label, it.fromId, it.toId) }
     for ((label, from, to) in canonical) {
         if (model.stopsForId(from).isEmpty() || model.stopsForId(to).isEmpty()) {
             println("canonical [$label]: skipped (stop ids not in this dataset)")

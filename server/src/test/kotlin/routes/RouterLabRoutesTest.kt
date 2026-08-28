@@ -4,9 +4,9 @@ import app.krail.bff.client.nsw.NswClient
 import app.krail.bff.model.TripResponse
 import app.krail.bff.proto.JourneyCardInfo
 import app.krail.bff.proto.JourneyList
-import app.krail.bff.qld.QldTripService
+import app.krail.bff.region.RegionRegistry
+import app.krail.bff.region.RegionTripService
 import app.krail.bff.router.MiniNetworkFixture
-import app.krail.bff.vic.VicTripService
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -41,9 +41,11 @@ class RouterLabRoutesTest {
         .atZone(ZoneId.of("Australia/Melbourne"))
         .toInstant()
 
-    private fun vicService() = VicTripService(MiniNetworkFixture.buildModel(), clock = { fixedNow })
+    private fun vicService() =
+        RegionTripService(MiniNetworkFixture.buildModel(), RegionRegistry.vic, clock = { fixedNow })
 
-    private fun qldService() = QldTripService(MiniNetworkFixture.buildModel(), clock = { fixedNow })
+    private fun qldService() =
+        RegionTripService(MiniNetworkFixture.buildModel(), RegionRegistry.qld, clock = { fixedNow })
 
     @AfterTest
     fun tearDown() {
@@ -56,7 +58,7 @@ class RouterLabRoutesTest {
     fun `vic plan-proto returns json mirror when accept is json and gate on`() = testApplication {
         environment { config = MapApplicationConfig("bff.devPassthrough" to "true") }
         val svc = vicService()
-        application { vicTripRoutes(svc) }
+        application { regionTripRoutes(RegionRegistry.vic, svc) }
 
         val response = client.get(
             "/api/v1/vic/trip/plan-proto?origin=VIC:A&destination=VIC:D&date=20260302&time=0755"
@@ -78,7 +80,7 @@ class RouterLabRoutesTest {
     fun `vic plan-proto still defaults to protobuf`() = testApplication {
         environment { config = MapApplicationConfig("bff.devPassthrough" to "true") }
         val svc = vicService()
-        application { vicTripRoutes(svc) }
+        application { regionTripRoutes(RegionRegistry.vic, svc) }
 
         val response =
             client.get("/api/v1/vic/trip/plan-proto?origin=VIC:A&destination=VIC:D&date=20260302&time=0755")
@@ -93,7 +95,7 @@ class RouterLabRoutesTest {
         // application/json to Accept — the encoding must not change when the
         // dev gate is off (all production configs).
         val svc = vicService()
-        application { vicTripRoutes(svc) }
+        application { regionTripRoutes(RegionRegistry.vic, svc) }
 
         val response = client.get(
             "/api/v1/vic/trip/plan-proto?origin=VIC:A&destination=VIC:D&date=20260302&time=0755"
@@ -107,7 +109,7 @@ class RouterLabRoutesTest {
     fun `qld plan-proto returns json mirror when accept is json and gate on`() = testApplication {
         environment { config = MapApplicationConfig("bff.devPassthrough" to "true") }
         val svc = qldService()
-        application { qldTripRoutes(svc) }
+        application { regionTripRoutes(RegionRegistry.qld, svc) }
 
         val response = client.get(
             "/api/v1/qld/trip/plan-proto?origin=QLD:A&destination=QLD:D&date=20260302&time=0755"
@@ -127,7 +129,7 @@ class RouterLabRoutesTest {
         // Same production safety as VIC: the encoding must not change when the
         // dev gate is off (all production configs), whatever Accept says.
         val svc = qldService()
-        application { qldTripRoutes(svc) }
+        application { regionTripRoutes(RegionRegistry.qld, svc) }
 
         val response = client.get(
             "/api/v1/qld/trip/plan-proto?origin=QLD:A&destination=QLD:D&date=20260302&time=0755"
@@ -173,7 +175,7 @@ class RouterLabRoutesTest {
     @Test
     fun `stop search returns matching stops with vic ids`() = testApplication {
         val svc = vicService()
-        application { routerLabRoutes(svc) }
+        application { routerLabRoutes(mapOf("vic" to svc)) }
 
         val response = client.get("/internal/vic/stops/search?q=stop d")
         assertEquals(HttpStatusCode.OK, response.status)
@@ -189,7 +191,7 @@ class RouterLabRoutesTest {
     @Test
     fun `stop search rejects injection-shaped and missing queries`() = testApplication {
         val svc = vicService()
-        application { routerLabRoutes(svc) }
+        application { routerLabRoutes(mapOf("vic" to svc)) }
 
         val injection = client.get("/internal/vic/stops/search?q=%3Cscript%3Ealert(1)%3C/script%3E")
         assertEquals(HttpStatusCode.BadRequest, injection.status)
@@ -204,7 +206,7 @@ class RouterLabRoutesTest {
 
     @Test
     fun `stop search absent when vic model not loaded`() = testApplication {
-        application { routerLabRoutes(null) }
+        application { routerLabRoutes(emptyMap()) }
 
         assertEquals(HttpStatusCode.NotFound, client.get("/internal/vic/stops/search?q=stop").status)
         // The lab page itself still serves (NSW-only debugging).
@@ -213,7 +215,7 @@ class RouterLabRoutesTest {
 
     @Test
     fun `vic and qld stop search serve side by side with both models loaded`() = testApplication {
-        application { routerLabRoutes(vicService(), qldService()) }
+        application { routerLabRoutes(mapOf("vic" to vicService(), "qld" to qldService())) }
 
         val vic = client.get("/internal/vic/stops/search?q=stop d")
         assertEquals(HttpStatusCode.OK, vic.status)
@@ -235,10 +237,43 @@ class RouterLabRoutesTest {
 
     @Test
     fun `qld stop search absent when qld model not loaded`() = testApplication {
-        application { routerLabRoutes(vicService(), null) }
+        application { routerLabRoutes(mapOf("vic" to vicService())) }
 
         assertEquals(HttpStatusCode.OK, client.get("/internal/vic/stops/search?q=stop").status)
         assertEquals(HttpStatusCode.NotFound, client.get("/internal/qld/stops/search?q=stop").status)
+    }
+
+    @Test
+    fun `regions endpoint lists every registry region with loaded flags`() = testApplication {
+        application { routerLabRoutes(mapOf("vic" to vicService())) }
+
+        val response = client.get("/internal/router-lab/regions")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val regions = json.parseToJsonElement(response.bodyAsText()).jsonArray
+            .associate { r ->
+                r.jsonObject["code"]!!.jsonPrimitive.content to r.jsonObject
+            }
+        // Every registry region appears, loaded or not — the lab greys out
+        // the unloaded ones.
+        assertEquals(RegionRegistry.all.map { it.code }.toSet(), regions.keys)
+        assertEquals(true, regions["vic"]!!["loaded"]!!.jsonPrimitive.content.toBoolean())
+        assertEquals(false, regions["akl"]!!["loaded"]!!.jsonPrimitive.content.toBoolean())
+        assertEquals("AKL", regions["akl"]!!["prefix"]!!.jsonPrimitive.content)
+        assertEquals("Pacific/Auckland", regions["akl"]!!["tz"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `stop search accepts unicode letters in queries`() = testApplication {
+        application { routerLabRoutes(mapOf("vic" to vicService())) }
+
+        // Diacritic query text passes the allowlist (Ōtāhuhu, Anděl, …);
+        // markup still doesn't.
+        val unicodeQ = client.get("/internal/vic/stops/search?q=" +
+            java.net.URLEncoder.encode("Ōtāhuhu", "UTF-8"))
+        assertEquals(HttpStatusCode.OK, unicodeQ.status)
+
+        val markup = client.get("/internal/vic/stops/search?q=%3Cb%3E")
+        assertEquals(HttpStatusCode.BadRequest, markup.status)
     }
 
     // ---- Gating ------------------------------------------------------------

@@ -72,10 +72,15 @@ tasks.named<JavaExec>("run") {
             // local dev; manifest URL is the production path.
             "track.datasetDir" to "TRACK_DATASET_DIR",
             "track.manifestUrl" to "TRACK_DATASET_MANIFEST_URL",
-            // VIC router snapshot (feature-gates /api/v1/vic/trip routes)
+            // Region router snapshots (feature-gate /api/v1/{code}/trip
+            // routes; one per RegionRegistry entry)
             "vic.routerSnapshot" to "VIC_ROUTER_SNAPSHOT",
-            // QLD router snapshot (feature-gates /api/v1/qld/trip routes)
             "qld.routerSnapshot" to "QLD_ROUTER_SNAPSHOT",
+            "akl.routerSnapshot" to "AKL_ROUTER_SNAPSHOT",
+            "wlg.routerSnapshot" to "WLG_ROUTER_SNAPSHOT",
+            "bos.routerSnapshot" to "BOS_ROUTER_SNAPSHOT",
+            "ber.routerSnapshot" to "BER_ROUTER_SNAPSHOT",
+            "prg.routerSnapshot" to "PRG_ROUTER_SNAPSHOT",
         )
         propToEnv.forEach { (prop, envName) ->
             localProperties.getProperty(prop)?.takeIf { it.isNotBlank() }?.let { value ->
@@ -109,15 +114,18 @@ tasks.register<JavaExec>("buildStopsDataset") {
 // Manual tooling like buildStopsDataset — not part of the serving path.
 // Args (Gradle properties):
 //   -PgtfsDir=<path>       vic: dir with <folder>/google_transit.zip
-//                          qld: SEQ_GTFS.zip or the dir containing it
-//   [-Pregion=vic|qld] [-PsnapshotOut=path] [-Pfolders=2,3,4,11 (vic only)]
-//   [-PbenchDate=2026-08-25]
+//                          single-feed regions: the GTFS zip or the dir containing it
+//   [-Pregion=vic|qld|akl|wlg|bos|ber|prg] [-PsnapshotOut=path]
+//   [-Pfolders=2,3,4,11 (vic only)] [-PbenchDate=2026-08-25]
 tasks.register<JavaExec>("routerBench") {
     group = "data"
-    description = "Build + benchmark a journey-planning model (VIC or QLD) from local GTFS data"
+    description = "Build + benchmark a journey-planning model (any RegionRegistry region) from local GTFS data"
     mainClass.set("app.krail.bff.tools.RouterBenchKt")
     classpath = sourceSets["main"].runtimeClasspath
-    maxHeapSize = "3g"
+    // VBB (Berlin/Brandenburg) parses ~30M stop-time rows; the build phase
+    // briefly holds parsed feed + model together. Heap after load is far
+    // smaller (reported by the bench itself).
+    maxHeapSize = "8g"
     val gtfsDir = project.findProperty("gtfsDir")?.toString()
     if (gtfsDir != null) {
         args = listOf(
@@ -131,11 +139,12 @@ tasks.register<JavaExec>("routerBench") {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdkVersion)) })
 }
 
-// The VIC router integration tests build the full model in-process when
-// VIC_GTFS_DIR is set (they skip cleanly when it isn't); the default 512m
-// test-worker heap can't hold the ~10M-row build.
+// The region golden tests build full models in-process when their
+// {CODE}_GTFS_DIR vars are set (they skip cleanly when unset); the default
+// 512m test-worker heap can't hold the ~10M-row VIC build, and running all
+// seven regions' golden tests in one JVM holds several models at once.
 tasks.named<Test>("test") {
-    maxHeapSize = "3g"
+    maxHeapSize = "6g"
     // Gate tests assert both states of the Router Lab dev flag; a developer
     // shell exporting it would invert them. Blank = unset (see AppConfig).
     environment("BFF_DEV_PASSTHROUGH", "")

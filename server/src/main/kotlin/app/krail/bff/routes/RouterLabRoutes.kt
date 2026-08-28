@@ -1,8 +1,8 @@
 package app.krail.bff.routes
 
-import app.krail.bff.qld.QldTripService
+import app.krail.bff.region.RegionRegistry
+import app.krail.bff.region.RegionTripService
 import app.krail.bff.util.boolean
-import app.krail.bff.vic.VicTripService
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
@@ -18,10 +18,10 @@ import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("app.krail.bff.routes.RouterLabRoutes")
 
-// Allowlist for stop-name search text: letters, digits, spaces and the
-// punctuation VIC/QLD stop names actually use (. , ' & / # ( ) _ : -).
-// Reject, don't sanitize.
-private val SEARCH_QUERY_REGEX = Regex("^[A-Za-z0-9 .,'&/#()_:-]{1,64}$")
+// Allowlist for stop-name search text: Unicode letters (with combining
+// marks — Ōtāhuhu, Anděl, Möckernbrücke), digits, spaces and the punctuation
+// stop names actually use (. , ' & / # ( ) _ : -). Reject, don't sanitize.
+private val SEARCH_QUERY_REGEX = Regex("^[\\p{L}\\p{M}0-9 .,'&/#()_:-]{1,64}$")
 
 private const val INVALID_QUERY_BODY =
     "{\"error\":{\"code\":\"invalid_query\"," +
@@ -33,10 +33,12 @@ private const val INVALID_QUERY_BODY =
  * set it, so none of this is reachable in prod config.
  *
  * Endpoints:
- * - GET /internal/router-lab              the dashboard (self-contained HTML)
- * - GET /internal/vic/stops/search?q=     stop-name autocomplete over the
- *   loaded VIC RouterModel; registers only when the VIC model loaded.
- * - GET /internal/qld/stops/search?q=     same for the QLD (SEQ) model.
+ * - GET /internal/router-lab                 the dashboard (self-contained HTML)
+ * - GET /internal/router-lab/regions         BFF-routed regions + loaded flags;
+ *   the page builds its region dropdown from this (NSW is appended client-side)
+ * - GET /internal/{code}/stops/search?q=     diacritic-insensitive stop-name
+ *   autocomplete over that region's loaded RouterModel; registers per region
+ *   whose snapshot loaded.
  *
  * The lab calls only BFF endpoints — the NSW key never reaches the browser.
  */
@@ -47,16 +49,10 @@ fun Application.configureRouterLabRoutes() {
         return
     }
     logger.warn("⚠ /internal/router-lab ENABLED — DEV ONLY. Never enable on a public deploy.")
-    routerLabRoutes(
-        attributes.getOrNull(VicTripServiceKey),
-        attributes.getOrNull(QldTripServiceKey),
-    )
+    routerLabRoutes(attributes.getOrNull(RegionTripServicesKey) ?: emptyMap())
 }
 
-internal fun Application.routerLabRoutes(
-    vicService: VicTripService?,
-    qldService: QldTripService? = null,
-) {
+internal fun Application.routerLabRoutes(services: Map<String, RegionTripService>) {
     val html = checkNotNull(
         RouterLabPage::class.java.classLoader.getResourceAsStream("router-lab/index.html")
     ) { "router-lab/index.html missing from resources" }.readBytes().decodeToString()
@@ -66,14 +62,24 @@ internal fun Application.routerLabRoutes(
             call.respondText(html, ContentType.Text.Html)
         }
 
-        if (vicService != null) {
-            stopSearchRoute("/internal/vic/stops/search") { q ->
-                vicService.searchStops(q).map { SearchHit(it.id, it.name, it.lat, it.lon) }
+        get("/internal/router-lab/regions") {
+            val body = buildJsonArray {
+                for (spec in RegionRegistry.all) {
+                    add(buildJsonObject {
+                        put("code", spec.code)
+                        put("name", spec.displayName)
+                        put("prefix", spec.idPrefix)
+                        put("tz", spec.zone.id)
+                        put("loaded", services.containsKey(spec.code))
+                    })
+                }
             }
+            call.respondText(body.toString(), ContentType.Application.Json)
         }
-        if (qldService != null) {
-            stopSearchRoute("/internal/qld/stops/search") { q ->
-                qldService.searchStops(q).map { SearchHit(it.id, it.name, it.lat, it.lon) }
+
+        for ((code, service) in services) {
+            stopSearchRoute("/internal/$code/stops/search") { q ->
+                service.searchStops(q).map { SearchHit(it.id, it.name, it.lat, it.lon) }
             }
         }
     }

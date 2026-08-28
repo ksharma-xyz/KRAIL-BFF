@@ -200,6 +200,22 @@ class CsvReader(input: InputStream) : AutoCloseable {
     }
 }
 
+/** Growable primitive byte buffer used while streaming GTFS rows. */
+class ByteVec(initialCapacity: Int = 1024) {
+    private var data = ByteArray(initialCapacity)
+    var size = 0
+        private set
+
+    fun add(v: Byte) {
+        if (size == data.size) data = data.copyOf(data.size * 2)
+        data[size++] = v
+    }
+
+    operator fun get(i: Int): Byte = data[i]
+
+    fun toArray(): ByteArray = data.copyOf(size)
+}
+
 /** Growable primitive int buffer used while streaming GTFS rows. */
 class IntVec(initialCapacity: Int = 1024) {
     var data = IntArray(initialCapacity)
